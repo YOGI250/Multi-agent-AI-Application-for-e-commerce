@@ -1,0 +1,17 @@
+# monitoring/prometheus.yml
+# NOTE: For local dev (FastAPI outside Docker): FASTAPI_HOST=172.17.0.1
+# NOTE: For Docker/Azure deployment (FastAPI inside Docker): FASTAPI_HOST=fastapi
+
+global:
+  scrape_interval:     15s
+  evaluation_interval: 15s
+
+scrape_configs:
+  - job_name: 'fastapi'
+    static_configs:
+      - targets: ['172.17.0.1:8000']
+    metrics_path: '/metrics'
+
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']

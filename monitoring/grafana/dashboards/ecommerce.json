@@ -1,0 +1,74 @@
+{
+  "title": "E-Commerce AI Support Dashboard",
+  "uid": "ecommerce-agent",
+  "timezone": "browser",
+  "schemaVersion": 38,
+  "refresh": "10s",
+  "panels": [
+    {
+      "id": 1,
+      "title": "Request Volume Over Time",
+      "type": "timeseries",
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 0},
+      "targets": [
+        {
+          "datasource": "Prometheus",
+          "expr": "rate(chat_requests_total[1m])",
+          "legendFormat": "{{agent_used}} - {{status}}"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "title": "Agent Selection Distribution",
+      "type": "piechart",
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 0},
+      "targets": [
+        {
+          "datasource": "Prometheus",
+          "expr": "sum by (agent_used) (chat_requests_total)",
+          "legendFormat": "{{agent_used}}"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "title": "Average Latency Per Agent (seconds)",
+      "type": "timeseries",
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 8},
+      "targets": [
+        {
+          "datasource": "Prometheus",
+          "expr": "rate(chat_request_latency_seconds_sum[5m]) / rate(chat_request_latency_seconds_count[5m])",
+          "legendFormat": "{{agent_used}}"
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "title": "Error Rate Over Time",
+      "type": "timeseries",
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 8},
+      "targets": [
+        {
+          "datasource": "Prometheus",
+          "expr": "rate(chat_errors_total[1m])",
+          "legendFormat": "{{error_type}}"
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "title": "LLM Token Consumption Over Time",
+      "type": "timeseries",
+      "gridPos": {"h": 8, "w": 24, "x": 0, "y": 16},
+      "targets": [
+        {
+          "datasource": "Prometheus",
+          "expr": "rate(llm_tokens_total[5m])",
+          "legendFormat": "{{agent_used}} - {{token_type}}"
+        }
+      ]
+    }
+  ]
+}

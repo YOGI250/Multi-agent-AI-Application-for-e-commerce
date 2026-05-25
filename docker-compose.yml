@@ -1,0 +1,183 @@
+# docker-compose.yml
+
+services:
+
+  # ==========================================
+  # FastAPI Application
+  # ==========================================
+  fastapi:
+    build: .
+    container_name: ecommerce-fastapi
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    environment:
+      - DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+      - LANGFUSE_HOST=http://langfuse-server:3000
+    volumes:
+      - ./logs:/app/logs
+    depends_on:
+      - postgres
+    networks:
+      - ecommerce-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # ==========================================
+  # PostgreSQL Database
+  # ==========================================
+  postgres:
+    image: postgres:17-alpine
+    container_name: ecommerce-postgres
+    environment:
+      POSTGRES_DB:       ${POSTGRES_DB}
+      POSTGRES_USER:     ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - ecommerce-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ==========================================
+  # LangFuse — self-hosted observability
+  # ==========================================
+  langfuse-server:
+    image: langfuse/langfuse:2
+    container_name: langfuse-server
+    depends_on:
+      - langfuse-db
+    ports:
+      - "3000:3000"
+    environment:
+      DATABASE_URL:      postgresql://langfuse:langfuse@langfuse-db:5432/langfuse
+      NEXTAUTH_SECRET:   ${LANGFUSE_NEXTAUTH_SECRET}
+      SALT:              ${LANGFUSE_SALT}
+      NEXTAUTH_URL:      http://localhost:3000
+      TELEMETRY_ENABLED: "false"
+      LANGFUSE_ENABLE_EXPERIMENTAL_FEATURES: "false"
+    networks:
+      - ecommerce-network
+    restart: unless-stopped
+
+  langfuse-db:
+    image: postgres:15-alpine
+    container_name: langfuse-db
+    environment:
+      POSTGRES_DB:       langfuse
+      POSTGRES_USER:     langfuse
+      POSTGRES_PASSWORD: langfuse
+    volumes:
+      - langfuse_db_data:/var/lib/postgresql/data
+    networks:
+      - ecommerce-network
+    restart: unless-stopped
+
+  # ==========================================
+  # Prometheus — metrics collection
+  # NOTE: For local dev, target is 172.17.0.1:8000
+  # For production (FastAPI in Docker), change to fastapi:8000
+  # ==========================================
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: ecommerce-prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    networks:
+      - ecommerce-network
+    restart: unless-stopped
+
+  # ==========================================
+  # Grafana — dashboard
+  # ==========================================
+  grafana:
+    image: grafana/grafana:latest
+    container_name: ecommerce-grafana
+    ports:
+      - "3001:3000"
+    environment:
+      GF_SECURITY_ADMIN_USER:     admin
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD}
+      GF_USERS_ALLOW_SIGN_UP:     "false"
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning
+      - ./monitoring/grafana/dashboards:/var/lib/grafana/dashboards
+    depends_on:
+      - prometheus
+      - loki
+    networks:
+      - ecommerce-network
+    restart: unless-stopped
+
+  # ==========================================
+  # Loki — log aggregation
+  # ==========================================
+  loki:
+    image: grafana/loki:2.9.0
+    container_name: ecommerce-loki
+    ports:
+      - "3100:3100"
+    volumes:
+      - ./monitoring/loki-config.yml:/etc/loki/local-config.yaml
+      - loki_data:/loki
+    command: -config.file=/etc/loki/local-config.yaml
+    user: "0"
+    networks:
+      - ecommerce-network
+    restart: unless-stopped
+
+  # ==========================================
+  # Promtail — ships logs to Loki
+  # ==========================================
+  promtail:
+    image: grafana/promtail:2.9.0
+    container_name: ecommerce-promtail
+    volumes:
+      - ./monitoring/promtail-config.yml:/etc/promtail/config.yml
+      - ./logs:/logs
+    command: -config.file=/etc/promtail/config.yml
+    depends_on:
+      - loki
+    networks:
+      - ecommerce-network
+    restart: unless-stopped
+
+# ==========================================
+# VOLUMES
+# ==========================================
+volumes:
+  postgres_data:
+  langfuse_db_data:
+  prometheus_data:
+  grafana_data:
+  loki_data:
+
+# ==========================================
+# NETWORKS
+# ==========================================
+networks:
+  ecommerce-network:
+    driver: bridge

@@ -1,0 +1,28 @@
+# eval/config.yaml
+# Thresholds for LLM evaluation — used by CI/CD Stage 3 (DeepEval)
+
+evaluation:
+  dataset_name: "ecommerce-eval-dataset"
+  framework: "deepeval"
+  live_eval_flag: "RUN_LIVE_EVAL"     # set to true in env for live LLM calls
+  samples: 5
+
+metrics:
+  answer_relevancy:
+    threshold: 0.7
+    description: "Response must be relevant to the input query"
+  faithfulness:
+    threshold: 0.8
+    description: "Response must be grounded in provided context, no hallucination"
+  task_completion:
+    threshold: 0.8
+    description: "Agent must fully complete the requested task"
+  correctness:
+    threshold: 0.7
+    description: "Response must contain the expected information and keywords"
+
+reporting:
+  json_report_path: "eval/reports/eval_report.json"
+  html_report_path: "eval/reports/eval_report.html"
+  fail_fast: false          # run all samples even if one fails
+  push_to_langfuse: true    # push JSON report to LangFuse after every run

@@ -1,0 +1,9 @@
+# Raw data files - never commit these
+data/
+*.csv
+venv/
+__pycache__/
+*.pyc
+.env
+logs/
+google_credentials.json

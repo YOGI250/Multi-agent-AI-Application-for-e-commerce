@@ -1,0 +1,89 @@
+# tests/test_tools/test_support_tools.py
+
+import pytest
+from unittest.mock import patch, MagicMock
+
+
+class TestLookupPolicyTool:
+
+    def test_lookup_returns_policy(self):
+        mock_policy = {
+            "issue_type":  "damaged_product",
+            "policy_text": "We offer full refund for damaged products."
+        }
+        with patch("tools.support_tools.get_policy",
+                   return_value=mock_policy):
+            from tools.support_tools import lookup_policy_tool
+            result = lookup_policy_tool.invoke({
+                "issue_type": "damaged_product"
+            })
+        assert isinstance(result, dict)
+
+    def test_lookup_returns_dict_for_unknown(self):
+        with patch("tools.support_tools.get_policy",
+                   return_value=None):
+            from tools.support_tools import lookup_policy_tool
+            result = lookup_policy_tool.invoke({
+                "issue_type": "unknown_issue"
+            })
+        assert isinstance(result, dict)
+
+
+class TestCheckUserHistoryTool:
+
+    def test_check_history_returns_dict(self):
+        mock_history = {
+            "total_complaints":      2,
+            "last_complaint":        "2026-05-01",
+            "is_repeat_complainant": True,
+            "history":               []
+        }
+        with patch("tools.support_tools.get_user_complaint_history",
+                   return_value=mock_history):
+            from tools.support_tools import check_user_history_tool
+            result = check_user_history_tool.invoke({
+                "user_id": "test_user_123"
+            })
+        assert isinstance(result, dict)
+
+    def test_check_history_returns_dict_for_new_user(self):
+        mock_history = {
+            "total_complaints":      0,
+            "last_complaint":        None,
+            "is_repeat_complainant": False,
+            "history":               []
+        }
+        with patch("tools.support_tools.get_user_complaint_history",
+                   return_value=mock_history):
+            from tools.support_tools import check_user_history_tool
+            result = check_user_history_tool.invoke({
+                "user_id": "new_user_123"
+            })
+        assert isinstance(result, dict)
+
+class TestCreateTicketTool:
+
+    def test_create_ticket_returns_result(self):
+        mock_result = {"ticket_id": "TKT-001", "status": "open"}
+        with patch("tools.support_tools.create_ticket",
+                   return_value=mock_result):
+            from tools.support_tools import create_ticket_tool
+            result = create_ticket_tool.invoke({
+                "user_id":    "test_user_123",
+                "issue_type": "damaged_product",
+                "priority":   "HIGH",
+                "order_id":   "ORD-1001"
+            })
+        assert isinstance(result, dict)
+
+    def test_create_ticket_without_order_id(self):
+        mock_result = {"ticket_id": "TKT-002", "status": "open"}
+        with patch("tools.support_tools.create_ticket",
+                   return_value=mock_result):
+            from tools.support_tools import create_ticket_tool
+            result = create_ticket_tool.invoke({
+                "user_id":    "test_user_123",
+                "issue_type": "refund",
+                "priority":   "MEDIUM"
+            })
+        assert isinstance(result, dict)
