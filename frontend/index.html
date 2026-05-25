@@ -824,6 +824,9 @@ function handleGoogleLogin(response) {
     state.userName        = payload.name || payload.email;
     state.googleUserId    = newGoogleUserId;
     state.sessionId       = loadSession(newGoogleUserId);
+    localStorage.setItem("googleToken",  token);
+    localStorage.setItem("googleUserId", newGoogleUserId);
+    localStorage.setItem("userName",     payload.name || payload.email);
 
     showChatPage();
     showToast(`Welcome, ${state.userName}`);
@@ -1068,6 +1071,9 @@ function clearChat() {
 }
 
 function logout() {
+    localStorage.removeItem("googleToken");
+    localStorage.removeItem("googleUserId");
+    localStorage.removeItem("userName");
     Object.assign(state, {
         sessionId: null, userId: null, googleUserId: null,
         isAuthenticated: false, userName: null,
@@ -1079,8 +1085,8 @@ function logout() {
     if (window.google && google.accounts)
         google.accounts.id.disableAutoSelect();
 
-    document.getElementById("login-page").style.display = "flex";
-    document.getElementById("chat-page").style.display  = "none";
+    window.location.reload();
+
 }
 
 function showToast(msg) {
@@ -1089,6 +1095,20 @@ function showToast(msg) {
     toast.classList.add("show");
     setTimeout(() => toast.classList.remove("show"), 3000);
 }
+// auto-login on refresh
+(function() {
+    const savedToken  = localStorage.getItem("googleToken");
+    const savedUserId = localStorage.getItem("googleUserId");
+    const savedName   = localStorage.getItem("userName");
+    if (savedToken && savedUserId) {
+        state.googleToken     = savedToken;
+        state.isAuthenticated = true;
+        state.userName        = savedName;
+        state.googleUserId    = savedUserId;
+        state.sessionId       = loadSession(savedUserId);
+        showChatPage();
+    }
+})();
 </script>
 
 </body>
