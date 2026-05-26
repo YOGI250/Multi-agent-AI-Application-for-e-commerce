@@ -51,7 +51,7 @@ class Session(Base):
     is_active = Column(Boolean, default=True, nullable=False)
     agent_last_used = Column(String, nullable=True)
     message_count = Column(Integer, default=0, nullable=False)
-    ended_reason = Column(String, default="active", nullable=False)
+    ended_reason = Column(String, default=None, nullable=True)
 
     user = relationship("User", back_populates="sessions")
     messages = relationship("Message", back_populates="session")

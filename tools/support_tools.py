@@ -1,5 +1,5 @@
 # tools/support_tools.py
-
+from typing import Optional 
 import logging
 from typing import Optional
 from langchain_core.tools import tool
@@ -37,23 +37,26 @@ def lookup_policy_tool(issue_type: str) -> dict:
 
 
 @tool
-def check_user_history_tool(user_id: str) -> dict:
+def check_user_history_tool(user_id: str, order_id: Optional[str] = None) -> dict:
     """
-    Checks the complaint history for a user.
-    Returns total complaint count, recent tickets,
-    and whether the user is a repeat complainant.
-    A user is considered a repeat complainant if they
-    have 3 or more past tickets.
+    Checks complaint history scoped to a specific order.
+    A user is a repeat complainant only if the same order
+    has an existing open unresolved ticket.
     Used by escalation_handler subgraph to set priority.
     """
-    logger.info(f"Tool called: check_user_history_tool for user_id={user_id}")
-
-    result = get_user_complaint_history(user_id)
-
     logger.info(
-        f"History for {user_id}: {result['total_complaints']} complaints, "
-        f"repeat={result['is_repeat_complainant']}"
+        f"Tool called: check_user_history_tool for "
+        f"user_id={user_id} order_id={order_id}"
     )
+
+    result = get_user_complaint_history(user_id, order_id=order_id)
+
+    if result:
+        logger.info(
+            f"History for {user_id}: {result['total_complaints']} complaints, "
+            f"repeat={result['is_repeat_complainant']}"
+        )
+
     return result
 
 

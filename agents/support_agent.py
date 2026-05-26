@@ -142,16 +142,38 @@ def assess_severity(state: SupportAgentState) -> SupportAgentState:
     trace_id   = state.get("langfuse_trace_id")
     parent_id  = state.get("langfuse_parent_span_id")
     issue_type = state.get("issue_type", "general_query")
+    order_id   = state.get("order_id")
 
     span = create_span(
         trace_id              = trace_id,
         name                  = "assess_severity",
         parent_observation_id = parent_id,
-        input_data            = {"issue_type": issue_type}
+        input_data            = {"issue_type": issue_type, "order_id": order_id}
     ) if trace_id else None
 
+    # Fetch order value if order_id is available
+    order_value = 0
+    if order_id:
+        try:
+            from database.connection import SessionLocal
+            from database.models import Order
+            db = SessionLocal()
+            order = db.query(Order).filter(Order.order_id == order_id).first()
+            if order:
+                order_value = float(order.order_value or 0)
+            db.close()
+        except Exception:
+            order_value = 0
+
+    # Orders above ₹10,000 get HIGH severity
+    # Orders below ₹10,000 get MEDIUM for the same issue
+    HIGH_VALUE_THRESHOLD = 10000
+
     if issue_type in ["damaged_product", "wrong_item", "refund"]:
-        severity = "HIGH"
+        if order_value >= HIGH_VALUE_THRESHOLD:
+            severity = "HIGH"
+        else:
+            severity = "MEDIUM"
     elif issue_type == "cancellation":
         severity = "MEDIUM"
     else:
@@ -160,7 +182,11 @@ def assess_severity(state: SupportAgentState) -> SupportAgentState:
     state["severity"] = severity
 
     if span:
-        end_span(span, {"severity": severity})
+        end_span(span, {
+            "severity":    severity,
+            "order_value": order_value,
+            "issue_type":  issue_type
+        })
 
     return state
 
@@ -203,7 +229,10 @@ def lookup_policy_node(
 # EDGE — severity_high?
 # ==========================================
 def route_severity(state: SupportAgentState) -> str:
-    if state.get("severity") == "HIGH":
+    severity = state.get("severity", "LOW")
+    # HIGH and MEDIUM are actionable — they need a ticket
+    # Only LOW (general queries) skips ticket creation
+    if severity in ("HIGH", "MEDIUM"):
         return "escalation_handler_node"
     return "draft_resolution"
 

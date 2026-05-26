@@ -42,7 +42,10 @@ def check_user_history_node(
         input_data            = {"user_id": user_id}
     ) if trace_id else None
 
-    history = check_user_history_tool.invoke({"user_id": user_id})
+    history = check_user_history_tool.invoke({
+        "user_id":  user_id,
+        "order_id": state.get("order_id")
+    })
     state["user_history"]          = history
     state["is_repeat_complainant"] = history.get(
         "is_repeat_complainant", False

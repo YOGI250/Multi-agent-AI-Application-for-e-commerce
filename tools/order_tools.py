@@ -73,7 +73,7 @@ def fetch_all_orders_for_user(user_id: str) -> list:
         db      = SessionLocal()
         orders  = db.query(Order).filter(
             Order.user_id == user_id
-        ).order_by(Order.order_date.desc()).limit(5).all()
+        ).order_by(Order.order_date.desc()).all()
 
         result = []
         for o in orders:

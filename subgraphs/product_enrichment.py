@@ -32,20 +32,27 @@ def fetch_reviews_node(
         state["reviews_data"] = {}
         return state
 
-    product_ids = [p["product_id"] for p in products]
-
     span = create_span(
         trace_id              = trace_id,
         name                  = "fetch_reviews",
         parent_observation_id = parent_id,
-        input_data            = {"product_ids_count": len(product_ids)}
+        input_data            = {"products_count": len(products)}
     ) if trace_id else None
 
-    reviews = fetch_ratings_tool.invoke({"product_ids": product_ids})
-    state["reviews_data"] = reviews or {}
+    # rating and rating_count are already in search_results
+    # from the earlier search_products query
+    # no need to hit the database again for the same data
+    reviews = {
+        p["product_id"]: {
+            "rating":       p.get("rating", 0),
+            "rating_count": p.get("rating_count", 0)
+        }
+        for p in products
+    }
+    state["reviews_data"] = reviews
 
     if span:
-        end_span(span, {"reviews_fetched": len(reviews or {})})
+        end_span(span, {"reviews_fetched": len(reviews)})
 
     return state
 
@@ -91,6 +98,7 @@ def compute_score(
     products  = state.get("ranked_products", [])
     reviews   = state.get("reviews_data", {})
     specs     = state.get("specs_data", {})
+    max_price = state.get("max_price")
 
     span = create_span(
         trace_id              = trace_id,
@@ -99,17 +107,50 @@ def compute_score(
         input_data            = {"products_count": len(products)}
     ) if trace_id else None
 
+    total    = len(products)
     enriched = []
-    for product in products:
+
+    for position, product in enumerate(products):
         pid          = product["product_id"]
         review       = reviews.get(pid, {})
         spec         = specs.get(pid, {})
-        rating       = review.get("rating", 3.0)
+        rating       = review.get("rating", 0)
         rating_count = review.get("rating_count", 0)
+        price        = float(product.get("price", 0))
 
-        rating_score = (rating / 5) * 0.60
-        trust_score  = min(rating_count / 1000, 1.0) * 0.40
-        final_score  = rating_score + trust_score
+        # Rating quality (40%)
+        rating_score = (rating / 5) * 0.40
+
+        # Review trust (30%)
+        trust_score = min(rating_count / 1000, 1.0) * 0.30
+
+        # Price fit (30%)
+        # Only applies when user gave a budget
+        # No budget = neutral score
+        if max_price and max_price > 0 and price > 0:
+            price_ratio = price / max_price
+            if price_ratio <= 0.7:
+                price_fit = 1.0      # well under budget
+            elif price_ratio <= 0.9:
+                price_fit = 0.75     # comfortable fit
+            elif price_ratio <= 1.0:
+                price_fit = 0.50     # right at the limit
+            else:
+                price_fit = 0.0      # over budget
+        else:
+            price_fit = 1.0          # no budget = neutral
+
+        price_score = price_fit * 0.30
+
+        # LLM rank bonus (10%)
+        # Products ranked higher by LLM get a positional bonus
+        # This preserves LLM relevance judgment
+        if total > 1:
+            position_bonus = ((total - position) / total) * 0.10
+        else:
+            position_bonus = 0.10
+
+        final_score = rating_score + trust_score + price_score + position_bonus
 
         enriched.append({
             **product,
@@ -118,8 +159,9 @@ def compute_score(
             "score":       round(final_score, 4)
         })
 
+    # Sort by final score — LLM ranking preserved via position_bonus
     in_stock = [p for p in enriched if p.get("in_stock", True)]
-    top_3    = in_stock[:3]
+    top_3    = sorted(in_stock, key=lambda x: x["score"], reverse=True)[:3]
     state["final_recommendations"] = top_3
 
     if span:

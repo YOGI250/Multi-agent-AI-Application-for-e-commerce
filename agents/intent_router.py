@@ -134,11 +134,18 @@ Respond ONLY with a JSON object. No explanation.
 # ==========================================
 def route_to_agent(state: RouterState) -> str:
     intent           = state.get("intent", "unknown")
+    confidence       = state.get("confidence", "low")
     is_authenticated = state.get("is_authenticated", False)
 
     valid_intents = ["order_query", "product_query", "support_query"]
+
     if intent not in valid_intents:
         return "fallback_response"
+
+    
+    # Low or medium confidence — ask user to clarify rather than guess
+    if confidence in ("low", "medium"):
+        return "ask_clarification"
 
     if not is_authenticated and intent != "product_query":
         return "access_denied"
@@ -252,10 +259,47 @@ def run_support_agent(state: RouterState) -> RouterState:
 
     return state
 
+# ==========================================
+# NODE 5 — ask_clarification (low confidence)
+# ==========================================
+def ask_clarification(state: RouterState) -> RouterState:
+    logger.info("Router: low confidence — asking for clarification")
+
+    trace_id  = state.get("langfuse_trace_id")
+    parent_id = state.get("langfuse_parent_span_id")
+
+    span = create_span(
+        trace_id              = trace_id,
+        name                  = "ask_clarification",
+        parent_observation_id = parent_id,
+        input_data            = {
+            "intent":     state.get("intent"),
+            "confidence": state.get("confidence"),
+            "reason":     state.get("reason")
+        }
+    ) if trace_id else None
+
+    state["response"] = (
+        "I want to make sure I help you correctly. "
+        "Could you clarify what you need?\n\n"
+        "1. Track or check an order — ask about delivery, "
+        "status, tracking\n"
+        "2. Find a product — search by category, price, or brand\n"
+        "3. Raise a support request — report an issue, "
+        "request a refund, or cancel an order"
+    )
+    state["agent_used"] = "clarification"
+
+    if span:
+        end_span(span, {"reason": "low_confidence_intent"})
+
+    return state
+
 
 # ==========================================
-# NODE 5 — access_denied
+# NODE 6 — access_denied
 # ==========================================
+
 def access_denied(state: RouterState) -> RouterState:
     logger.info("Router: access denied for guest user")
 
@@ -291,7 +335,7 @@ def access_denied(state: RouterState) -> RouterState:
 
 
 # ==========================================
-# NODE 6 — fallback_response
+# NODE 7 — fallback_response
 # ==========================================
 def fallback_response(state: RouterState) -> RouterState:
     logger.info("Router: fallback response for unknown intent")
@@ -331,6 +375,7 @@ def build_intent_router():
     graph.add_node("run_order_agent",   run_order_agent)
     graph.add_node("run_product_agent", run_product_agent)
     graph.add_node("run_support_agent", run_support_agent)
+    graph.add_node("ask_clarification", ask_clarification)
     graph.add_node("access_denied",     access_denied)
     graph.add_node("fallback_response", fallback_response)
 
@@ -343,6 +388,7 @@ def build_intent_router():
             "run_order_agent":   "run_order_agent",
             "run_product_agent": "run_product_agent",
             "run_support_agent": "run_support_agent",
+            "ask_clarification": "ask_clarification",
             "access_denied":     "access_denied",
             "fallback_response": "fallback_response"
         }
@@ -351,6 +397,7 @@ def build_intent_router():
     graph.add_edge("run_order_agent",   END)
     graph.add_edge("run_product_agent", END)
     graph.add_edge("run_support_agent", END)
+    graph.add_edge("ask_clarification", END)
     graph.add_edge("access_denied",     END)
     graph.add_edge("fallback_response", END)
 

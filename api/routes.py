@@ -252,7 +252,7 @@ def resolve_session(
         last_active_at = datetime.utcnow(),
         is_active      = True,
         message_count  = 0,
-        ended_reason   = "active"
+        ended_reason   = None
     )
     db.add(new_session)
     db.commit()

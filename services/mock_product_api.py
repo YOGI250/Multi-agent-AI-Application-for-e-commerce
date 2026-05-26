@@ -61,9 +61,8 @@ def search_products(filters: dict) -> list:
                 Product.name.ilike(f"%{filters['keyword']}%")
             )
 
-        if filters.get("in_stock", True):
+        if filters.get("in_stock") is True:
             query = query.filter(Product.in_stock == True)
-
         # order by rating descending — best products first
         query = query.order_by(
             Product.rating.desc().nullslast()
