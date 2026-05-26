@@ -78,7 +78,7 @@ Respond ONLY with a JSON object. No explanation.
 
     prompt_text, prompt_version = get_prompt(
         "intent_router",
-        version  = settings.intent_router_prompt_version,
+        label    = settings.intent_router_prompt_label,
         fallback = fallback_prompt
     )
 

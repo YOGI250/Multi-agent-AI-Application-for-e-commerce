@@ -201,16 +201,16 @@ Order details:
 - Order value: ₹{order.get('order_value')}
 - Carrier: {order.get('carrier')}
 
+
 Respond in this exact JSON format:
 {{
   "issue_type": "delayed/on_track/delivered/cancelled/processing",
-  "severity": "high/medium/low",
   "summary": "one sentence summary of the order situation"
 }}"""
 
     prompt_text, prompt_version = get_prompt(
         "analyze_order_status",
-        version = settings.order_analysis_prompt_version,
+        label   = settings.order_analysis_prompt_label,
         fallback = fallback_prompt
     )
 
@@ -248,11 +248,11 @@ Respond in this exact JSON format:
         text       = response.content.strip()
         json_match = re.search(r'\{.*\}', text, re.DOTALL)
         analysis   = json.loads(json_match.group()) if json_match else {
-            "issue_type": "unknown", "severity": "low", "summary": text
+            "issue_type": "unknown", "summary": text
         }
     except Exception:
         analysis = {
-            "issue_type": "unknown", "severity": "low",
+            "issue_type": "unknown",
             "summary": response.content
         }
 
@@ -397,7 +397,7 @@ current status, and expected delivery date. Be empathetic if there is a delay.""
 
     prompt_text, prompt_version = get_prompt(
         "order_generate_response",
-        version  = settings.order_response_prompt_version,
+        label    = settings.order_response_prompt_label,    
         fallback = fallback_prompt
     )
 

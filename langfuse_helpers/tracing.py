@@ -1,9 +1,11 @@
 # langfuse_helpers/tracing.py
-
 import logging
 from typing import Optional
 from langfuse import Langfuse
 from config.settings import settings
+
+# in-memory prompt cache — avoids hitting LangFuse on every request
+_prompt_cache: dict = {}
 
 logger = logging.getLogger(__name__)
 
@@ -189,40 +191,63 @@ def create_generation(
 # Falls back to a default if not found.
 # ==========================================
 def get_prompt(
-    prompt_name: str,
-    version:     Optional[int] = None,
-    fallback:    str           = ""
-) -> tuple[str, Optional[int]]:
+    name:     str,
+    version:  int  = None,
+    label:    str  = None,
+    fallback: str  = None
+) -> tuple:
     """
-    Fetches a prompt template from LangFuse
-    prompt management.
+    Fetches a prompt from LangFuse with in-memory caching.
+    Cache key is name + label (preferred) or name + version.
+    On cache hit — returns immediately without hitting LangFuse.
+    On cache miss — fetches from LangFuse, caches, returns.
+    Falls back to hardcoded prompt if LangFuse is unavailable.
 
-    Returns (prompt_text, version_number).
-    Falls back to hardcoded prompt if fetch fails.
-
-    Called in LLM nodes to pull prompts at runtime
-    instead of hardcoding them in code.
+    Args:
+        name:     prompt name in LangFuse
+        version:  specific version number (use label instead)
+        label:    production label e.g. "production", "staging"
+        fallback: hardcoded fallback if LangFuse unavailable
     """
+    # build cache key — prefer label over version
+    if label:
+        cache_key = f"{name}::{label}"
+    elif version:
+        cache_key = f"{name}::v{version}"
+    else:
+        cache_key = f"{name}::latest"
+
+    # return from cache if available
+    if cache_key in _prompt_cache:
+        logger.debug(f"Prompt cache hit: {cache_key}")
+        return _prompt_cache[cache_key]
+
+    # fetch from LangFuse
     try:
-        if version:
-            prompt_obj = langfuse_client.get_prompt(
-                prompt_name, version=version
-            )
+        if label:
+            prompt_obj   = langfuse_client.get_prompt(name, label=label)
+            prompt_text  = prompt_obj.prompt
+            prompt_version = label
+        elif version:
+            prompt_obj   = langfuse_client.get_prompt(name, version=version)
+            prompt_text  = prompt_obj.prompt
+            prompt_version = version
         else:
-            prompt_obj = langfuse_client.get_prompt(prompt_name)
+            prompt_obj   = langfuse_client.get_prompt(name)
+            prompt_text  = prompt_obj.prompt
+            prompt_version = "latest"
 
-        logger.info(
-            f"LangFuse prompt fetched: {prompt_name} "
-            f"v{prompt_obj.version}"
-        )
-        return prompt_obj.prompt, prompt_obj.version
+        result = (prompt_text, prompt_version)
+        _prompt_cache[cache_key] = result
+        logger.info(f"LangFuse prompt fetched and cached: {name} {cache_key}")
+        return result
 
     except Exception as e:
         logger.warning(
-            f"Could not fetch prompt '{prompt_name}' "
-            f"from LangFuse: {e}. Using fallback."
+            f"LangFuse prompt fetch failed for '{name}': {e} — using fallback"
         )
-        return fallback, None
+        fallback_text = fallback or ""
+        return (fallback_text, "fallback")
     
 def compile_prompt(template: str, **kwargs) -> str:
     """

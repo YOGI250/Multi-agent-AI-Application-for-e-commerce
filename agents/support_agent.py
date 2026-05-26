@@ -81,8 +81,10 @@ Respond ONLY with a JSON object. No explanation.
 
     prompt_text, prompt_version = get_prompt(
         "classify_issue",
+        label    = settings.intent_router_prompt_label,
         fallback = fallback_prompt
     )
+    
 
     if "{{message}}" in prompt_text:
         prompt_text = compile_prompt(
@@ -337,6 +339,7 @@ Instructions:
 
     prompt_text, prompt_version = get_prompt(
         "draft_resolution",
+        label    = settings.order_response_prompt_label,
         fallback = fallback_prompt
     )
 

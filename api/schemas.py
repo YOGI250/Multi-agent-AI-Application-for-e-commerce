@@ -10,7 +10,7 @@ from typing import Optional
 
 class ChatRequest(BaseModel):
     """
-    Every message sent from Streamlit to FastAPI.
+    Every message sent from the frontend to FastAPI.
     Authenticated users send JWT in Authorization header.
     Guest users send guest_id in body.
     """
@@ -32,7 +32,7 @@ class ChatRequest(BaseModel):
 
 class ChatResponse(BaseModel):
     """
-    Every response returned from FastAPI to Streamlit.
+    Every response returned from FastAPI to the frontend.
     """
     response:         str
     session_id:       str

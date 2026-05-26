@@ -18,6 +18,10 @@ from database.connection import SessionLocal, test_connection
 from database.models import User, Session as SessionModel, Message
 from config.settings import settings
 from fastapi import BackgroundTasks
+from google.oauth2 import id_token
+from google.auth.transport import requests as google_requests
+from langfuse_helpers.tracing import get_trace_token_usage
+from monitoring.metrics import TOKEN_COUNTER
 
 logger = logging.getLogger(__name__)
 
@@ -28,7 +32,7 @@ router = APIRouter()
 # HELPER — resolve user identity
 # ==========================================
 def create_sample_orders_for_user(user_id: str, db: Session):
-    from database.models import Order
+    
 
     sample_orders = [
         {
@@ -112,9 +116,7 @@ def resolve_user(
     if authorization and authorization.startswith("Bearer "):
         token = authorization.replace("Bearer ", "")
         try:
-            from google.oauth2 import id_token
-            from google.auth.transport import requests as google_requests
-
+            
             id_info = id_token.verify_oauth2_token(
                 token,
                 google_requests.Request(),
@@ -412,10 +414,8 @@ async def chat(
         def record_tokens_background(tid: str, aused: str):
             import time as _time
             _time.sleep(3)
-            from langfuse_helpers.tracing import get_trace_token_usage
             usage = get_trace_token_usage(tid)
             if usage["input"] > 0:
-                from monitoring.metrics import TOKEN_COUNTER
                 TOKEN_COUNTER.labels(agent_used=aused, token_type="input").inc(usage["input"])
                 TOKEN_COUNTER.labels(agent_used=aused, token_type="output").inc(usage["output"])
 

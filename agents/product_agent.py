@@ -87,13 +87,24 @@ Mapping guide:
 - "fan", "mixer", "cookware", "vacuum", "robot vacuum", "AC", "purifier" → "Home and Kitchen"
 - "pen", "notebook", "desk organizer" → "OfficeProducts"
 
-For keyword — extract the specific product type the user is looking for.
-Examples: "robot vacuum" → keyword="vacuum", "USB cable" → keyword="cable", "TV" → keyword="TV"
+For product_type — extract the specific product type using these exact values only:
+mouse, keyboard, headphones, speaker, laptop, tablet, smartwatch, monitor, webcam,
+router, cable, charger, usb_hub, pendrive, ssd, hard_disk, ram, memory_card,
+printer, stand, mousepad, laptop_bag, phone_case, extension, fan, mixer, iron,
+kettle, water_heater, room_heater, vacuum, air_purifier, water_purifier, camera,
+pen, notebook, light, trimmer, microwave, other
+
+Examples:
+- "mouse", "mice", "pointing device", "wireless mouse" → product_type="mouse"
+- "earphones", "earbuds", "headset", "TWS" → product_type="headphones"
+- "pendrive", "flash drive", "USB drive" → product_type="pendrive"
+- "geyser", "water heater" → product_type="water_heater"
+- anything not in the list → product_type="other"
 
 Respond ONLY with a JSON object. No explanation. No markdown.
 {{
   "category": "exact category name or null",
-  "keyword": "specific product type for name search or null",
+  "product_type": "exact product type from the list above or null",
   "max_price": number or null,
   "min_price": number or null,
   "brand": "brand name or null",
@@ -102,6 +113,7 @@ Respond ONLY with a JSON object. No explanation. No markdown.
 
     prompt_text, prompt_version = get_prompt(
         "extract_preferences",
+        label    = settings.order_response_prompt_label,
         fallback = fallback_prompt
     )
 
@@ -201,12 +213,11 @@ def broaden_search(state: ProductAgentState) -> ProductAgentState:
 
     if filters.get("brand"):
         filters["brand"] = None
-    elif filters.get("keyword"):
-        filters["keyword"] = None
     elif filters.get("max_price"):
         filters["max_price"] = filters["max_price"] * 1.5
     elif filters.get("min_rating"):
         filters["min_rating"] = None
+    # product_type is never removed — it defines what the user is looking for
 
     state["filters"]          = filters
     state["broaden_attempts"] = attempts + 1
@@ -250,6 +261,7 @@ Maximum 8 products. No explanation."""
 
     prompt_text, prompt_version = get_prompt(
         "rank_and_filter",
+        label    = settings.order_response_prompt_label,
         fallback = fallback_prompt
     )
 

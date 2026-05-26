@@ -124,7 +124,8 @@ class Product(Base):
     rating_count = Column(Integer, nullable=True)
     description = Column(Text, nullable=True)
     features = Column(JSONB, nullable=True, default=list)
-    in_stock = Column(Boolean, default=True, nullable=False)
+    in_stock     = Column(Boolean, default=True, nullable=False)
+    product_type = Column(String, nullable=True)
 
     def __repr__(self):
         return f"<Product name={self.name} category={self.category}>"

@@ -47,7 +47,7 @@ class Settings(BaseSettings):
         default="placeholder", env="GOOGLE_CLIENT_SECRET"
     )
     google_redirect_uri: str = Field(
-        default="http://localhost:8501",
+        default="http://localhost:8000",
         env="GOOGLE_REDIRECT_URI"
     )
 
@@ -78,14 +78,14 @@ class Settings(BaseSettings):
     # ==========================================
     # LANGFUSE PROMPT VERSIONS
     # ==========================================
-    intent_router_prompt_version: int = Field(
-        default=1, env="INTENT_ROUTER_PROMPT_VERSION"
+    intent_router_prompt_label: str = Field(
+        default="production", env="INTENT_ROUTER_PROMPT_LABEL"
     )
-    order_response_prompt_version: int = Field(
-        default=1, env="ORDER_RESPONSE_PROMPT_VERSION"
+    order_response_prompt_label: str = Field(
+        default="production", env="ORDER_RESPONSE_PROMPT_LABEL"
     )
-    order_analysis_prompt_version: int = Field(
-        default=1, env="ORDER_ANALYSIS_PROMPT_VERSION"
+    order_analysis_prompt_label: str = Field(
+        default="production", env="ORDER_ANALYSIS_PROMPT_LABEL"
     )
 
     # ==========================================

@@ -55,14 +55,21 @@ def search_products(filters: dict) -> list:
                 Product.rating >= float(filters["min_rating"])
             )
 
-        # keyword search on product name
-        if filters.get("keyword"):
+        # product_type search — LLM extracts this directly from message
+        # no hardcoded mapping needed — LLM understands "mice", "earbuds", etc.
+        if filters.get("product_type") and filters["product_type"] != "other":
+            query = query.filter(
+                Product.product_type == filters["product_type"]
+            )
+        elif filters.get("keyword"):
+            # fallback to name ILIKE if product_type not extracted
             query = query.filter(
                 Product.name.ilike(f"%{filters['keyword']}%")
             )
 
         if filters.get("in_stock") is True:
             query = query.filter(Product.in_stock == True)
+
         # order by rating descending — best products first
         query = query.order_by(
             Product.rating.desc().nullslast()
@@ -81,7 +88,8 @@ def search_products(filters: dict) -> list:
                 "brand":            p.brand,
                 "rating":           float(p.rating) if p.rating else 0,
                 "rating_count":     p.rating_count or 0,
-                "in_stock":         p.in_stock
+                "in_stock":         p.in_stock,
+                "product_type":     p.product_type
             }
             for p in products
         ]

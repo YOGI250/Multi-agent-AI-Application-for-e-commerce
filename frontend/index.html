@@ -906,6 +906,17 @@ function showChatPage() {
 // ==========================================
 // SEND MESSAGE
 // ==========================================
+
+function isTokenExpired(token) {
+    try {
+        const payload = JSON.parse(atob(token.split('.')[1]));
+        return payload.exp * 1000 < Date.now();
+    } catch (e) {
+        return true;
+    }
+}
+
+
 async function sendMessage() {
     const input   = document.getElementById("message-input");
     const message = input.value.trim();
@@ -924,8 +935,17 @@ async function sendMessage() {
         const headers = { "Content-Type": "application/json" };
         const body    = { message };
 
-        if (state.isAuthenticated && state.googleToken)
+        if (state.isAuthenticated && state.googleToken) {
+            if (isTokenExpired(state.googleToken)) {
+                // token expired — update UI and inform user
+                const badge = document.getElementById("auth-badge");
+                badge.innerHTML = `<div class="status-dot"></div> Session expired`;
+                badge.className = "user-status guest";
+                addMessage("assistant", "Your session has expired. Please sign out and log in again to access orders and support.");
+                return;
+            }
             headers["Authorization"] = `Bearer ${state.googleToken}`;
+        }
 
         if (state.sessionId)
             headers["X-Session-ID"] = state.sessionId;
