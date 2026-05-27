@@ -45,6 +45,8 @@ class ProductAgentState(TypedDict):
     search_results:          Optional[list]
     ranked_products:         Optional[list]
     final_recommendations:   Optional[list]
+    products:                Optional[list]   # all enriched products for frontend pagination
+    partial_match:           Optional[bool]   # True when results exist but don't fully match request
     response:                Optional[str]
     langfuse_trace_id:       Optional[str]
     langfuse_parent_span_id: Optional[str]
@@ -214,7 +216,7 @@ def broaden_search(state: ProductAgentState) -> ProductAgentState:
     if filters.get("brand"):
         filters["brand"] = None
     elif filters.get("max_price"):
-        filters["max_price"] = filters["max_price"] * 1.5
+        filters["max_price"] = filters["max_price"] * settings.product_price_broaden_factor
     elif filters.get("min_rating"):
         filters["min_rating"] = None
     # product_type is never removed — it defines what the user is looking for
@@ -244,7 +246,7 @@ def rank_and_filter(state: ProductAgentState) -> ProductAgentState:
         f"Price: ₹{p['price']} | "
         f"Rating: {p['rating']} | "
         f"Brand: {p['brand']}"
-        for i, p in enumerate(products[:20])
+        for i, p in enumerate(products[:settings.product_search_candidates])
     ])
 
     fallback_prompt = f"""You are a product recommendation expert.
@@ -255,9 +257,15 @@ User request: "{message}"
 Products:
 {product_list}
 
+Rules:
+- Include any product that is a direct or close match.
+- Include partial matches (e.g. a regular laptop when asked for a gaming laptop).
+- Return [] ONLY if the products are entirely unrelated to the request
+  (e.g. user wants furniture but the list contains only electronics).
+
 Return ONLY a JSON array of product indices, most relevant first.
 Indices are 1-based. Example: [3, 1, 7, 2, 5]
-Maximum 8 products. No explanation."""
+Maximum {settings.product_recommendation_count} products. No explanation."""
 
     prompt_text, prompt_version = get_prompt(
         "rank_and_filter",
@@ -294,15 +302,24 @@ Maximum 8 products. No explanation."""
         match = re.search(r'\[.*?\]', text, re.DOTALL)
         if match:
             indices = json.loads(match.group())
-            ranked  = []
-            for idx in indices:
-                if 1 <= idx <= len(products):
-                    ranked.append(products[idx - 1])
-            ranked_ids = {p['product_id'] for p in ranked}
-            for p in products:
-                if p['product_id'] not in ranked_ids:
-                    ranked.append(p)
-            state["ranked_products"] = ranked
+            if not indices:
+                # LLM found no relevant products — use top search results as partial matches
+                # so users see what IS available rather than a blank "not found"
+                if products:
+                    state["partial_match"]   = True
+                    state["ranked_products"] = products[:settings.product_recommendation_count]
+                else:
+                    state["ranked_products"] = []
+            else:
+                ranked = []
+                for idx in indices:
+                    if 1 <= idx <= len(products):
+                        ranked.append(products[idx - 1])
+                ranked_ids = {p['product_id'] for p in ranked}
+                for p in products:
+                    if p['product_id'] not in ranked_ids:
+                        ranked.append(p)
+                state["ranked_products"] = ranked
         else:
             state["ranked_products"] = products
     except Exception:
@@ -323,7 +340,7 @@ def product_enrichment_node(
     trace_id  = state.get("langfuse_trace_id")
     parent_id = state.get("langfuse_parent_span_id")
     filters   = state.get("filters", {})
-    max_price = filters.get("max_price") or 100000
+    max_price = filters.get("max_price") or settings.product_default_max_price
 
     span = create_span(
         trace_id              = trace_id,
@@ -343,6 +360,7 @@ def product_enrichment_node(
     })
 
     state["final_recommendations"] = result.get("final_recommendations", [])
+    state["products"]              = state["final_recommendations"]
 
     if span:
         end_span(span, {
@@ -360,10 +378,13 @@ def format_recommendations(
 ) -> ProductAgentState:
     logger.info("Product Agent node: format_recommendations")
 
-    trace_id  = state.get("langfuse_trace_id")
-    parent_id = state.get("langfuse_parent_span_id")
-    products  = state.get("final_recommendations", [])
-    message   = state.get("message", "")
+    trace_id         = state.get("langfuse_trace_id")
+    parent_id        = state.get("langfuse_parent_span_id")
+    products         = state.get("final_recommendations", [])
+    message          = state.get("message", "")
+    original_filters = state.get("original_filters", {}) or {}
+    original_max     = original_filters.get("max_price")
+    ptype_name       = (original_filters.get("product_type") or "").replace("_", " ")
 
     span = create_span(
         trace_id              = trace_id,
@@ -372,21 +393,46 @@ def format_recommendations(
         input_data            = {"products_count": len(products)}
     ) if trace_id else None
 
+    state["products"] = products
+
     if not products:
         state["response"] = (
-            "I could not find any products matching your request. "
-            "Try adjusting your budget or category."
+            "I couldn't find any products matching your request. "
+            "Try searching with a different product type, brand, or price range."
         )
         if span:
             end_span(span, {"response_type": "no_products"})
         return state
 
-    lines = [
-        f"Here are my top {len(products)} recommendations "
-        f"for \"{message}\":\n"
-    ]
+    partial = state.get("partial_match", False)
 
-    for i, p in enumerate(products, 1):
+    # Detect when every result is above the user's original budget
+    # (takes priority over partial_match — a found product that's over budget
+    # is more informative than a generic "no exact match" message)
+    over_budget = (
+        original_max
+        and all(float(p.get("price", 0)) > original_max for p in products)
+    )
+
+    if over_budget and ptype_name:
+        lines = [
+            f"No {ptype_name} found under ₹{int(original_max):,}. "
+            f"Here's the closest option available:\n"
+        ]
+    elif partial:
+        lines = [
+            f"I couldn't find an exact match for \"{message}\". "
+            f"Here are the closest products we have:\n"
+        ]
+    else:
+        shown = min(len(products), 3)
+        lines = [
+            f"Here are my top {shown} recommendation{'s' if shown > 1 else ''} "
+            f"for \"{message}\":\n"
+        ]
+
+    # Format first 3 in text; the rest surface via cards in the frontend
+    for i, p in enumerate(products[:3], 1):
         lines.append(f"{i}. {p['name'][:70]}")
         lines.append(f"   Price  : ₹{p['price']}")
         lines.append(
@@ -401,8 +447,13 @@ def format_recommendations(
             for feat in features[:3]:
                 lines.append(f"   • {str(feat)[:80]}")
 
-        lines.append(f"   Score  : {p['score']}")
         lines.append("")
+
+    if len(products) > 3:
+        extra = len(products) - 3
+        lines.append(
+            f"...and {extra} more product{'s' if extra > 1 else ''} available."
+        )
 
     state["response"] = "\n".join(lines)
 

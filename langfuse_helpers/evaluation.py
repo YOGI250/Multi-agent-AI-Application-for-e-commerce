@@ -4,6 +4,7 @@ import logging
 from langfuse_helpers.tracing import langfuse_client, flush
 from agents.intent_router import intent_router_graph
 from langfuse_helpers.tracing import create_trace
+from config.settings import settings
 
 logger = logging.getLogger(__name__)
 
@@ -32,7 +33,7 @@ def run_evaluation(dataset_name: str = "ecommerce-eval-dataset"):
         expected      = item.expected_output
         message       = input_data.get("message", "")
         user_id       = input_data.get(
-            "user_id", "google_105309025092043620678"
+            "user_id", settings.eval_user_id
         )
 
         # create a trace for this eval run

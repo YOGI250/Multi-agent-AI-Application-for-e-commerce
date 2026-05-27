@@ -21,6 +21,10 @@ RULES = [
     ("charger",      ["charger", "charging adapter", "power adapter", "wall adapter",
                       "car charger", "fast charger", "wireless charger"]),
 
+    # Mousepad — check before mouse so "gaming mousepad" doesn't match "gaming mouse"
+    ("mousepad",     ["mouse pad", "mousepad", "gaming mousepad", "gaming pad",
+                      "desk mat", "wrist rest"]),
+
     # Mouse
     ("mouse",        ["wireless mouse", "wired mouse", "gaming mouse", "optical mouse",
                       "bluetooth mouse", "silent mouse", "ergonomic mouse",
@@ -39,8 +43,32 @@ RULES = [
     ("speaker",      ["speaker", "soundbar", "bluetooth speaker", "portable speaker",
                       "home theatre", "subwoofer"]),
 
-    # Laptop
-    ("laptop",       ["laptop", "notebook computer", "chromebook", "macbook"]),
+    # Laptop stand — check before laptop so accessories aren't misclassified
+    ("stand",        ["laptop stand", "monitor stand", "phone stand", "tablet stand",
+                      "adjustable stand", "foldable stand", "cooling stand",
+                      "laptop cooling pad", "cooling pad", "laptop table",
+                      "lapdesk", "lap desk", "bed table", "foldable table"]),
+
+    # Laptop bag and sleeve — check before laptop
+    ("laptop_bag",   ["laptop bag", "laptop sleeve", "laptop case", "laptop backpack",
+                      "laptop pouch", "laptop cover"]),
+
+    # Actual laptops — only match products that ARE laptops, not accessories for laptops.
+    # Uses specific laptop product names and patterns.
+    # "macbook", "chromebook", bare "laptop" intentionally excluded — these words appear
+    # in compatibility text for accessories ("compatible with MacBook", "for Chromebook")
+    # and cause misclassification. Use brand+model patterns instead.
+    ("laptop",       ["gaming laptop", "notebook computer",
+                      "thin & light laptop", "thin and light laptop",
+                      "business laptop", "laptop computer",
+                      "intel core i3 laptop", "intel core i5 laptop",
+                      "intel core i7 laptop", "intel core i9 laptop",
+                      "amd ryzen laptop", "ryzen 5 laptop", "ryzen 7 laptop",
+                      "asus rog", "asus tuf gaming",
+                      "msi gaming laptop", "msi laptop",
+                      "hp pavilion laptop", "dell inspiron laptop",
+                      "lenovo ideapad", "lenovo thinkpad", "lenovo legion",
+                      "acer nitro", "acer aspire"]),
 
     # Tablet
     ("tablet",       ["tablet", "ipad", "android tablet", "fire tablet"]),
@@ -86,17 +114,6 @@ RULES = [
     # Printer
     ("printer",      ["printer", "inkjet", "laser printer", "all-in-one printer"]),
 
-    # Laptop stand and phone stand
-    ("stand",        ["laptop stand", "monitor stand", "phone stand", "tablet stand",
-                      "adjustable stand", "foldable stand", "cooling stand"]),
-
-    # Mouse pad
-    ("mousepad",     ["mouse pad", "mousepad", "gaming pad", "desk mat",
-                      "wrist rest"]),
-
-    # Laptop bag and sleeve
-    ("laptop_bag",   ["laptop bag", "laptop sleeve", "laptop case", "laptop backpack",
-                      "laptop pouch"]),
 
     # Phone case and accessories
     ("phone_case",   ["phone case", "back cover", "phone cover", "mobile case",

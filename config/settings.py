@@ -110,6 +110,43 @@ class Settings(BaseSettings):
         default=0.79, env="GROQ_OUTPUT_COST_PER_MILLION"
     )
 
+    # ==========================================
+    # INTENT ROUTER
+    # ==========================================
+    intent_confidence_threshold: float = Field(
+        default=0.7, env="INTENT_CONFIDENCE_THRESHOLD"
+    )
+
+    # ==========================================
+    # SUPPORT AGENT
+    # ==========================================
+    support_high_value_threshold: float = Field(
+        default=10000.0, env="SUPPORT_HIGH_VALUE_THRESHOLD"
+    )
+
+    # ==========================================
+    # PRODUCT AGENT
+    # ==========================================
+    product_search_candidates: int = Field(
+        default=20, env="PRODUCT_SEARCH_CANDIDATES"
+    )
+    product_recommendation_count: int = Field(
+        default=8, env="PRODUCT_RECOMMENDATION_COUNT"
+    )
+    product_default_max_price: float = Field(
+        default=100000.0, env="PRODUCT_DEFAULT_MAX_PRICE"
+    )
+    product_price_broaden_factor: float = Field(
+        default=1.5, env="PRODUCT_PRICE_BROADEN_FACTOR"
+    )
+
+    # ==========================================
+    # EVALUATION
+    # ==========================================
+    eval_user_id: str = Field(
+        default="", env="EVAL_USER_ID"
+    )
+
     class Config:
         env_file = ".env"
         env_file_encoding = "utf-8"

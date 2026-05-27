@@ -384,6 +384,7 @@ async def chat(
         agent_used = result.get("agent_used", "unknown")
         intent     = result.get("intent")
         confidence = result.get("confidence")
+        products   = result.get("products", None)
 
         # 5. score response
         score_response(
@@ -450,7 +451,8 @@ async def chat(
             agent_used        = agent_used,
             intent            = intent,
             intent_confidence = confidence,
-            is_authenticated  = is_authenticated
+            is_authenticated  = is_authenticated,
+            products          = products
         )
 
     except Exception as e:
@@ -480,3 +482,15 @@ async def health():
         status   = "healthy",
         database = db_status
     )
+
+
+# ==========================================
+# GET /config
+# Serves public client-side config so secrets
+# never need to be hardcoded in static HTML.
+# ==========================================
+@router.get("/config")
+async def get_config():
+    return {
+        "google_client_id": settings.google_client_id
+    }

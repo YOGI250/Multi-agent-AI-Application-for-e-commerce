@@ -55,20 +55,46 @@ def search_products(filters: dict) -> list:
                 Product.rating >= float(filters["min_rating"])
             )
 
-        # product_type search — LLM extracts this directly from message
-        # no hardcoded mapping needed — LLM understands "mice", "earbuds", etc.
-        if filters.get("product_type") and filters["product_type"] != "other":
-            query = query.filter(
-                Product.product_type == filters["product_type"]
+        if filters.get("in_stock") is True:
+            query = query.filter(Product.in_stock == True)
+
+        # product_type search — try exact match first, fall back to name keyword
+        product_type = filters.get("product_type")
+        if product_type and product_type != "other":
+            type_query = query.filter(Product.product_type == product_type)
+            type_results = (
+                type_query
+                .order_by(Product.rating.desc().nullslast())
+                .limit(20)
+                .all()
             )
+
+            if type_results:
+                return [
+                    {
+                        "product_id":       p.product_id,
+                        "name":             p.name,
+                        "category":         p.category,
+                        "price":            float(p.price),
+                        "actual_price":     float(p.actual_price) if p.actual_price else None,
+                        "discount_percent": float(p.discount_percent) if p.discount_percent else 0,
+                        "brand":            p.brand,
+                        "rating":           float(p.rating) if p.rating else 0,
+                        "rating_count":     p.rating_count or 0,
+                        "in_stock":         p.in_stock,
+                        "product_type":     p.product_type
+                    }
+                    for p in type_results
+                ]
+
+            # No exact product_type matches — return empty so broaden_search
+            # can widen the filters (e.g. remove max_price) and retry
+            return []
+
         elif filters.get("keyword"):
-            # fallback to name ILIKE if product_type not extracted
             query = query.filter(
                 Product.name.ilike(f"%{filters['keyword']}%")
             )
-
-        if filters.get("in_stock") is True:
-            query = query.filter(Product.in_stock == True)
 
         # order by rating descending — best products first
         query = query.order_by(

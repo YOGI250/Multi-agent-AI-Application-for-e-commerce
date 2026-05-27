@@ -610,6 +610,82 @@
             40%            { transform: translateY(-7px); background: var(--primary); }
         }
 
+        /* ===== PRODUCT CARDS ===== */
+        .product-cards {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            margin-top: 10px;
+            width: 100%;
+        }
+
+        .product-card {
+            background: var(--white);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 14px 16px;
+            box-shadow: 0 1px 4px rgba(0,0,0,0.05);
+        }
+
+        .product-card-num {
+            font-size: 11px;
+            font-weight: 600;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-bottom: 4px;
+        }
+
+        .product-card-title {
+            font-size: 13px;
+            font-weight: 600;
+            color: #1e293b;
+            margin-bottom: 8px;
+            line-height: 1.4;
+        }
+
+        .product-card-price {
+            font-size: 17px;
+            font-weight: 700;
+            color: var(--primary);
+            margin-bottom: 5px;
+        }
+
+        .product-card-meta {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            font-size: 12px;
+            color: #64748b;
+        }
+
+        .product-card-features {
+            margin-top: 8px;
+            padding-top: 8px;
+            border-top: 1px solid var(--border);
+            font-size: 12px;
+            color: #64748b;
+            line-height: 1.6;
+        }
+
+        .show-more-btn {
+            background: var(--white);
+            border: 1.5px solid var(--primary);
+            color: var(--primary);
+            border-radius: 8px;
+            padding: 8px 18px;
+            font-size: 13px;
+            font-weight: 500;
+            cursor: pointer;
+            margin-top: 4px;
+            transition: all 0.2s;
+            align-self: flex-start;
+        }
+
+        .show-more-btn:hover {
+            background: #eef2ff;
+        }
+
         /* ===== TOAST ===== */
         .toast {
             position: fixed;
@@ -643,20 +719,7 @@
     <p class="subtitle">Sign in to access order tracking, product search, and customer support — all powered by AI.</p>
 
     <div class="google-btn-wrapper">
-        <div id="g_id_onload"
-             data-client_id="230042601090-2372rg7c2si8nj36f9olqhqhb5h69vpj.apps.googleusercontent.com"
-             data-callback="handleGoogleLogin"
-             data-auto_prompt="false">
-        </div>
-        <div class="g_id_signin"
-             data-type="standard"
-             data-size="large"
-             data-theme="outline"
-             data-text="signin_with"
-             data-shape="rectangular"
-             data-logo_alignment="left"
-             data-width="352">
-        </div>
+        <div id="google-btn-container"></div>
     </div>
 
     <div class="divider">or</div>
@@ -788,7 +851,7 @@ const state = {
     isTyping:        false
 };
 
-const API_URL = "http://localhost:8000";
+const API_URL = "";
 
 
 // ==========================================
@@ -805,6 +868,41 @@ function loadSession(userId) {
 function clearSession(userId) {
     if (userId) localStorage.removeItem(`session_${userId}`);
 }
+
+
+// ==========================================
+// GOOGLE SIGN-IN — dynamic client ID from /config
+// ==========================================
+async function initGoogleSignIn() {
+    try {
+        const res = await fetch(`${API_URL}/config`);
+        const cfg = await res.json();
+
+        // Wait for the Google GSI script to be ready
+        await new Promise(resolve => {
+            if (window.google?.accounts?.id) { resolve(); return; }
+            const t = setInterval(() => {
+                if (window.google?.accounts?.id) { clearInterval(t); resolve(); }
+            }, 100);
+        });
+
+        google.accounts.id.initialize({
+            client_id:   cfg.google_client_id,
+            callback:    handleGoogleLogin,
+            auto_select: false
+        });
+        google.accounts.id.renderButton(
+            document.getElementById("google-btn-container"),
+            { type: "standard", size: "large", theme: "outline",
+              text: "signin_with", shape: "rectangular",
+              logo_alignment: "left", width: 352 }
+        );
+    } catch(e) {
+        console.error("Failed to initialize Google Sign-In:", e);
+    }
+}
+
+initGoogleSignIn();
 
 
 // ==========================================
@@ -969,7 +1067,7 @@ async function sendMessage() {
             }
 
             if (data.user_id) state.userId = data.user_id;
-            addMessage("assistant", data.response, data.agent_used);
+            addMessage("assistant", data.response, data.agent_used, data.products || []);
 
         } else {
             const err = await response.json().catch(() => ({}));
@@ -992,7 +1090,7 @@ async function sendMessage() {
 // ==========================================
 // ADD MESSAGE
 // ==========================================
-function addMessage(role, content, agentUsed) {
+function addMessage(role, content, agentUsed, products) {
     const messages = document.getElementById("messages");
     const wrapper  = document.createElement("div");
     wrapper.className = `message ${role}`;
@@ -1013,13 +1111,97 @@ function addMessage(role, content, agentUsed) {
         wrapper.appendChild(tag);
     }
 
-    const bubble = document.createElement("div");
-    bubble.className   = "message-bubble";
-    bubble.textContent = content;
-    wrapper.appendChild(bubble);
+    if (agentUsed === "product_agent" && products && products.length > 0) {
+        // Show the first non-empty line as a header text bubble
+        const header = content.split('\n').find(l => l.trim()) || content;
+        const bubble = document.createElement("div");
+        bubble.className   = "message-bubble";
+        bubble.textContent = header;
+        wrapper.appendChild(bubble);
+        renderProductCards(wrapper, products);
+    } else {
+        const bubble = document.createElement("div");
+        bubble.className   = "message-bubble";
+        bubble.textContent = content;
+        wrapper.appendChild(bubble);
+    }
 
     messages.appendChild(wrapper);
     messages.scrollTop = messages.scrollHeight;
+}
+
+
+// ==========================================
+// PRODUCT CARD RENDERING
+// ==========================================
+function renderProductCards(container, products) {
+    const cardsWrap = document.createElement("div");
+    cardsWrap.className = "product-cards";
+
+    const PAGE_SIZE = 3;
+    let shown = 0;
+
+    function showNextPage() {
+        // remove existing show-more button
+        const oldBtn = cardsWrap.querySelector(".show-more-btn");
+        if (oldBtn) oldBtn.remove();
+
+        const page = products.slice(shown, shown + PAGE_SIZE);
+        page.forEach((p, idx) => {
+            const card = document.createElement("div");
+            card.className = "product-card";
+
+            const num = document.createElement("div");
+            num.className   = "product-card-num";
+            num.textContent = `#${shown + idx + 1}`;
+
+            const title = document.createElement("div");
+            title.className   = "product-card-title";
+            title.textContent = p.name;
+
+            const price = document.createElement("div");
+            price.className   = "product-card-price";
+            price.textContent = `₹${Number(p.price).toLocaleString("en-IN")}`;
+
+            const meta = document.createElement("div");
+            meta.className = "product-card-meta";
+            meta.innerHTML =
+                `<span>⭐ ${p.rating} &nbsp;(${Number(p.rating_count).toLocaleString()} reviews)</span>` +
+                `<span>${p.brand}</span>`;
+
+            card.appendChild(num);
+            card.appendChild(title);
+            card.appendChild(price);
+            card.appendChild(meta);
+
+            const features = p.features || [];
+            if (features.length > 0) {
+                const feat = document.createElement("div");
+                feat.className   = "product-card-features";
+                feat.textContent = features.slice(0, 2).map(f => `• ${String(f).substring(0, 90)}`).join("\n");
+                card.appendChild(feat);
+            }
+
+            cardsWrap.appendChild(card);
+        });
+
+        shown += page.length;
+
+        if (shown < products.length) {
+            const btn = document.createElement("button");
+            btn.className   = "show-more-btn";
+            btn.textContent = `Show more (${products.length - shown} remaining)`;
+            btn.onclick = () => {
+                showNextPage();
+                const msgs = document.getElementById("messages");
+                msgs.scrollTop = msgs.scrollHeight;
+            };
+            cardsWrap.appendChild(btn);
+        }
+    }
+
+    showNextPage();
+    container.appendChild(cardsWrap);
 }
 
 

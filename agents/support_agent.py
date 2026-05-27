@@ -54,7 +54,7 @@ def classify_issue(state: SupportAgentState) -> SupportAgentState:
 
     history_text = "\n".join([
         f"{m['role'].upper()}: {m['content']}"
-        for m in history[-4:]
+        for m in history[-8:]
     ]) if history else "No previous conversation"
 
     fallback_prompt = f"""You are a customer support classifier.
@@ -136,6 +136,47 @@ Respond ONLY with a JSON object. No explanation.
 
 
 # ==========================================
+# EDGE — needs order id?
+# ==========================================
+ORDER_REQUIRED_ISSUES = {"damaged_product", "wrong_item", "refund", "cancellation"}
+
+def route_after_classify(state: SupportAgentState) -> str:
+    if state.get("issue_type") in ORDER_REQUIRED_ISSUES and not state.get("order_id"):
+        return "request_order_id"
+    return "assess_severity"
+
+
+# ==========================================
+# NODE 1b — request_order_id
+# ==========================================
+def request_order_id(state: SupportAgentState) -> SupportAgentState:
+    logger.info("Support Agent node: request_order_id")
+
+    trace_id  = state.get("langfuse_trace_id")
+    parent_id = state.get("langfuse_parent_span_id")
+
+    span = create_span(
+        trace_id              = trace_id,
+        name                  = "request_order_id",
+        parent_observation_id = parent_id,
+        input_data            = {"issue_type": state.get("issue_type")}
+    ) if trace_id else None
+
+    state["response"] = (
+        "I'm sorry to hear that. To look into this for you, I'll need your order ID.\n\n"
+        "You can find it by typing 'show my orders' to see all your orders, "
+        "or check your order confirmation email.\n\n"
+        "Your order ID looks like ORD-XXXX (e.g. ORD-1001)."
+    )
+    state["agent_used"] = "support_agent"
+
+    if span:
+        end_span(span, {"reason": "order_id_missing"})
+
+    return state
+
+
+# ==========================================
 # NODE 2 — assess_severity (pure code)
 # ==========================================
 def assess_severity(state: SupportAgentState) -> SupportAgentState:
@@ -153,26 +194,29 @@ def assess_severity(state: SupportAgentState) -> SupportAgentState:
         input_data            = {"issue_type": issue_type, "order_id": order_id}
     ) if trace_id else None
 
-    # Fetch order value if order_id is available
+    # Fetch order value and validate ownership
     order_value = 0
+    user_id = state.get("user_id")
     if order_id:
         try:
             from database.connection import SessionLocal
             from database.models import Order
             db = SessionLocal()
-            order = db.query(Order).filter(Order.order_id == order_id).first()
+            order = db.query(Order).filter(
+                Order.order_id == order_id,
+                Order.user_id  == user_id
+            ).first()
             if order:
                 order_value = float(order.order_value or 0)
+            else:
+                # order not found or doesn't belong to this user
+                state["order_id"] = None
             db.close()
         except Exception:
             order_value = 0
 
-    # Orders above ₹10,000 get HIGH severity
-    # Orders below ₹10,000 get MEDIUM for the same issue
-    HIGH_VALUE_THRESHOLD = 10000
-
     if issue_type in ["damaged_product", "wrong_item", "refund"]:
-        if order_value >= HIGH_VALUE_THRESHOLD:
+        if order_value >= settings.support_high_value_threshold:
             severity = "HIGH"
         else:
             severity = "MEDIUM"
@@ -418,6 +462,7 @@ def build_support_agent():
     graph = StateGraph(SupportAgentState)
 
     graph.add_node("classify_issue",          classify_issue)
+    graph.add_node("request_order_id",        request_order_id)
     graph.add_node("assess_severity",         assess_severity)
     graph.add_node("lookup_policy_node",      lookup_policy_node)
     graph.add_node("escalation_handler_node", escalation_handler_node)
@@ -426,7 +471,15 @@ def build_support_agent():
 
     graph.set_entry_point("classify_issue")
 
-    graph.add_edge("classify_issue",  "assess_severity")
+    graph.add_conditional_edges(
+        "classify_issue",
+        route_after_classify,
+        {
+            "request_order_id": "request_order_id",
+            "assess_severity":  "assess_severity"
+        }
+    )
+    graph.add_edge("request_order_id", END)
     graph.add_edge("assess_severity", "lookup_policy_node")
 
     graph.add_conditional_edges(

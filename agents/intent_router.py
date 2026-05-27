@@ -21,6 +21,28 @@ logger = logging.getLogger(__name__)
 
 
 # ==========================================
+# PENDING SUPPORT CONTEXT DETECTION
+# Phrases that the support agent uses when asking for an order ID.
+# If any of these appear in recent assistant history, there's an
+# unresolved support issue waiting for the user's order ID.
+# ==========================================
+_SUPPORT_NEEDS_ORDER_PHRASES = [
+    "i'll need your order id",
+    "need your order id",
+    "order id looks like ord-",
+    "typing 'show my orders'",
+]
+
+def _has_pending_support_context(history: list) -> bool:
+    for msg in reversed(history[-8:]):
+        if msg.get("role") == "assistant":
+            content = msg.get("content", "").lower()
+            if any(phrase in content for phrase in _SUPPORT_NEEDS_ORDER_PHRASES):
+                return True
+    return False
+
+
+# ==========================================
 # STATE
 # ==========================================
 class RouterState(TypedDict):
@@ -34,6 +56,7 @@ class RouterState(TypedDict):
     reason:                  Optional[str]
     response:                Optional[str]
     agent_used:              Optional[str]
+    products:                Optional[list]
     langfuse_trace_id:       Optional[str]
     langfuse_parent_span_id: Optional[str]
 
@@ -49,9 +72,24 @@ def intent_router(state: RouterState) -> RouterState:
     message   = state.get("message", "")
     history   = state.get("history", [])
 
+    # ── Pre-check: pending support context ──
+    # If the support agent previously asked for an order ID and the user
+    # is now providing one, skip the LLM and force-route to support.
+    if _has_pending_support_context(history):
+        order_id_in_message = re.search(r'ORD-[A-Z0-9-]+', message.upper())
+        if order_id_in_message:
+            logger.info(
+                "Intent Router: pending support context detected + order ID provided — "
+                "bypassing LLM, routing to support_query"
+            )
+            state["intent"]     = "support_query"
+            state["confidence"] = "1.0"
+            state["reason"]     = "User providing order ID in response to pending support request"
+            return state
+
     history_text = "\n".join([
         f"{m['role'].upper()}: {m['content']}"
-        for m in history[-3:]
+        for m in history[-6:]
     ]) if history else "No previous conversation"
 
     fallback_prompt = f"""You are an intent classifier for an e-commerce customer support system.
@@ -72,7 +110,7 @@ User message: "{message}"
 Respond ONLY with a JSON object. No explanation.
 {{
   "intent": "order_query or product_query or support_query or unknown",
-  "confidence": "high or medium or low",
+  "confidence": 0.0 to 1.0,
   "reason": "one sentence explaining why"
 }}"""
 
@@ -111,13 +149,13 @@ Respond ONLY with a JSON object. No explanation.
         match = re.search(r'\{.*\}', text, re.DOTALL)
         result = json.loads(match.group()) if match else {
             "intent":     "unknown",
-            "confidence": "low",
+            "confidence": 0.0,
             "reason":     "Could not classify intent"
         }
     except Exception:
         result = {
             "intent":     "unknown",
-            "confidence": "low",
+            "confidence": 0.0,
             "reason":     "Could not classify intent"
         }
 
@@ -143,13 +181,14 @@ def route_to_agent(state: RouterState) -> str:
         return "fallback_response"
 
     
+    _STRING_CONFIDENCE = {"high": 1.0, "medium": 0.5, "low": 0.2}
     try:
         confidence_score = float(confidence)
     except (ValueError, TypeError):
-        confidence_score = 0.5
+        confidence_score = _STRING_CONFIDENCE.get(str(confidence).lower(), 0.5)
 
-    if confidence_score < 0.7:
-        return "ask_clarification"
+    if confidence_score < settings.intent_confidence_threshold:
+        return "ask_clarification"  
 
     if not is_authenticated and intent != "product_query":
         return "access_denied"
@@ -222,6 +261,7 @@ def run_product_agent(state: RouterState) -> RouterState:
     })
 
     state["response"]   = result.get("response", "")
+    state["products"]   = result.get("products", None)
     state["agent_used"] = "product_agent"
 
     if span:

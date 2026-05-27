@@ -35,13 +35,14 @@ class ChatResponse(BaseModel):
     """
     Every response returned from FastAPI to the frontend.
     """
-    response:         str
-    session_id:       str
-    user_id:          str
-    agent_used:       str
-    intent:           Optional[str]  = None
+    response:          str
+    session_id:        str
+    user_id:           str
+    agent_used:        str
+    intent:            Optional[str]  = None
     intent_confidence: Optional[Union[str, float]]
-    is_authenticated: bool           = False
+    is_authenticated:  bool           = False
+    products:          Optional[list] = None
 
 
 class HealthResponse(BaseModel):

@@ -160,12 +160,13 @@ def compute_score(
         })
 
     # Sort by final score — LLM ranking preserved via position_bonus
+    # Return however many in-stock products exist (up to 3), not a fixed 3
     in_stock = [p for p in enriched if p.get("in_stock", True)]
-    top_3    = sorted(in_stock, key=lambda x: x["score"], reverse=True)[:3]
-    state["final_recommendations"] = top_3
+    top_n    = sorted(in_stock, key=lambda x: x["score"], reverse=True)[:9]
+    state["final_recommendations"] = top_n
 
     if span:
-        end_span(span, {"top_recommendations": len(top_3)})
+        end_span(span, {"top_recommendations": len(top_n)})
 
     return state
 
