@@ -2,6 +2,7 @@
 
 from pydantic import BaseModel, Field
 from typing import Optional
+from typing import Optional, Union
 
 
 # ==========================================
@@ -39,7 +40,7 @@ class ChatResponse(BaseModel):
     user_id:          str
     agent_used:       str
     intent:           Optional[str]  = None
-    intent_confidence: Optional[str] = None
+    intent_confidence: Optional[Union[str, float]]
     is_authenticated: bool           = False
 
 

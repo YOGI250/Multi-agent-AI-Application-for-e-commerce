@@ -143,8 +143,12 @@ def route_to_agent(state: RouterState) -> str:
         return "fallback_response"
 
     
-    # Low or medium confidence — ask user to clarify rather than guess
-    if confidence in ("low", "medium"):
+    try:
+        confidence_score = float(confidence)
+    except (ValueError, TypeError):
+        confidence_score = 0.5
+
+    if confidence_score < 0.7:
         return "ask_clarification"
 
     if not is_authenticated and intent != "product_query":
