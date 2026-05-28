@@ -127,33 +127,6 @@ def search_products(filters: dict) -> list:
         db.close()
 
 
-def get_ratings(product_ids: list) -> dict:
-    """
-    Returns rating and rating_count for a list
-    of product IDs.
-    Called by fetch_ratings_tool inside
-    product_enrichment subgraph.
-    """
-    db = SessionLocal()
-    try:
-        products = db.query(Product).filter(
-            Product.product_id.in_(product_ids)
-        ).all()
-
-        return {
-            p.product_id: {
-                "rating":       float(p.rating) if p.rating else 0,
-                "rating_count": p.rating_count or 0
-            }
-            for p in products
-        }
-
-    except Exception as e:
-        logger.error(f"Error fetching ratings: {e}")
-        return {}
-    finally:
-        db.close()
-
 
 def get_specs(product_ids: list) -> dict:
     """

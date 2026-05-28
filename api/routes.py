@@ -11,11 +11,12 @@ from sqlalchemy.orm import Session
 from langfuse_helpers.tracing import create_trace, flush
 from langfuse_helpers.scoring import score_response
 from monitoring.metrics import record_request_metrics, record_error
+from utils.memory import merge_context
 
 from api.schemas import ChatRequest, ChatResponse, HealthResponse
 from agents.intent_router import intent_router_graph
 from database.connection import SessionLocal, test_connection
-from database.models import User, Session as SessionModel, Message
+from database.models import User, Session as SessionModel, Message, Order
 from config.settings import settings
 from fastapi import BackgroundTasks
 from google.oauth2 import id_token
@@ -34,6 +35,7 @@ router = APIRouter()
 def create_sample_orders_for_user(user_id: str, db: Session):
     
 
+    today = datetime.today().date()
     sample_orders = [
         {
             "order_id":          f"ORD-{user_id[-6:].upper()}-001",
@@ -41,8 +43,8 @@ def create_sample_orders_for_user(user_id: str, db: Session):
             "carrier":           "DTDC",
             "tracking_number":   "DT251092059",
             "order_value":       1299.0,
-            "expected_delivery": "2026-05-10",
-            "order_date":        "2026-05-01",
+            "expected_delivery": str(today - timedelta(days=18)),
+            "order_date":        str(today - timedelta(days=27)),
             "items":             "Wireless Headphones"
         },
         {
@@ -51,8 +53,8 @@ def create_sample_orders_for_user(user_id: str, db: Session):
             "carrier":           "BlueDart",
             "tracking_number":   "BD123456789",
             "order_value":       2500.0,
-            "expected_delivery": "2026-05-28",
-            "order_date":        "2026-05-22",
+            "expected_delivery": str(today + timedelta(days=3)),
+            "order_date":        str(today - timedelta(days=6)),
             "items":             "Laptop Stand"
         },
         {
@@ -61,8 +63,8 @@ def create_sample_orders_for_user(user_id: str, db: Session):
             "carrier":           "FedEx",
             "tracking_number":   "FX987654321",
             "order_value":       499.0,
-            "expected_delivery": "2026-05-30",
-            "order_date":        "2026-05-23",
+            "expected_delivery": str(today + timedelta(days=5)),
+            "order_date":        str(today - timedelta(days=2)),
             "items":             "USB Hub"
         },
         {
@@ -71,8 +73,8 @@ def create_sample_orders_for_user(user_id: str, db: Session):
             "carrier":           "Ekart",
             "tracking_number":   "EK112233445",
             "order_value":       899.0,
-            "expected_delivery": "2026-05-20",
-            "order_date":        "2026-05-15",
+            "expected_delivery": str(today - timedelta(days=3)),
+            "order_date":        str(today - timedelta(days=13)),
             "items":             "Mechanical Keyboard"
         },
         {
@@ -81,8 +83,8 @@ def create_sample_orders_for_user(user_id: str, db: Session):
             "carrier":           "DHL",
             "tracking_number":   "DL941982162",
             "order_value":       350.0,
-            "expected_delivery": "2026-05-05",
-            "order_date":        "2026-05-01",
+            "expected_delivery": str(today - timedelta(days=23)),
+            "order_date":        str(today - timedelta(days=27)),
             "items":             "Phone Case"
         }
     ]
@@ -241,9 +243,10 @@ def resolve_session(
                 ]
 
                 return {
-                    "session_id": session_id,
-                    "history":    history,
-                    "is_new":     False
+                    "session_id":      session_id,
+                    "history":         history,
+                    "is_new":          False,
+                    "session_context": session.session_context or {}
                 }
 
     new_session_id = str(uuid.uuid4())
@@ -264,9 +267,10 @@ def resolve_session(
         extra={"session_id": new_session_id, "agent_used": "unknown", "request_id": ""}
     )
     return {
-        "session_id": new_session_id,
-        "history":    [],
-        "is_new":     True
+        "session_id":      new_session_id,
+        "history":         [],
+        "is_new":          True,
+        "session_context": {}
     }
 
 
@@ -324,6 +328,24 @@ def save_messages(
 
 
 # ==========================================
+# HELPER — persist updated session context
+# ==========================================
+def update_session_context(
+    session_id:  str,
+    new_facts:   dict,
+    db:          Session
+):
+    session = db.query(SessionModel).filter(
+        SessionModel.session_id == session_id
+    ).first()
+    if session and new_facts:
+        session.session_context = merge_context(
+            session.session_context or {}, new_facts
+        )
+        db.commit()
+
+
+# ==========================================
 # POST /chat
 # ==========================================
 @router.post("/chat", response_model=ChatResponse)
@@ -348,9 +370,10 @@ async def chat(
         is_authenticated = user_info["is_authenticated"]
 
         # 2. resolve session
-        session_info = resolve_session(x_session_id, user_id, db)
-        session_id   = session_info["session_id"]
-        history      = session_info["history"]
+        session_info    = resolve_session(x_session_id, user_id, db)
+        session_id      = session_info["session_id"]
+        history         = session_info["history"]
+        session_context = session_info.get("session_context", {})
 
         logger.info(
             f"Request: user={user_id} | session={session_id} | auth={is_authenticated}",
@@ -376,17 +399,22 @@ async def chat(
             "session_id":              session_id,
             "history":                 history,
             "is_authenticated":        is_authenticated,
+            "session_context":         session_context,
             "langfuse_trace_id":       trace.id,
             "langfuse_parent_span_id": None
         })
 
-        response   = result.get("response", "")
-        agent_used = result.get("agent_used", "unknown")
-        intent     = result.get("intent")
-        confidence = result.get("confidence")
-        products   = result.get("products", None)
+        response         = result.get("response", "")
+        agent_used       = result.get("agent_used", "unknown")
+        intent           = result.get("intent")
+        confidence       = result.get("confidence")
+        products         = result.get("products", None)
+        updated_context  = result.get("session_context", {})
 
-        # 5. score response
+        # 5. persist updated session context
+        update_session_context(session_id, updated_context, db)
+
+        # 6. score response
         score_response(
             trace_id   = trace.id,
             agent_used = agent_used,
@@ -394,24 +422,24 @@ async def chat(
             response   = response
         )
 
-        # 6. update trace output
+        # 7. update trace output
         trace.update(output={"response": response, "agent_used": agent_used})
 
-        # 7. flush LangFuse
+        # 8. flush LangFuse
         flush()
 
-        # 8. calculate latency
+        # 9. calculate latency
         latency_seconds = time.time() - start_time
         latency_ms      = int(latency_seconds * 1000)
 
-        # 9. record Prometheus metrics
+        # 10. record Prometheus metrics
         record_request_metrics(
             agent_used      = agent_used,
             status          = "success",
             latency_seconds = latency_seconds
         )
 
-        # 10. record token usage in background — non-blocking
+        # 11. record token usage in background — non-blocking
         def record_tokens_background(tid: str, aused: str):
             import time as _time
             _time.sleep(3)

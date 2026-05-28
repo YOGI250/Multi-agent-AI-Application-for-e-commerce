@@ -15,6 +15,7 @@ from langfuse_helpers.tracing import (
     get_prompt, compile_prompt,
     extract_token_usage
 )
+from utils.memory import merge_context, format_context, format_recent_messages
 
 logger = logging.getLogger(__name__)
 
@@ -48,6 +49,7 @@ class ProductAgentState(TypedDict):
     products:                Optional[list]   # all enriched products for frontend pagination
     partial_match:           Optional[bool]   # True when results exist but don't fully match request
     response:                Optional[str]
+    session_context:         Optional[dict]
     langfuse_trace_id:       Optional[str]
     langfuse_parent_span_id: Optional[str]
 
@@ -68,9 +70,23 @@ def extract_preferences(state: ProductAgentState) -> ProductAgentState:
         logger.info(f"Using broadened filters: {filters}")
         return state
 
+    ctx         = state.get("session_context") or {}
+    history     = state.get("history", [])
+    context_str = format_context(ctx)
+    recent_msgs = format_recent_messages(history, n=2)
+
     fallback_prompt = f"""Extract product search filters from this message.
 
+Session context: {context_str}
+Recent messages:
+{recent_msgs}
+
 Message: "{message}"
+
+IMPORTANT — If the message is a follow-up (e.g. "any cheaper options?", "any with better rating?",
+"show me more", "different brand?"), look at recent messages to identify the product type that
+was previously searched and carry it forward into the filters.
+
 
 IMPORTANT — Only use these exact category names:
 - Electronics
@@ -303,13 +319,8 @@ Maximum {settings.product_recommendation_count} products. No explanation."""
         if match:
             indices = json.loads(match.group())
             if not indices:
-                # LLM found no relevant products — use top search results as partial matches
-                # so users see what IS available rather than a blank "not found"
-                if products:
-                    state["partial_match"]   = True
-                    state["ranked_products"] = products[:settings.product_recommendation_count]
-                else:
-                    state["ranked_products"] = []
+                # LLM judged all products as entirely unrelated — honour that
+                state["ranked_products"] = []
             else:
                 ranked = []
                 for idx in indices:
@@ -397,12 +408,25 @@ def format_recommendations(
 
     if not products:
         state["response"] = (
-            "I couldn't find any products matching your request. "
-            "Try searching with a different product type, brand, or price range."
-        )
+        f"I couldn't find any products matching \"{message}\".\n\n"
+        f"Here's what we currently have available:\n\n"
+        f"  -Computers & Accessories\n"
+        f"    laptops, keyboards, mice, cables, chargers, USB hubs, webcams\n\n"
+        f"  -Electronics\n"
+        f"    headphones, speakers, smartwatches, cameras\n\n"
+        f"  -Home & Kitchen\n"
+        f"    fans, mixers, kettles, irons, geysers, vacuum cleaners, air purifiers\n\n"
+        f"  -Office Products\n"
+        f"    pens, notebooks, desk organizers\n\n"
+        f"  -Car & Motorbike\n"
+        f"    car accessories\n\n"
+        f"Try searching within one of these categories."
+    )
         if span:
             end_span(span, {"response_type": "no_products"})
         return state
+
+    ctx = state.get("session_context") or {}
 
     partial = state.get("partial_match", False)
 
@@ -456,6 +480,10 @@ def format_recommendations(
         )
 
     state["response"] = "\n".join(lines)
+    state["session_context"] = merge_context(ctx, {
+        "topic":          "product_query",
+        "products_shown": [p["name"][:50] for p in products[:3]]
+    })
 
     if span:
         end_span(span, {"response_type": "recommendations"})
@@ -481,11 +509,21 @@ def no_results_response(
         input_data            = {"filters": state.get("filters", {})}
     ) if trace_id else None
 
+    original_query = state.get("message", "your request")
     state["response"] = (
-        "I could not find any products matching your request "
-        "even after broadening the search. "
-        "Try using a different category or removing specific "
-        "brand or price requirements."
+        f"I couldn't find any products matching \"{original_query}\".\n\n"
+        f"Here's what we currently have available:\n\n"
+        f"  -Computers & Accessories\n"
+        f"    laptops, keyboards, mice, cables, chargers, USB hubs, webcams\n\n"
+        f"  -Electronics\n"
+        f"    headphones, speakers, smartwatches, cameras\n\n"
+        f"  -Home & Kitchen\n"
+        f"    fans, mixers, kettles, irons, geysers, vacuum cleaners, air purifiers\n\n"
+        f"  -Office Products\n"
+        f"    pens, notebooks, desk organizers\n\n"
+        f"  -Car & Motorbike\n"
+        f"    car accessories\n\n"
+        f"Try searching within one of these categories."
     )
 
     if span:

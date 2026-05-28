@@ -47,67 +47,46 @@ def get_policy(issue_type: str) -> Optional[dict]:
 
 def get_user_complaint_history(user_id: str, order_id: Optional[str] = None) -> dict:
     """
-    Returns complaint history scoped to a specific order.
-    A user is a repeat complainant only if the same order
-    already has an open unresolved ticket — not based on
-    total lifetime complaint count.
-    A user who complains about 10 different orders is just
-    an active customer. A user coming back about the SAME
-    unresolved order is the one who needs escalation.
+    Checks if an open ticket already exists for this user + order.
+    Returns existing_ticket_id, is_duplicate, and days_open.
+    days_open is how long the existing ticket has been open.
     """
     db = SessionLocal()
     try:
         query = db.query(SupportTicket).filter(
-            SupportTicket.user_id == user_id
+            SupportTicket.user_id == user_id,
+            SupportTicket.status  == "open"
         )
         if order_id:
             query = query.filter(SupportTicket.order_id == order_id)
 
-        tickets = query.order_by(SupportTicket.created_at.desc()).all()
+        ticket = query.first()
 
-        total_complaints = len(tickets)
-
-        recent_tickets = [
-            {
-                "ticket_id":  t.ticket_id,
-                "issue_type": t.issue_type,
-                "priority":   t.priority,
-                "status":     t.status,
-                "created_at": str(t.created_at),
-                "order_id":   t.order_id
+        if ticket:
+            days_open = (datetime.utcnow() - ticket.created_at).days
+            logger.info(
+                f"Open ticket found: {ticket.ticket_id} for user {user_id}, "
+                f"days_open={days_open}"
+            )
+            return {
+                "existing_ticket_id": ticket.ticket_id,
+                "is_duplicate":       True,
+                "days_open":          days_open
             }
-            for t in tickets[:5]
-        ]
 
-        # Repeat means this specific order has an existing open ticket
-        has_open_ticket = any(
-            t.status in ("open", "in_progress")
-            for t in tickets
-        )
-        is_repeat_complainant = bool(order_id and has_open_ticket)
-
-        logger.info(
-            f"User {user_id} has {total_complaints} complaints "
-            f"{'for order ' + order_id if order_id else 'total'}. "
-            f"Repeat: {is_repeat_complainant}"
-        )
-
+        logger.info(f"No open ticket for user {user_id} order {order_id}")
         return {
-            "user_id":               user_id,
-            "order_id":              order_id,
-            "total_complaints":      total_complaints,
-            "recent_tickets":        recent_tickets,
-            "is_repeat_complainant": is_repeat_complainant
+            "existing_ticket_id": None,
+            "is_duplicate":       False,
+            "days_open":          0
         }
 
     except Exception as e:
         logger.error(f"Error fetching complaint history for {user_id}: {e}")
         return {
-            "user_id":               user_id,
-            "order_id":              order_id,
-            "total_complaints":      0,
-            "recent_tickets":        [],
-            "is_repeat_complainant": False
+            "existing_ticket_id": None,
+            "is_duplicate":       False,
+            "days_open":          0
         }
     finally:
         db.close()

@@ -15,6 +15,7 @@ from langfuse_helpers.tracing import (
     get_prompt, compile_prompt,
     extract_token_usage
 )
+from utils.memory import format_context, format_recent_messages, merge_context
 
 logger = logging.getLogger(__name__)
 
@@ -31,12 +32,15 @@ class SupportAgentState(TypedDict):
     order_id:                Optional[str]
     issue_details:           Optional[str]
     severity:                Optional[str]
+    order_status:            Optional[str]
     policy_text:             Optional[str]
     ticket_id:               Optional[str]
     ticket_created:          Optional[bool]
-    priority:                Optional[str]
+    is_duplicate:            Optional[bool]
+    days_open:               Optional[int]
     resolution:              Optional[str]
     response:                Optional[str]
+    session_context:         Optional[dict]
     langfuse_trace_id:       Optional[str]
     langfuse_parent_span_id: Optional[str]
 
@@ -52,16 +56,22 @@ def classify_issue(state: SupportAgentState) -> SupportAgentState:
     message   = state.get("message", "")
     history   = state.get("history", [])
 
-    history_text = "\n".join([
-        f"{m['role'].upper()}: {m['content']}"
-        for m in history[-8:]
-    ]) if history else "No previous conversation"
+    ctx         = state.get("session_context") or {}
+    context_str = format_context(ctx)
+    recent_msgs = format_recent_messages(history, n=2)
+
+    order_statuses = ctx.get("order_statuses", {})
+    order_hint = ""
+    if order_statuses:
+        lines = [f"  {status}: {', '.join(ids)}" for status, ids in order_statuses.items()]
+        order_hint = "Known orders by status (use to resolve references like 'my delivered order'):\n" + "\n".join(lines) + "\n\n"
 
     fallback_prompt = f"""You are a customer support classifier.
 Classify the customer complaint and extract key details.
 
-Previous conversation:
-{history_text}
+Session context: {context_str}
+{order_hint}Recent messages:
+{recent_msgs}
 
 Customer message: "{message}"
 
@@ -72,10 +82,15 @@ Issue types available:
 - cancellation: customer wants to cancel an order
 - general_query: general question, not a complaint
 
+For order_id: if the customer says "my delivered order", "my delayed order", etc. and there is
+exactly ONE order with that status in the known orders above, use that order_id.
+If there are multiple, set order_id to null (will ask user to clarify).
+Only extract order_id from the current message or unambiguous context — never guess.
+
 Respond ONLY with a JSON object. No explanation.
 {{
   "issue_type": "one of the issue types above",
-  "order_id": "order ID only if explicitly mentioned in the CURRENT customer message, not from history. If the history shows an order was already confirmed as not found, set to null. Otherwise null.",
+  "order_id": "resolved order ID or null",
   "details": "brief one sentence description of the issue"
 }}"""
 
@@ -90,7 +105,7 @@ Respond ONLY with a JSON object. No explanation.
         prompt_text = compile_prompt(
             prompt_text,
             message = message,
-            history = history_text
+            history = recent_msgs
         )
 
     llm      = ChatGroq(api_key=settings.groq_api_key, model=settings.llm_model_name)
@@ -128,9 +143,15 @@ Respond ONLY with a JSON object. No explanation.
     state["issue_type"]    = result.get("issue_type", "general_query")
     state["order_id"]      = result.get("order_id")
     state["issue_details"] = result.get("details", message)
-    state["ticket_id"]     = None
+    state["ticket_id"]      = None
     state["ticket_created"] = False
-    state["priority"]      = None
+    state["is_duplicate"]   = False
+    state["days_open"]      = 0
+    state["session_context"] = merge_context(ctx, {
+        "topic":      "support_query",
+        "issue_type": state["issue_type"],
+        "order_id":   state["order_id"]
+    })
 
     return state
 
@@ -194,9 +215,10 @@ def assess_severity(state: SupportAgentState) -> SupportAgentState:
         input_data            = {"issue_type": issue_type, "order_id": order_id}
     ) if trace_id else None
 
-    # Fetch order value and validate ownership
+    # Fetch order value, status, and validate ownership
     order_value = 0
     user_id = state.get("user_id")
+    state["order_status"] = None
     if order_id:
         try:
             from database.connection import SessionLocal
@@ -208,6 +230,7 @@ def assess_severity(state: SupportAgentState) -> SupportAgentState:
             ).first()
             if order:
                 order_value = float(order.order_value or 0)
+                state["order_status"] = str(order.status or "unknown").lower()
             else:
                 # order not found or doesn't belong to this user
                 state["order_id"] = None
@@ -316,13 +339,15 @@ def escalation_handler_node(
 
     state["ticket_id"]      = result.get("ticket_id")
     state["ticket_created"] = result.get("ticket_created", False)
-    state["priority"]       = result.get("ticket_priority")
+    state["is_duplicate"]   = result.get("is_duplicate", False)
+    state["days_open"]      = result.get("days_open", 0)
 
     if span:
         end_span(span, {
             "ticket_id":      state["ticket_id"],
             "ticket_created": state["ticket_created"],
-            "priority":       state["priority"]
+            "is_duplicate":   state["is_duplicate"],
+            "days_open":      state["days_open"]
         })
 
     return state
@@ -342,39 +367,102 @@ def draft_resolution(
     issue_type     = state.get("issue_type", "")
     issue_details  = state.get("issue_details", "")
     order_id       = state.get("order_id")
+    order_status   = state.get("order_status") or "unknown"
     ticket_id      = state.get("ticket_id")
     ticket_created = state.get("ticket_created", False)
-    priority       = state.get("priority")
+    is_duplicate   = state.get("is_duplicate", False)
+    days_open      = state.get("days_open", 0)
     history        = state.get("history", [])
 
-    history_text = "\n".join([
-        f"{m['role'].upper()}: {m['content']}"
-        for m in history[-4:]
-    ]) if history else "No previous conversation"
+    ctx         = state.get("session_context") or {}
+    context_str = format_context(ctx)
+    recent_msgs = format_recent_messages(history, n=2)
 
-    ticket_info = (
-        f"A support ticket has been created. "
-        f"Ticket ID: {ticket_id} | Priority: {priority}"
-    ) if ticket_created and ticket_id else "No ticket was created for this query."
+    if ticket_created and ticket_id:
+        ticket_info = f"A new support ticket has been created. Ticket ID: {ticket_id}"
+    elif ticket_id and is_duplicate:
+        if days_open == 0:
+            ticket_info = (
+                f"DUPLICATE COMPLAINT. Existing open ticket: {ticket_id}. "
+                f"Ticket was created today. "
+                f"INSTRUCTION: Tell customer their ticket was recently created "
+                f"and to allow 48 hours. Do NOT say a new ticket was created."
+            )
+        elif 1 <= days_open <= 3:
+            ticket_info = (
+                f"DUPLICATE COMPLAINT. Existing open ticket: {ticket_id}. "
+                f"Ticket has been open for {days_open} days. "
+                f"INSTRUCTION: Tell customer ticket is being actively reviewed "
+                f"and update within 24 hours. Do NOT say a new ticket was created."
+            )
+        else:
+            ticket_info = (
+                f"DUPLICATE COMPLAINT. Existing open ticket: {ticket_id}. "
+                f"Ticket has been open for {days_open} days — OVERDUE. "
+                f"INSTRUCTION: Sincerely apologise for the delay. Say ticket has been "
+                f"open {days_open} days and is past resolution deadline. Say it has been "
+                f"escalated to senior team. Do NOT give standard timelines. "
+                f"Start response with a strong apology."
+            )
+    else:
+        ticket_info = "No ticket was created for this query."
+
+    # Pre-compute the exact duplicate response so the LLM cannot deviate from it
+    if is_duplicate and ticket_id:
+        if days_open == 0:
+            duplicate_instruction = (
+                f"This is a duplicate complaint — the user already has an open ticket.\n"
+                f"Use EXACTLY this response (do not add or change anything):\n"
+                f"\"Your ticket {ticket_id} was recently created. Our team will contact you "
+                f"within 48 hours. Please allow us time to resolve this.\""
+            )
+        elif 1 <= days_open <= 3:
+            duplicate_instruction = (
+                f"This is a duplicate complaint — ticket has been open for {days_open} day(s).\n"
+                f"Use EXACTLY this response (do not add or change anything):\n"
+                f"\"Your ticket {ticket_id} is being actively reviewed. We understand your "
+                f"concern and will update you within 24 hours.\""
+            )
+        else:
+            duplicate_instruction = (
+                f"This is a duplicate complaint — ticket has been open for {days_open} days (OVERDUE).\n"
+                f"Use EXACTLY this response (do not add or change anything):\n"
+                f"\"We sincerely apologise for the delay. Your ticket {ticket_id} has been open "
+                f"for {days_open} days and is past our resolution deadline. This has been "
+                f"escalated to our senior team.\""
+            )
+    else:
+        duplicate_instruction = (
+            "This is a new complaint. Provide a standard empathetic response referencing "
+            "the policy and ticket ID."
+        )
 
     fallback_prompt = f"""You are a helpful and empathetic customer support agent for an e-commerce store.
 Write a resolution response for this customer complaint.
 
-Previous conversation:
-{history_text}
+Session context: {context_str}
+Recent messages:
+{recent_msgs}
 
 Issue type: {issue_type}
 Issue details: {issue_details}
 Order ID: {order_id if order_id else "Not provided"}
+Actual order status in our system: {order_status}
 
 Company policy for this issue:
 {policy_text}
 
 Ticket information: {ticket_info}
 
+Duplicate complaint handling:
+{duplicate_instruction}
+
 Instructions:
 - Be empathetic and apologetic where needed
 - Reference the actual policy in your response
+- IMPORTANT: Apply the policy strictly based on the actual order status above.
+  If the order is "delivered" or "cancelled", do NOT say it can be cancelled or
+  that you will proceed with cancellation — state clearly it is not eligible.
 - If ticket_info says a ticket was created, mention the ticket ID
 - If no ticket was created, do NOT mention any ticket or ticket ID
 - Sign off as: Customer Support Team
@@ -390,7 +478,7 @@ Instructions:
     if "{{issue_type}}" in prompt_text:
         prompt_text = compile_prompt(
             prompt_text,
-            history       = history_text,
+            history       = recent_msgs,
             issue_type    = issue_type,
             issue_details = issue_details,
             order_id      = order_id or "Not provided",
@@ -415,7 +503,13 @@ Instructions:
             prompt_version        = prompt_version
         )
 
-    state["resolution"] = response.content
+    state["resolution"]    = response.content
+    state["session_context"] = merge_context(ctx, {
+        "topic":      "support_query",
+        "issue_type": issue_type,
+        "order_id":   order_id,
+        "ticket_id":  ticket_id if ticket_created else None
+    })
     return state
 
 

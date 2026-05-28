@@ -75,32 +75,3 @@ def get_tracking(tracking_number: str) -> Optional[dict]:
         return None
     finally:
         db.close()
-
-
-def get_orders_by_user(user_id: str) -> list:
-    """
-    Returns all orders placed by a user.
-    Used when user does not provide an order ID.
-    """
-    db = SessionLocal()
-    try:
-        orders = db.query(Order).filter(
-            Order.user_id == user_id
-        ).order_by(Order.order_date.desc()).all()
-
-        return [
-            {
-                "order_id":    o.order_id,
-                "status":      o.status,
-                "order_date":  str(o.order_date),
-                "order_value": float(o.order_value),
-                "items":       o.items
-            }
-            for o in orders
-        ]
-
-    except Exception as e:
-        logger.error(f"Error fetching orders for user {user_id}: {e}")
-        return []
-    finally:
-        db.close()

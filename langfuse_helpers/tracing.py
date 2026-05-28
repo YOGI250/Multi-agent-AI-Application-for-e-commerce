@@ -273,7 +273,6 @@ def get_trace_token_usage(trace_id: str) -> dict:
             "output": getattr(data, "completion_tokens", None) or getattr(data, "output_tokens", None) or 0,
             "total":  getattr(data, "total_tokens",      None) or 0
         }
-        return {"input": 0, "output": 0, "total": 0}
     except Exception as e:
         logger.warning(f"Could not fetch trace token usage: {e}")
         return {"input": 0, "output": 0, "total": 0}

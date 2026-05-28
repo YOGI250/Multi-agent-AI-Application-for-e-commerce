@@ -3,7 +3,7 @@
 import logging
 from typing import TypedDict, Optional
 from langgraph.graph import StateGraph, END
-from tools.product_tools import fetch_ratings_tool, fetch_specs_tool
+from tools.product_tools import fetch_specs_tool
 from langfuse_helpers.tracing import create_span, end_span
 
 logger = logging.getLogger(__name__)

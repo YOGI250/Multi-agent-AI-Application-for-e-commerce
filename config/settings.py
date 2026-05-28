@@ -121,7 +121,7 @@ class Settings(BaseSettings):
     # SUPPORT AGENT
     # ==========================================
     support_high_value_threshold: float = Field(
-        default=10000.0, env="SUPPORT_HIGH_VALUE_THRESHOLD"
+        default=1500.0, env="SUPPORT_HIGH_VALUE_THRESHOLD"
     )
 
     # ==========================================

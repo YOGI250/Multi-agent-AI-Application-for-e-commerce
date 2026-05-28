@@ -17,9 +17,8 @@ class EscalationState(TypedDict):
     issue_type:              str
     order_id:                Optional[str]
     severity:                str
-    user_history:            Optional[dict]
-    is_repeat_complainant:   Optional[bool]
-    ticket_priority:         Optional[str]
+    is_duplicate:            Optional[bool]
+    days_open:               Optional[int]
     ticket_id:               Optional[str]
     ticket_created:          Optional[bool]
     langfuse_trace_id:       Optional[str]
@@ -39,57 +38,26 @@ def check_user_history_node(
         trace_id              = trace_id,
         name                  = "check_user_history",
         parent_observation_id = parent_id,
-        input_data            = {"user_id": user_id}
+        input_data            = {"user_id": user_id, "order_id": state.get("order_id")}
     ) if trace_id else None
 
     history = check_user_history_tool.invoke({
         "user_id":  user_id,
         "order_id": state.get("order_id")
     })
-    state["user_history"]          = history
-    state["is_repeat_complainant"] = history.get(
-        "is_repeat_complainant", False
-    )
+
+    state["is_duplicate"] = history.get("is_duplicate", False)
+    state["days_open"]    = history.get("days_open", 0)
+
+    # Pre-populate ticket_id so create_ticket_node can use it without a second DB hit
+    if history.get("is_duplicate"):
+        state["ticket_id"] = history.get("existing_ticket_id")
 
     if span:
         end_span(span, {
-            "total_complaints":    history.get("total_complaints", 0),
-            "is_repeat":           state["is_repeat_complainant"]
+            "is_duplicate": state["is_duplicate"],
+            "days_open":    state["days_open"]
         })
-
-    return state
-
-
-def assign_priority(state: EscalationState) -> EscalationState:
-    logger.info("Subgraph node: assign_priority")
-
-    trace_id  = state.get("langfuse_trace_id")
-    parent_id = state.get("langfuse_parent_span_id")
-    severity  = state.get("severity", "LOW")
-    is_repeat = state.get("is_repeat_complainant", False)
-
-    span = create_span(
-        trace_id              = trace_id,
-        name                  = "assign_priority",
-        parent_observation_id = parent_id,
-        input_data            = {"severity": severity, "is_repeat": is_repeat}
-    ) if trace_id else None
-
-    if severity == "HIGH" and is_repeat:
-        priority = "URGENT"
-    elif severity == "HIGH":
-        priority = "HIGH"
-    elif severity == "MEDIUM" and is_repeat:
-        priority = "HIGH"
-    elif severity == "MEDIUM":
-        priority = "MEDIUM"
-    else:
-        priority = "LOW"
-
-    state["ticket_priority"] = priority
-
-    if span:
-        end_span(span, {"priority": priority})
 
     return state
 
@@ -105,30 +73,36 @@ def create_ticket_node(state: EscalationState) -> EscalationState:
         name                  = "create_ticket",
         parent_observation_id = parent_id,
         input_data            = {
-            "user_id":    state.get("user_id"),
-            "issue_type": state.get("issue_type"),
-            "priority":   state.get("ticket_priority")
+            "user_id":      state.get("user_id"),
+            "issue_type":   state.get("issue_type"),
+            "is_duplicate": state.get("is_duplicate")
         }
     ) if trace_id else None
 
-    ticket = create_ticket_tool.invoke({
-        "user_id":    state.get("user_id"),
-        "issue_type": state.get("issue_type"),
-        "priority":   state.get("ticket_priority"),
-        "order_id":   state.get("order_id")
-    })
-
-    if ticket:
-        state["ticket_id"]      = ticket.get("ticket_id")
-        state["ticket_created"] = True
-    else:
-        state["ticket_id"]      = None
+    if state.get("is_duplicate"):
+        # Ticket already open — do not create a second one
         state["ticket_created"] = False
+    else:
+        # New complaint — create ticket using severity directly as priority
+        ticket = create_ticket_tool.invoke({
+            "user_id":    state.get("user_id"),
+            "issue_type": state.get("issue_type"),
+            "priority":   state.get("severity"),
+            "order_id":   state.get("order_id")
+        })
+
+        if ticket:
+            state["ticket_id"]      = ticket.get("ticket_id")
+            state["ticket_created"] = True
+        else:
+            state["ticket_id"]      = None
+            state["ticket_created"] = False
 
     if span:
         end_span(span, {
-            "ticket_id":      state["ticket_id"],
-            "ticket_created": state["ticket_created"]
+            "ticket_id":      state.get("ticket_id"),
+            "ticket_created": state.get("ticket_created"),
+            "is_duplicate":   state.get("is_duplicate")
         })
 
     return state
@@ -138,12 +112,10 @@ def build_escalation_handler_subgraph():
     graph = StateGraph(EscalationState)
 
     graph.add_node("check_user_history", check_user_history_node)
-    graph.add_node("assign_priority",    assign_priority)
     graph.add_node("create_ticket",      create_ticket_node)
 
     graph.set_entry_point("check_user_history")
-    graph.add_edge("check_user_history", "assign_priority")
-    graph.add_edge("assign_priority",    "create_ticket")
+    graph.add_edge("check_user_history", "create_ticket")
     graph.add_edge("create_ticket",      END)
 
     return graph.compile()

@@ -4,7 +4,6 @@ import logging
 from langchain_core.tools import tool
 from services.mock_product_api import (
     search_products,
-    get_ratings,
     get_specs
 )
 
@@ -27,26 +26,6 @@ def search_products_tool(filters: dict) -> list:
     logger.info(f"search_products_tool found {len(results)} products")
     return results
 
-
-@tool
-def fetch_ratings_tool(product_ids: list) -> dict:
-    """
-    Fetches rating and rating_count for a list of product IDs.
-    Used by fetch_reviews node inside product_enrichment subgraph.
-    Returns dict of product_id to rating data.
-    """
-    logger.info(
-        f"Tool called: fetch_ratings_tool for "
-        f"{len(product_ids)} products"
-    )
-
-    results = get_ratings(product_ids)
-
-    logger.info(
-        f"fetch_ratings_tool returned ratings "
-        f"for {len(results)} products"
-    )
-    return results
 
 
 @tool

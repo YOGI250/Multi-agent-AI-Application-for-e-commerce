@@ -14,6 +14,7 @@ from langfuse_helpers.tracing import (
     create_generation, get_prompt,
     extract_token_usage
 )
+from utils.memory import format_context, format_recent_messages, merge_context
 
 logger = logging.getLogger(__name__)
 
@@ -32,6 +33,7 @@ class OrderAgentState(TypedDict):
     order_analysis:         Optional[dict]
     tracking_info:          Optional[dict]
     response:               Optional[str]
+    session_context:        Optional[dict]
     langfuse_trace_id:      Optional[str]
     langfuse_parent_span_id: Optional[str]
     all_orders:       Optional[list]
@@ -55,33 +57,58 @@ def validate_input(state: OrderAgentState) -> OrderAgentState:
         input_data            = {"message": state.get("message", "")}
     ) if trace_id else None
 
-    message = state.get("message", "").upper()
+    message     = state.get("message", "").upper()
+    msg_lower   = state.get("message", "").lower()
+    ctx         = state.get("session_context") or {}
+    order_statuses = ctx.get("order_statuses", {})
 
-    # check for specific order ID
+    # ── Step 1: explicit order ID in message ──
     match = re.search(r'ORD-[A-Z0-9-]+', message)
 
     if match:
-        state["order_id"]       = match.group()
-        state["order_id_found"] = True
+        state["order_id"]        = match.group()
+        state["order_id_found"]  = True
         state["show_all_orders"] = False
-    else:
-        # check if user wants to see all their orders
-        show_all_keywords = [
-    "MY ORDERS", "ALL ORDERS", "SHOW ORDERS",
-    "LIST ORDERS", "MY ORDER LIST", "WHAT ORDERS",
-    "DO I HAVE", "SHOW MY", "ALL MY",
-    "WHERE IS MY ORDER", "WHERE IS THE ORDER",
-    "CHECK MY ORDER", "MY ORDER STATUS",
-    "ORDER STATUS", "SHOW ME MY ORDER",
-    "WHAT IS MY ORDER", "TRACK MY ORDER"
-]
-        wants_all_orders = any(
-            keyword in message for keyword in show_all_keywords
-        )
 
-        state["order_id"]        = None
-        state["order_id_found"]  = wants_all_orders
-        state["show_all_orders"] = wants_all_orders
+    else:
+        # ── Step 2: status-based reference from session context ──
+        # e.g. "tell me about the delayed one" → resolve via stored statuses
+        resolved_id = None
+        for status, oids in order_statuses.items():
+            if status in msg_lower and len(oids) == 1:
+                resolved_id = oids[0]
+                break
+
+        if resolved_id:
+            state["order_id"]        = resolved_id
+            state["order_id_found"]  = True
+            state["show_all_orders"] = False
+
+        else:
+            # ── Step 3: keyword-based "show all orders" detection ──
+            show_all_keywords = [
+                "MY ORDERS", "ALL ORDERS", "SHOW ORDERS",
+                "LIST ORDERS", "MY ORDER LIST", "WHAT ORDERS",
+                "DO I HAVE", "SHOW MY", "ALL MY",
+                "WHERE IS MY ORDER", "WHERE IS THE ORDER",
+                "CHECK MY ORDER", "MY ORDER STATUS",
+                "ORDER STATUS", "SHOW ME MY ORDER",
+                "WHAT IS MY ORDER", "TRACK MY ORDER",
+                "HOW MANY", "HOW MANY ORDERS", "COUNT OF ORDERS",
+                "TOTAL ORDERS", "NUMBER OF ORDERS", "I PLACED",
+                "ORDERS I", "MANY ORDER"
+            ]
+            wants_all_orders = any(k in message for k in show_all_keywords)
+
+            # ── Step 4: session-context fallback ──
+            # If no keyword matched but we know we're in an order conversation,
+            # fetch all orders so the LLM can answer follow-up questions.
+            if not wants_all_orders and ctx.get("topic") == "order_query":
+                wants_all_orders = True
+
+            state["order_id"]        = None
+            state["order_id_found"]  = wants_all_orders
+            state["show_all_orders"] = wants_all_orders
 
     if span:
         end_span(span, {
@@ -312,18 +339,17 @@ def generate_response(state: OrderAgentState) -> OrderAgentState:
 
     from langfuse_helpers.tracing import compile_prompt
 
-    trace_id  = state.get("langfuse_trace_id")
-    parent_id = state.get("langfuse_parent_span_id")
-    order     = state.get("order_data", {})
-    analysis  = state.get("order_analysis", {})
-    tracking  = state.get("tracking_info", {})
-    history   = state.get("history", [])
-    all_orders = state.get("all_orders")
+    trace_id    = state.get("langfuse_trace_id")
+    parent_id   = state.get("langfuse_parent_span_id")
+    order       = state.get("order_data", {})
+    analysis    = state.get("order_analysis", {})
+    tracking    = state.get("tracking_info", {})
+    history     = state.get("history", [])
+    all_orders  = state.get("all_orders")
+    ctx         = state.get("session_context") or {}
 
-    history_text = "\n".join([
-        f"{m['role'].upper()}: {m['content']}"
-        for m in history[-4:]
-    ]) if history else "No previous conversation"
+    context_str = format_context(ctx)
+    recent_msgs = format_recent_messages(history, n=2)
 
     # ==========================================
     # CASE 1 — user asked to see all their orders
@@ -339,16 +365,28 @@ def generate_response(state: OrderAgentState) -> OrderAgentState:
         ])
 
         all_orders_prompt = f"""You are a helpful e-commerce customer support assistant.
-The customer asked to see their orders. Here are all their orders:
+The customer asked about their orders. Here are all their orders ({len(all_orders)} total):
 
 {orders_text}
 
+Session context: {context_str}
+Recent messages:
+{recent_msgs}
+
 Customer message: {state.get('message')}
 
-List ALL their orders clearly in a friendly way. For each order mention
-the order ID, items, status, value and expected delivery date.
-Tell them they can ask about any specific order using its order ID
-for more details like tracking information."""
+Answer the customer's question directly using the order information above.
+If they ask how many orders they have, state the count clearly.
+
+When listing orders use ONLY this plain format (no bold, no markdown, no stars):
+Order ID - Product Name
+
+Example:
+ORD-001 - Wireless Headphones
+ORD-002 - Laptop Stand
+
+Do not include price, status, carrier, or delivery date in the listing.
+At the end add one plain line: "Ask me about any order using its ID for tracking and details." """
 
         llm      = ChatGroq(api_key=settings.groq_api_key, model=settings.llm_model_name)
         response = llm.invoke(all_orders_prompt)
@@ -365,7 +403,19 @@ for more details like tracking information."""
                 parent_observation_id = parent_id
             )
 
-        state["response"] = response.content
+        # Build status → [order_ids] map for contextual follow-up resolution
+        status_map = {}
+        for o in all_orders:
+            s = str(o.get("status", "")).lower()
+            status_map.setdefault(s, []).append(o["order_id"])
+
+        state["response"]        = response.content
+        state["session_context"] = merge_context(ctx, {
+            "topic":          "order_query",
+            "orders_listed":  True,
+            "order_count":    len(all_orders),
+            "order_statuses": status_map
+        })
         return state
 
     # ==========================================
@@ -374,8 +424,9 @@ for more details like tracking information."""
     fallback_prompt = f"""You are a helpful e-commerce customer support assistant.
 Answer the customer's question about their order.
 
-Previous conversation:
-{history_text}
+Session context: {context_str}
+Recent messages:
+{recent_msgs}
 
 Order details:
 - Order ID: {order.get('order_id')}
@@ -404,7 +455,7 @@ current status, and expected delivery date. Be empathetic if there is a delay.""
     if "{{order_id}}" in prompt_text:
         prompt_text = compile_prompt(
             prompt_text,
-            history           = history_text,
+            history           = recent_msgs,
             order_id          = order.get("order_id", ""),
             status            = order.get("status", ""),
             items             = str(order.get("items", "")),
@@ -434,7 +485,11 @@ current status, and expected delivery date. Be empathetic if there is a delay.""
             prompt_version        = prompt_version
         )
 
-    state["response"] = response.content
+    state["response"]        = response.content
+    state["session_context"] = merge_context(ctx, {
+        "topic":    "order_query",
+        "order_id": order.get("order_id")
+    })
     return state
 
 # ==========================================

@@ -16,6 +16,7 @@ from langfuse_helpers.tracing import (
     get_prompt, compile_prompt,
     extract_token_usage
 )
+from utils.memory import format_context, format_recent_messages
 
 logger = logging.getLogger(__name__)
 
@@ -28,10 +29,21 @@ logger = logging.getLogger(__name__)
 # ==========================================
 _SUPPORT_NEEDS_ORDER_PHRASES = [
     "i'll need your order id",
-    "need your order id",
     "order id looks like ord-",
     "typing 'show my orders'",
 ]
+
+_GREETINGS = {"hi", "hello", "hey", "hiya", "greetings", "howdy", "sup", "yo", "helo", "hai"}
+_HELP_PREFIXES = (
+    "help",
+    "what can you do",
+    "what can you help",
+    "what do you do",
+    "how can you help",
+    "what are you",
+    "who are you",
+    "what is this",
+)
 
 def _has_pending_support_context(history: list) -> bool:
     for msg in reversed(history[-8:]):
@@ -57,6 +69,7 @@ class RouterState(TypedDict):
     response:                Optional[str]
     agent_used:              Optional[str]
     products:                Optional[list]
+    session_context:         Optional[dict]
     langfuse_trace_id:       Optional[str]
     langfuse_parent_span_id: Optional[str]
 
@@ -72,7 +85,16 @@ def intent_router(state: RouterState) -> RouterState:
     message   = state.get("message", "")
     history   = state.get("history", [])
 
-    # ── Pre-check: pending support context ──
+    # ── Pre-check 1: greetings and generic help — always unknown, never context-biased ──
+    msg_lower = message.strip().lower()
+    if msg_lower in _GREETINGS or any(msg_lower.startswith(p) for p in _HELP_PREFIXES):
+        logger.info("Intent Router: greeting/help detected — bypassing LLM, routing to unknown")
+        state["intent"]     = "unknown"
+        state["confidence"] = "1.0"
+        state["reason"]     = "Greeting or generic help request"
+        return state
+
+    # ── Pre-check 2: pending support context ──
     # If the support agent previously asked for an order ID and the user
     # is now providing one, skip the LLM and force-route to support.
     if _has_pending_support_context(history):
@@ -87,10 +109,8 @@ def intent_router(state: RouterState) -> RouterState:
             state["reason"]     = "User providing order ID in response to pending support request"
             return state
 
-    history_text = "\n".join([
-        f"{m['role'].upper()}: {m['content']}"
-        for m in history[-6:]
-    ]) if history else "No previous conversation"
+    context_str  = format_context(state.get("session_context") or {})
+    recent_msgs  = format_recent_messages(history, n=2)
 
     fallback_prompt = f"""You are an intent classifier for an e-commerce customer support system.
 Classify the user message into exactly one of these intents.
@@ -100,10 +120,14 @@ Intents:
 - product_query: searching for products, recommendations, product comparisons
 - support_query: complaints, refunds, damaged items, wrong items, cancellations
 
-If the message does not match any of these intents, use: unknown
+ALWAYS classify as unknown (never map to another intent based on session context):
+- Greetings: "hi", "hello", "hey", "good morning", "how are you"
+- Generic help: "what can you help me with?", "what do you do?", "help"
+- Unrelated small talk or unclear one-word messages
 
-Previous conversation:
-{history_text}
+Session context: {context_str}
+Recent messages:
+{recent_msgs}
 
 User message: "{message}"
 
@@ -124,7 +148,7 @@ Respond ONLY with a JSON object. No explanation.
         prompt_text = compile_prompt(
             prompt_text,
             message = message,
-            history = history_text
+            history = recent_msgs
         )
 
     llm      = ChatGroq(api_key=settings.groq_api_key, model=settings.llm_model_name)
@@ -222,12 +246,14 @@ def run_order_agent(state: RouterState) -> RouterState:
         "user_id":                 state["user_id"],
         "session_id":              state["session_id"],
         "history":                 state["history"],
+        "session_context":         state.get("session_context") or {},
         "langfuse_trace_id":       trace_id,
         "langfuse_parent_span_id": span.id if span else parent_id
     })
 
-    state["response"]   = result.get("response", "")
-    state["agent_used"] = "order_agent"
+    state["response"]        = result.get("response", "")
+    state["agent_used"]      = "order_agent"
+    state["session_context"] = result.get("session_context") or state.get("session_context") or {}
 
     if span:
         end_span(span, {"response_length": len(state["response"])})
@@ -256,13 +282,15 @@ def run_product_agent(state: RouterState) -> RouterState:
         "user_id":                 state["user_id"],
         "session_id":              state["session_id"],
         "history":                 state["history"],
+        "session_context":         state.get("session_context") or {},
         "langfuse_trace_id":       trace_id,
         "langfuse_parent_span_id": span.id if span else parent_id
     })
 
-    state["response"]   = result.get("response", "")
-    state["products"]   = result.get("products", None)
-    state["agent_used"] = "product_agent"
+    state["response"]        = result.get("response", "")
+    state["products"]        = result.get("products", None)
+    state["agent_used"]      = "product_agent"
+    state["session_context"] = result.get("session_context") or state.get("session_context") or {}
 
     if span:
         end_span(span, {"response_length": len(state["response"])})
@@ -291,12 +319,14 @@ def run_support_agent(state: RouterState) -> RouterState:
         "user_id":                 state["user_id"],
         "session_id":              state["session_id"],
         "history":                 state["history"],
+        "session_context":         state.get("session_context") or {},
         "langfuse_trace_id":       trace_id,
         "langfuse_parent_span_id": span.id if span else parent_id
     })
 
-    state["response"]   = result.get("response", "")
-    state["agent_used"] = "support_agent"
+    state["response"]        = result.get("response", "")
+    state["agent_used"]      = "support_agent"
+    state["session_context"] = result.get("session_context") or state.get("session_context") or {}
 
     if span:
         end_span(span, {"response_length": len(state["response"])})
@@ -395,11 +425,19 @@ def fallback_response(state: RouterState) -> RouterState:
     ) if trace_id else None
 
     state["response"] = (
-        "I can help you with the following:\n\n"
+        "I can help you with:\n\n"
         "1. Order tracking — ask about your order status or delivery\n"
-        "2. Product search — find products by category, price, or brand\n"
-        "3. Support — report issues like damaged items or request refunds\n\n"
-        "Please try rephrasing your question."
+        "2. Support — report issues, request refunds, cancel orders\n"
+        "3. Product search — we have these categories:\n\n"
+        "   Computers & Accessories\n"
+        "     laptops, keyboards, mice, cables, chargers, USB hubs\n\n"
+        "   Electronics\n"
+        "     headphones, speakers, smartwatches, cameras\n\n"
+        "   Home & Kitchen\n"
+        "     fans, mixers, kettles, irons, geysers, vacuum cleaners\n\n"
+        "   Office Products\n"
+        "     pens, notebooks\n\n"
+        "What are you looking for?"
     )
     state["agent_used"] = "fallback"
 

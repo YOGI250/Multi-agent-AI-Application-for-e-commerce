@@ -39,10 +39,9 @@ def lookup_policy_tool(issue_type: str) -> dict:
 @tool
 def check_user_history_tool(user_id: str, order_id: Optional[str] = None) -> dict:
     """
-    Checks complaint history scoped to a specific order.
-    A user is a repeat complainant only if the same order
-    has an existing open unresolved ticket.
-    Used by escalation_handler subgraph to set priority.
+    Checks if an open ticket already exists for this user + order.
+    Returns is_duplicate (bool), days_open (int), existing_ticket_id (str or None).
+    Used by escalation_handler subgraph to detect duplicate complaints.
     """
     logger.info(
         f"Tool called: check_user_history_tool for "
@@ -51,11 +50,10 @@ def check_user_history_tool(user_id: str, order_id: Optional[str] = None) -> dic
 
     result = get_user_complaint_history(user_id, order_id=order_id)
 
-    if result:
-        logger.info(
-            f"History for {user_id}: {result['total_complaints']} complaints, "
-            f"repeat={result['is_repeat_complainant']}"
-        )
+    logger.info(
+        f"History for {user_id}: is_duplicate={result['is_duplicate']}, "
+        f"days_open={result['days_open']}"
+    )
 
     return result
 

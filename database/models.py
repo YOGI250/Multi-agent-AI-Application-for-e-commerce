@@ -52,6 +52,7 @@ class Session(Base):
     agent_last_used = Column(String, nullable=True)
     message_count = Column(Integer, default=0, nullable=False)
     ended_reason = Column(String, default=None, nullable=True)
+    session_context = Column(JSONB, nullable=True, default=dict)
 
     user = relationship("User", back_populates="sessions")
     messages = relationship("Message", back_populates="session")
