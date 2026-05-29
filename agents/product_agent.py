@@ -76,10 +76,17 @@ def extract_preferences(state: ProductAgentState) -> ProductAgentState:
     # For extract_preferences we only need user messages from history
     # User messages contain the product search terms we need to carry forward
     user_msgs = [m for m in history if m.get("role") == "user"]
-    recent_user_msgs = "\n".join([
-        f"USER: {m['content'][:200]}"
-        for m in user_msgs[-3:]  # last 3 user messages
-    ]) if user_msgs else "No previous messages"
+    if user_msgs:
+        last_msgs = user_msgs[-4:]
+        lines = []
+        for i, m in enumerate(last_msgs):
+            if i == len(last_msgs) - 1:
+                lines.append(f"[MOST RECENT] {m['content'][:200]}")
+            else:
+                lines.append(f"[EARLIER] {m['content'][:200]}")
+        recent_user_msgs = "\n".join(lines)
+    else:
+        recent_user_msgs = "No previous searches"
     
 
     fallback_prompt = f"""You are a product search filter extractor.
@@ -135,7 +142,7 @@ Respond ONLY with JSON:
         prompt_text = compile_prompt(
             prompt_text,
             message = message,
-            history = recent_msgs
+            history = recent_user_msgs
         )
 
     llm      = ChatGroq(api_key=settings.groq_api_key, model=settings.llm_model_name)
@@ -161,7 +168,8 @@ Respond ONLY with JSON:
         filters    = json.loads(json_match.group()) if json_match else {}
     except Exception:
         filters = {}
-        # Normalize product_type — LLM occasionally returns plural/variant forms
+
+    # Normalize product_type — LLM occasionally returns plural/variant forms
     if filters and filters.get("product_type"):
         ptype = filters["product_type"].lower().strip()
         normalization = {
@@ -182,10 +190,42 @@ Respond ONLY with JSON:
             "irons":        "iron",
         }
         filters["product_type"] = normalization.get(ptype, ptype)
-        
-        state["filters"]          = filters
-        state["original_filters"] = filters.copy() if filters else {}
-        state["broaden_attempts"] = state.get("broaden_attempts", 0)
+
+    # If LLM returned no product_type, apply fallbacks in priority order:
+    # 1. keyword match — for explicit product messages the LLM missed
+    # 2. session context — for genuinely vague follow-ups ("under 2000", "what about X")
+    if not filters.get("product_type"):
+        KEYWORD_MAP = [
+            ("smart watch","smartwatch"),("smartwatch","smartwatch"),
+            ("laptop bag","laptop_bag"),("air purifier","air_purifier"),
+            ("water purifier","water_purifier"),("room heater","room_heater"),
+            ("water heater","water_heater"),("phone case","phone_case"),
+            ("hard disk","hard_disk"),("memory card","memory_card"),
+            ("usb hub","usb_hub"),("pen drive","pendrive"),
+            ("headphone","headphones"),("earphone","headphones"),("earbud","headphones"),
+            ("speaker","speaker"),("keyboard","keyboard"),("monitor","monitor"),
+            ("tablet","tablet"),("webcam","webcam"),("router","router"),
+            ("charger","charger"),("pendrive","pendrive"),
+            ("grinder","mixer"),("mixer","mixer"),("vacuum","vacuum"),
+            ("kettle","kettle"),("microwave","microwave"),("trimmer","trimmer"),
+            ("camera","camera"),("printer","printer"),("laptop","laptop"),
+            ("mouse","mouse"),("iron","iron"),("fan","fan"),("ssd","ssd"),
+        ]
+        msg_lower = message.lower()
+        keyword_ptype = next(
+            (ptype for kw, ptype in KEYWORD_MAP if kw in msg_lower),
+            None
+        )
+        if keyword_ptype:
+            filters["product_type"] = keyword_ptype
+        else:
+            last_ptype = (state.get("session_context") or {}).get("last_product_type")
+            if last_ptype:
+                filters["product_type"] = last_ptype
+
+    state["filters"]          = filters
+    state["original_filters"] = filters.copy() if filters else {}
+    state["broaden_attempts"] = state.get("broaden_attempts", 0)
 
     logger.info(f"Extracted filters: {filters}")
     return state
@@ -278,6 +318,15 @@ def rank_and_filter(state: ProductAgentState) -> ProductAgentState:
     message   = state.get("message", "")
     products  = state.get("search_results", [])
 
+    # Build a richer request string so rank_and_filter LLM understands context
+    # for vague follow-ups like "under 2000" that carry no product name themselves
+    filters      = state.get("filters") or {}
+    product_type = filters.get("product_type", "")
+    if product_type and product_type.lower() not in message.lower():
+        rich_request = f"{product_type.replace('_', ' ')} — {message}"
+    else:
+        rich_request = message
+
     product_list = "\n".join([
         f"{i+1}. {p['name'][:60]} | "
         f"Price: ₹{p['price']} | "
@@ -289,7 +338,7 @@ def rank_and_filter(state: ProductAgentState) -> ProductAgentState:
     fallback_prompt = f"""You are a product recommendation expert.
 Rank these products by relevance to the user request.
 
-User request: "{message}"
+User request: "{rich_request}"
 
 Products:
 {product_list}
@@ -313,7 +362,7 @@ Maximum {settings.product_recommendation_count} products. No explanation."""
     if "{{message}}" in prompt_text:
         prompt_text = compile_prompt(
             prompt_text,
-            message      = message,
+            message      = rich_request,
             product_list = product_list
         )
 
@@ -499,10 +548,15 @@ def format_recommendations(
         )
 
     state["response"] = "\n".join(lines)
-    state["session_context"] = merge_context(ctx, {
-        "topic":          "product_query",
-        "products_shown": [p["name"][:50] for p in products[:3]]
-    })
+    ctx_update = {
+        "topic":             "product_query",
+        "products_shown":    [p["name"][:50] for p in products[:3]],
+    }
+    if original_filters.get("product_type"):
+        ctx_update["last_product_type"] = original_filters["product_type"]
+    if original_filters.get("max_price"):
+        ctx_update["last_max_price"] = original_filters["max_price"]
+    state["session_context"] = merge_context(ctx, ctx_update)
 
     if span:
         end_span(span, {"response_type": "recommendations"})
