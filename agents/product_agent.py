@@ -73,60 +73,56 @@ def extract_preferences(state: ProductAgentState) -> ProductAgentState:
     ctx         = state.get("session_context") or {}
     history     = state.get("history", [])
     context_str = format_context(ctx)
-    recent_msgs = format_recent_messages(history, n=2)
+    # For extract_preferences we only need user messages from history
+    # User messages contain the product search terms we need to carry forward
+    user_msgs = [m for m in history if m.get("role") == "user"]
+    recent_user_msgs = "\n".join([
+        f"USER: {m['content'][:200]}"
+        for m in user_msgs[-3:]  # last 3 user messages
+    ]) if user_msgs else "No previous messages"
+    
 
-    fallback_prompt = f"""Extract product search filters from this message.
+    fallback_prompt = f"""You are a product search filter extractor.
 
-Session context: {context_str}
-Recent messages:
-{recent_msgs}
+Recent user searches:
+{recent_user_msgs}
 
-Message: "{message}"
+Current message: "{message}"
 
-IMPORTANT — If the message is a follow-up (e.g. "any cheaper options?", "any with better rating?",
-"show me more", "different brand?"), look at recent messages to identify the product type that
-was previously searched and carry it forward into the filters.
+RULE 1 — EXPLICIT PRODUCT (ignore history):
+If current message names a specific product → extract it directly.
+Examples: "mixer grinder under 2000" → mixer | "laptop bag under 1000" → laptop_bag
+          "bluetooth speaker under 2000" → speaker | "steam iron under 1500" → iron
 
+RULE 2 — VAGUE FOLLOW-UP (use most recent history):
+If current message is vague with no product named → carry forward product_type
+from the MOST RECENT search in history that has a product type.
+Examples: "what about boAt" → use last product_type from history, change brand
+          "under 2000" → use last product_type from history, change max_price
+          "ones with calling feature" → use last product_type from history
 
-IMPORTANT — Only use these exact category names:
-- Electronics
-- Home and Kitchen
-- Computers and Accessories
-- OfficeProducts
-- HomeImprovement
-- MusicalInstruments
-- Car and Motorbike
-- Health and PersonalCare
-- Toys and Games
+PRODUCT TYPES (use exact values):
+mouse, keyboard, headphones, speaker, laptop, tablet, smartwatch, monitor,
+webcam, router, cable, charger, usb_hub, pendrive, ssd, hard_disk, ram,
+memory_card, printer, stand, mousepad, laptop_bag, phone_case, extension,
+fan, mixer, iron, kettle, water_heater, room_heater, vacuum, air_purifier,
+water_purifier, camera, pen, notebook, light, trimmer, microwave, other
 
-Mapping guide:
-- "USB cable", "laptop", "mobile", "keyboard", "charger", "tablet" → "Computers and Accessories"
-- "headphones", "speaker", "TV", "camera", "smartwatch" → "Electronics"
-- "fan", "mixer", "cookware", "vacuum", "robot vacuum", "AC", "purifier" → "Home and Kitchen"
-- "pen", "notebook", "desk organizer" → "OfficeProducts"
+NORMALISE: smartwatches→smartwatch | mice→mouse | earphones/earbuds→headphones
+air purifier→air_purifier | laptops→laptop | fans→fan | irons→iron
 
-For product_type — extract the specific product type using these exact values only:
-mouse, keyboard, headphones, speaker, laptop, tablet, smartwatch, monitor, webcam,
-router, cable, charger, usb_hub, pendrive, ssd, hard_disk, ram, memory_card,
-printer, stand, mousepad, laptop_bag, phone_case, extension, fan, mixer, iron,
-kettle, water_heater, room_heater, vacuum, air_purifier, water_purifier, camera,
-pen, notebook, light, trimmer, microwave, other
+CATEGORIES: Electronics | Home and Kitchen | Computers and Accessories |
+OfficeProducts | HomeImprovement | MusicalInstruments | Car and Motorbike |
+Health and PersonalCare | Toys and Games
 
-Examples:
-- "mouse", "mice", "pointing device", "wireless mouse" → product_type="mouse"
-- "earphones", "earbuds", "headset", "TWS" → product_type="headphones"
-- "pendrive", "flash drive", "USB drive" → product_type="pendrive"
-- "geyser", "water heater" → product_type="water_heater"
-- anything not in the list → product_type="other"
-
-Respond ONLY with a JSON object. No explanation. No markdown.
+Respond ONLY with JSON:
 {{
-  "category": "exact category name or null",
-  "product_type": "exact product type from the list above or null",
-  "max_price": number or null,
-  "min_price": number or null,
-  "brand": "brand name or null",
-  "min_rating": number or null
+  "category":     "exact category or null",
+  "product_type": "exact value from list or null",
+  "max_price":    number or null,
+  "min_price":    number or null,
+  "brand":        "brand name or null",
+  "min_rating":   number or null
 }}"""
 
     prompt_text, prompt_version = get_prompt(
@@ -136,7 +132,11 @@ Respond ONLY with a JSON object. No explanation. No markdown.
     )
 
     if "{{message}}" in prompt_text:
-        prompt_text = compile_prompt(prompt_text, message=message)
+        prompt_text = compile_prompt(
+            prompt_text,
+            message = message,
+            history = recent_msgs
+        )
 
     llm      = ChatGroq(api_key=settings.groq_api_key, model=settings.llm_model_name)
     response = llm.invoke(prompt_text)
@@ -161,10 +161,31 @@ Respond ONLY with a JSON object. No explanation. No markdown.
         filters    = json.loads(json_match.group()) if json_match else {}
     except Exception:
         filters = {}
-
-    state["filters"]          = filters
-    state["original_filters"] = filters.copy() if filters else {}
-    state["broaden_attempts"] = state.get("broaden_attempts", 0)
+        # Normalize product_type — LLM occasionally returns plural/variant forms
+    if filters and filters.get("product_type"):
+        ptype = filters["product_type"].lower().strip()
+        normalization = {
+            "smartwatches": "smartwatch",
+            "smartwatche":  "smartwatch",
+            "mice":         "mouse",
+            "earphones":    "headphones",
+            "earphone":     "headphones",
+            "earbuds":      "headphones",
+            "earbud":       "headphones",
+            "headphone":    "headphones",
+            "laptops":      "laptop",
+            "keyboards":    "keyboard",
+            "speakers":     "speaker",
+            "tablets":      "tablet",
+            "fans":         "fan",
+            "mixers":       "mixer",
+            "irons":        "iron",
+        }
+        filters["product_type"] = normalization.get(ptype, ptype)
+        
+        state["filters"]          = filters
+        state["original_filters"] = filters.copy() if filters else {}
+        state["broaden_attempts"] = state.get("broaden_attempts", 0)
 
     logger.info(f"Extracted filters: {filters}")
     return state
@@ -449,10 +470,8 @@ def format_recommendations(
             f"Here are the closest products we have:\n"
         ]
     else:
-        shown = min(len(products), 3)
         lines = [
-            f"Here are my top {shown} recommendation{'s' if shown > 1 else ''} "
-            f"for \"{message}\":\n"
+            f"Here are my top recommendations for \"{message}\":\n"
         ]
 
     # Format first 3 in text; the rest surface via cards in the frontend

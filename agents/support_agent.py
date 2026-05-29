@@ -69,6 +69,16 @@ def classify_issue(state: SupportAgentState) -> SupportAgentState:
     fallback_prompt = f"""You are a customer support classifier.
 Classify the customer complaint and extract key details.
 
+FOLLOW-UP DETECTION:
+If current message has no clear issue_type but history shows a recent support interaction:
+- "how much time" / "when will it be resolved" → general_query about existing ticket
+- "any update" / "what happened" → general_query about existing ticket
+- "still not resolved" → use same issue_type as previous complaint
+
+Examples:
+- History: "my item is damaged, ticket created" → current: "how much time will it take"
+  → issue_type="general_query", use existing ticket from history
+
 Session context: {context_str}
 {order_hint}Recent messages:
 {recent_msgs}

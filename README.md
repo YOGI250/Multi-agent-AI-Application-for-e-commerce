@@ -29,3 +29,20 @@ The classify_products.py script uses keyword rules for one-time
 product type classification. LLM-based classification in batches
 would be more accurate especially for accessory products whose
 names mention the main product.
+
+### 6. Product Name Based Order Lookup
+Currently the Order Agent requires an explicit order ID (ORD-XXXXX format).
+If a user says "what is the status of my laptop" without an order ID,
+the intent router may misclassify it as product_query and the Order Agent
+cannot fetch by product name.
+
+Full fix requires three changes:
+1. Intent router — distinguish "my laptop" (order context) from 
+   "show me laptop" (shopping context) using ownership keywords
+2. Order Agent validate_input — extract product name when no order ID found
+3. Order Agent fetch — query orders table by product name + user_id,
+   then smart filter to surface the undelivered order automatically
+
+Example scenario: user ordered 4 laptops, 3 delivered, 1 in transit.
+"what is the status of my laptop" should automatically find and return
+the in-transit order without asking for an order ID.
