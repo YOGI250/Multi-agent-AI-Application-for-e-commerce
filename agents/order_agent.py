@@ -365,7 +365,7 @@ def generate_response(state: OrderAgentState) -> OrderAgentState:
         ])
 
         all_orders_prompt = f"""You are a helpful e-commerce customer support assistant.
-The customer asked about their orders. Here are all their orders ({len(all_orders)} total):
+The customer asked about their orders. Here are all their {len(all_orders)} orders with statuses:
 
 {orders_text}
 
@@ -376,7 +376,9 @@ Recent messages:
 Customer message: {state.get('message')}
 
 Answer the customer's question directly using the order information above.
-If they ask how many orders they have, state the count clearly.
+- If they ask for ALL orders, list all {len(all_orders)} and state that total count.
+- If they ask for a filtered subset (e.g. "not delivered", "shipped", "delayed"), list ONLY the matching orders and state ONLY the filtered count — do not mention the total.
+- If they ask how many orders in total, state {len(all_orders)}.
 
 When listing orders use ONLY this plain format (no bold, no markdown, no stars):
 Order ID - Product Name

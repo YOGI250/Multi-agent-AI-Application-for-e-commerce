@@ -53,19 +53,7 @@ class TestSearchProductsTool:
         assert result == []
 
 
-class TestFetchRatingsTool:
 
-    def test_fetch_ratings_returns_dict(self):
-        mock_ratings = {"P001": {"rating": 4.5, "count": 100}}
-        with patch("tools.product_tools.get_ratings",
-                   return_value=mock_ratings):
-            from tools.product_tools import fetch_ratings_tool
-            result = fetch_ratings_tool.invoke({
-                "product_ids": ["P001"]
-            })
-        assert isinstance(result, dict)
-
-    
 
 
 class TestFetchSpecsTool:

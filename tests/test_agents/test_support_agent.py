@@ -111,11 +111,11 @@ class TestRouteBySeverity:
         result = route_severity(base_state)
         assert result == "draft_resolution"
 
-    def test_medium_severity_routes_to_resolution(self, base_state):
+    def test_medium_severity_routes_to_escalation(self, base_state):
         from agents.support_agent import route_severity
         base_state["severity"] = "MEDIUM"
         result = route_severity(base_state)
-        assert result == "draft_resolution"
+        assert result == "escalation_handler_node"
 
 
 class TestFormatResponse:

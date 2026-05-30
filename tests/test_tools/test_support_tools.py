@@ -33,10 +33,9 @@ class TestCheckUserHistoryTool:
 
     def test_check_history_returns_dict(self):
         mock_history = {
-            "total_complaints":      2,
-            "last_complaint":        "2026-05-01",
-            "is_repeat_complainant": True,
-            "history":               []
+            "existing_ticket_id": "TKT-001",
+            "is_duplicate":       True,
+            "days_open":          2
         }
         with patch("tools.support_tools.get_user_complaint_history",
                    return_value=mock_history):
@@ -48,10 +47,9 @@ class TestCheckUserHistoryTool:
 
     def test_check_history_returns_dict_for_new_user(self):
         mock_history = {
-            "total_complaints":      0,
-            "last_complaint":        None,
-            "is_repeat_complainant": False,
-            "history":               []
+            "existing_ticket_id": None,
+            "is_duplicate":       False,
+            "days_open":          0
         }
         with patch("tools.support_tools.get_user_complaint_history",
                    return_value=mock_history):

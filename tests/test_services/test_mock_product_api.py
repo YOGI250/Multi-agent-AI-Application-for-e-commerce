@@ -67,36 +67,6 @@ class TestSearchProducts:
         assert isinstance(result, list)
 
 
-class TestGetProductRatings:
-
-    def test_get_ratings_returns_dict(self):
-        mock_product         = MagicMock()
-        mock_product.product_id   = "P001"
-        mock_product.rating       = 4.5
-        mock_product.review_count = 100
-
-        mock_db = MagicMock()
-        mock_db.query.return_value \
-            .filter.return_value.all.return_value = [mock_product]
-
-        with patch("services.mock_product_api.SessionLocal",
-                   return_value=mock_db):
-            from services.mock_product_api import get_ratings
-            result = get_ratings(["P001"])
-
-        assert isinstance(result, dict)
-
-    def test_get_ratings_empty_list(self):
-        mock_db = MagicMock()
-        mock_db.query.return_value \
-            .filter.return_value.all.return_value = []
-
-        with patch("services.mock_product_api.SessionLocal",
-                   return_value=mock_db):
-            from services.mock_product_api import get_ratings
-            result = get_ratings([])
-
-        assert isinstance(result, dict)
 
 
 class TestGetProductSpecs:

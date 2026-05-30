@@ -57,7 +57,8 @@ def classify_issue(state: SupportAgentState) -> SupportAgentState:
     history   = state.get("history", [])
 
     ctx         = state.get("session_context") or {}
-    context_str = format_context(ctx)
+    # Exclude stale order_id — classify_issue must resolve it fresh from the current message
+    context_str = format_context({k: v for k, v in ctx.items() if k != "order_id"})
     recent_msgs = format_recent_messages(history, n=2)
 
     order_statuses = ctx.get("order_statuses", {})
@@ -150,8 +151,12 @@ Respond ONLY with a JSON object. No explanation.
             "details":    message
         }
 
+    # Explicit order ID in the message always wins over LLM (history can confuse it)
+    explicit_match = re.search(r'\bORD-[A-Z0-9]+-\d+\b', message, re.IGNORECASE)
+    explicit_order_id = explicit_match.group().upper() if explicit_match else None
+
     state["issue_type"]    = result.get("issue_type", "general_query")
-    state["order_id"]      = result.get("order_id")
+    state["order_id"]      = explicit_order_id or result.get("order_id")
     state["issue_details"] = result.get("details", message)
     state["ticket_id"]      = None
     state["ticket_created"] = False

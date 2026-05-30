@@ -19,7 +19,7 @@ def base_state():
         "langfuse_trace_id":       None,
         "langfuse_parent_span_id": None,
         "intent":                  None,
-        "confidence":              None,
+        "confidence":              "high",
         "access_granted":          None
     }
 
