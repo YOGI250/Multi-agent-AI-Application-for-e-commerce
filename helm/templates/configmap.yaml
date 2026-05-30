@@ -1,0 +1,19 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Release.Name }}-config
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "ecommerce.labels" . | nindent 4 }}
+data:
+  ENVIRONMENT:                  {{ .Values.app.environment | quote }}
+  LOG_LEVEL:                    {{ .Values.app.logLevel | quote }}
+  SESSION_EXPIRY_MINUTES:       {{ .Values.app.sessionExpiryMinutes | quote }}
+  HISTORY_WINDOW_SIZE:          {{ .Values.app.historyWindowSize | quote }}
+  INTENT_CONFIDENCE_THRESHOLD:  {{ .Values.app.intentConfidenceThreshold | quote }}
+  LLM_MODEL_NAME:               {{ .Values.app.llmModel | quote }}
+  APP_HOST:                     "0.0.0.0"
+  APP_PORT:                     "8000"
+  LANGFUSE_HOST:                "http://{{ .Release.Name }}-langfuse:{{ .Values.langfuse.port }}"
+  DATABASE_URL: >-
+    postgresql://{{ .Values.postgres.user }}:$(POSTGRES_PASSWORD)@{{ .Release.Name }}-postgres:{{ .Values.postgres.port }}/{{ .Values.postgres.database }}

@@ -1,0 +1,92 @@
+{
+  "run_timestamp": "2026-05-30T11:30:47.772603+00:00",
+  "git_commit_sha": "72ac58806666262bda0dcba37148171d15c77b50",
+  "branch_name": "main",
+  "total_samples": 5,
+  "mode": "mocked",
+  "per_metric_averages": {
+    "answer_relevancy": 1.0,
+    "faithfulness": 1.0,
+    "task_completion": 1.0,
+    "correctness": 0.8333
+  },
+  "thresholds": {
+    "answer_relevancy": 0.7,
+    "faithfulness": 0.8,
+    "task_completion": 0.8,
+    "correctness": 0.7
+  },
+  "per_sample_scores": [
+    {
+      "sample_id": 1,
+      "message": "show me laptops under 50000",
+      "intent": "product_query",
+      "actual_output": "Here are my top 3 recommendations for laptops under \u20b950000:\n\n1. HP 15s Laptop\n   Price  : \u20b942999.0\n   Rating : 4.3 \u2b50 (1,234 reviews)\n   Brand  : HP\n   Features:\n   \u2022 Intel Core i5 processor\n   \u2022 8GB RAM, 512GB SSD\n   \u2022 15.6 inch FHD display\n   Score  : 0.92\n\n2. Lenovo IdeaPad Slim 3\n   Price  : \u20b9389...",
+      "scores": {
+        "answer_relevancy": 1.0,
+        "faithfulness": 1.0,
+        "task_completion": 1.0,
+        "correctness": 0.8333
+      },
+      "passed": true,
+      "mode": "MOCKED"
+    },
+    {
+      "sample_id": 2,
+      "message": "I need a wireless mouse with good reviews",
+      "intent": "product_query",
+      "actual_output": "Here are my top 3 recommendations for wireless mouse with good reviews:\n\n1. Logitech M331 Silent Plus Wireless Mouse\n   Price  : \u20b91295.0\n   Rating : 4.6 \u2b50 (12,375 reviews)\n   Brand  : Logitech\n   Features:\n   \u2022 Silent click technology reduces noise by 90%\n   \u2022 24-month battery life\n   \u2022 USB nano rec...",
+      "scores": {
+        "answer_relevancy": 1.0,
+        "faithfulness": 1.0,
+        "task_completion": 1.0,
+        "correctness": 0.8333
+      },
+      "passed": true,
+      "mode": "MOCKED"
+    },
+    {
+      "sample_id": 3,
+      "message": "where is my order ORD-620678-001",
+      "intent": "order_query",
+      "actual_output": "Here is the status of your order ORD-620678-001:\n\nOrder ID  : ORD-620678-001\nItem      : Wireless Headphones\nStatus    : Delivered\nCarrier   : DTDC\nTracking  : DT251092059\nOrder Value: \u20b91299.0\n\nTracking Details:\n\u2022 Order placed and confirmed on May 1, 2026\n\u2022 Package picked up by DTDC carrier\n\u2022 In tra...",
+      "scores": {
+        "answer_relevancy": 1.0,
+        "faithfulness": 1.0,
+        "task_completion": 1.0,
+        "correctness": 0.8333
+      },
+      "passed": true,
+      "mode": "MOCKED"
+    },
+    {
+      "sample_id": 4,
+      "message": "show me all my orders",
+      "intent": "order_query",
+      "actual_output": "Here are all your orders:\n\n1. ORD-620678-001 \u2014 Wireless Headphones\n   Status : Delivered\n   Value  : \u20b91299.0\n   Date   : May 1, 2026\n\n2. ORD-620678-002 \u2014 Laptop Stand\n   Status : Shipped\n   Value  : \u20b92500.0\n   Date   : May 22, 2026\n\n3. ORD-620678-003 \u2014 USB Hub\n   Status : Processing\n   Value  : \u20b9499...",
+      "scores": {
+        "answer_relevancy": 1.0,
+        "faithfulness": 1.0,
+        "task_completion": 1.0,
+        "correctness": 0.8333
+      },
+      "passed": true,
+      "mode": "MOCKED"
+    },
+    {
+      "sample_id": 5,
+      "message": "I received a damaged product and want to return it",
+      "intent": "support_query",
+      "actual_output": "I'm sorry to hear about your damaged product. Here's how we can help:\n\nReturn Policy:\nYou can return damaged or defective items within 30 days of delivery. We offer a full refund or free replacement for damaged products at no extra cost.\n\nResolution Steps:\n1. Take clear photos of the damaged product...",
+      "scores": {
+        "answer_relevancy": 1.0,
+        "faithfulness": 1.0,
+        "task_completion": 1.0,
+        "correctness": 0.8333
+      },
+      "passed": true,
+      "mode": "MOCKED"
+    }
+  ],
+  "overall_pass": true
+}

@@ -1,0 +1,14 @@
+[run]
+omit =
+    venv/*
+    database/classify_products.py
+    database/import_kaggle_data.py
+    data/*
+    */migrations/*
+
+[report]
+exclude_lines =
+    pragma: no cover
+    def __repr__
+    if __name__ == .__main__.:
+    raise NotImplementedError

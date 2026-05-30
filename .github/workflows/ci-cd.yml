@@ -1,0 +1,292 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+env:
+  REGISTRY:   docker.io
+  IMAGE_NAME: ${{ github.repository_owner }}/ecommerce-agent
+
+# ─────────────────────────────────────────────────────────────
+# Stage 1 — Lint and Format Check
+# ─────────────────────────────────────────────────────────────
+jobs:
+  lint:
+    name: "Stage 1 — Lint & Format"
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install lint dependencies
+        run: pip install flake8==7.1.1 black==24.10.0
+
+      - name: Run flake8
+        run: |
+          flake8 agents/ api/ services/ tools/ subgraphs/ langfuse_helpers/ \
+                 database/ monitoring/ utils/ main.py \
+                 --max-line-length=120 \
+                 --extend-ignore=E501,W503,E203 \
+                 --exclude=venv,__pycache__,.git,data
+
+      - name: Run black (format check)
+        run: |
+          black --check --line-length=120 \
+                agents/ api/ services/ tools/ subgraphs/ langfuse_helpers/ \
+                database/ monitoring/ utils/ main.py \
+                --exclude='venv|__pycache__|data'
+
+# ─────────────────────────────────────────────────────────────
+# Stage 2 — Unit Tests + Coverage
+# ─────────────────────────────────────────────────────────────
+  test:
+    name: "Stage 2 — Unit Tests (≥70% coverage)"
+    runs-on: ubuntu-latest
+    needs: lint
+
+    env:
+      GROQ_API_KEY:            test_groq_key
+      DATABASE_URL:            postgresql://test:test@localhost:5432/test_db
+      LANGFUSE_SECRET_KEY:     test_secret
+      LANGFUSE_PUBLIC_KEY:     test_public
+      LANGFUSE_HOST:           http://localhost:3000
+      GOOGLE_CLIENT_ID:        test_client_id
+      GOOGLE_CLIENT_SECRET:    test_client_secret
+      POSTGRES_USER:           test
+      POSTGRES_PASSWORD:       test
+      POSTGRES_DB:             test_db
+      GRAFANA_ADMIN_PASSWORD:  admin
+      LANGFUSE_NEXTAUTH_SECRET: test_secret
+      LANGFUSE_SALT:           test_salt
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run pytest with coverage
+        run: |
+          pytest \
+            --cov=. \
+            --cov-config=.coveragerc \
+            --cov-report=term-missing \
+            --cov-report=xml:coverage.xml \
+            --cov-fail-under=70 \
+            -v
+
+      - name: Upload coverage report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: coverage-report
+          path: coverage.xml
+
+# ─────────────────────────────────────────────────────────────
+# Stage 3 — LLM Evaluation
+# ─────────────────────────────────────────────────────────────
+  evaluate:
+    name: "Stage 3 — LLM Evaluation"
+    runs-on: ubuntu-latest
+    needs: test
+
+    env:
+      GROQ_API_KEY:            test_groq_key
+      DATABASE_URL:            postgresql://test:test@localhost:5432/test_db
+      LANGFUSE_SECRET_KEY:     test_secret
+      LANGFUSE_PUBLIC_KEY:     test_public
+      LANGFUSE_HOST:           http://localhost:3000
+      GOOGLE_CLIENT_ID:        test_client_id
+      POSTGRES_USER:           test
+      POSTGRES_PASSWORD:       test
+      POSTGRES_DB:             test_db
+      GRAFANA_ADMIN_PASSWORD:  admin
+      LANGFUSE_NEXTAUTH_SECRET: test_secret
+      LANGFUSE_SALT:           test_salt
+      # Set RUN_LIVE_EVAL=true in a scheduled workflow for live runs
+      RUN_LIVE_EVAL:           "false"
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run LLM evaluation (mocked responses)
+        run: python eval/run_eval.py
+
+      - name: Upload evaluation reports
+        uses: actions/upload-artifact@v4
+        if: always()   # upload even on failure so reports are available for review
+        with:
+          name: eval-reports
+          path: eval/reports/
+
+# ─────────────────────────────────────────────────────────────
+# Stage 4 — Docker Build
+# ─────────────────────────────────────────────────────────────
+  build:
+    name: "Stage 4 — Docker Build"
+    runs-on: ubuntu-latest
+    needs: evaluate
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build Docker image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: false
+          tags: ${{ env.IMAGE_NAME }}:${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+# ─────────────────────────────────────────────────────────────
+# Stage 5 — Push to Registry (main branch only)
+# ─────────────────────────────────────────────────────────────
+  push:
+    name: "Stage 5 — Push to Registry"
+    runs-on: ubuntu-latest
+    needs: build
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+
+      - name: Build and push image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: |
+            ${{ env.IMAGE_NAME }}:${{ github.sha }}
+            ${{ env.IMAGE_NAME }}:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+# ─────────────────────────────────────────────────────────────
+# Stage 6 — Deploy to Kubernetes (main branch only)
+# ─────────────────────────────────────────────────────────────
+  deploy:
+    name: "Stage 6 — Deploy to Kubernetes"
+    runs-on: ubuntu-latest
+    needs: push
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up kubectl
+        uses: azure/setup-kubectl@v4
+        with:
+          version: "v1.29.0"
+
+      - name: Set up Helm
+        uses: azure/setup-helm@v4
+        with:
+          version: "v3.14.0"
+
+      - name: Configure kubeconfig
+        run: |
+          mkdir -p ~/.kube
+          echo "${{ secrets.KUBE_CONFIG }}" | base64 -d > ~/.kube/config
+          chmod 600 ~/.kube/config
+
+      - name: Create namespace if missing
+        run: kubectl create namespace ecommerce --dry-run=client -o yaml | kubectl apply -f -
+
+      - name: Create Kubernetes secrets
+        run: |
+          kubectl create secret generic ecommerce-secrets \
+            --namespace=ecommerce \
+            --from-literal=groq-api-key="${{ secrets.GROQ_API_KEY }}" \
+            --from-literal=database-url="${{ secrets.DATABASE_URL }}" \
+            --from-literal=langfuse-secret-key="${{ secrets.LANGFUSE_SECRET_KEY }}" \
+            --from-literal=langfuse-public-key="${{ secrets.LANGFUSE_PUBLIC_KEY }}" \
+            --from-literal=google-client-id="${{ secrets.GOOGLE_CLIENT_ID }}" \
+            --from-literal=postgres-password="${{ secrets.POSTGRES_PASSWORD }}" \
+            --dry-run=client -o yaml | kubectl apply -f -
+
+      - name: Deploy with Helm
+        id: helm_deploy
+        run: |
+          helm upgrade --install ecommerce ./helm \
+            --namespace ecommerce \
+            --values helm/values.yaml \
+            --values helm/values-prod.yaml \
+            --set image.tag=${{ github.sha }} \
+            --set image.repository=${{ env.IMAGE_NAME }} \
+            --wait \
+            --timeout=300s
+
+      - name: Smoke test — health check endpoint
+        id: smoke_test
+        run: |
+          # Wait for deployment rollout
+          kubectl rollout status deployment/ecommerce-fastapi \
+            --namespace=ecommerce --timeout=120s
+
+          # Port-forward to the service and hit /health
+          kubectl port-forward svc/ecommerce-fastapi 8080:80 \
+            --namespace=ecommerce &
+          PF_PID=$!
+          sleep 5
+
+          HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
+            http://localhost:8080/health || echo "000")
+
+          kill $PF_PID 2>/dev/null || true
+
+          echo "Health check HTTP status: $HTTP_STATUS"
+          if [ "$HTTP_STATUS" != "200" ]; then
+            echo "::error::Smoke test FAILED — /health returned $HTTP_STATUS"
+            exit 1
+          fi
+          echo "Smoke test PASSED"
+
+      - name: Rollback on smoke-test failure
+        if: failure() && steps.smoke_test.outcome == 'failure'
+        run: |
+          echo "Rolling back to previous Helm release..."
+          helm rollback ecommerce --namespace=ecommerce
+          echo "Rollback complete"

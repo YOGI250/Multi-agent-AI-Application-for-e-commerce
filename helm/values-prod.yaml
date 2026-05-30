@@ -1,0 +1,40 @@
+# helm/values-prod.yaml — production overrides
+# Apply with: helm upgrade --install ... -f values.yaml -f values-prod.yaml
+# Secrets are NOT stored here — they come from Kubernetes Secrets
+
+replicaCount: 2
+
+image:
+  pullPolicy: Always
+
+resources:
+  requests:
+    cpu: 500m
+    memory: 1Gi
+  limits:
+    cpu: 2000m
+    memory: 2Gi
+
+ingress:
+  enabled: true
+  className: nginx
+  host: ecommerce.yourdomain.com
+  tls: true
+
+postgres:
+  storage: 20Gi
+  storageClass: standard
+
+langfuseDb:
+  storage: 10Gi
+
+prometheus:
+  storage: 10Gi
+
+grafana:
+  storage: 5Gi
+
+app:
+  environment: production
+  logLevel: WARNING
+  sessionExpiryMinutes: 60
