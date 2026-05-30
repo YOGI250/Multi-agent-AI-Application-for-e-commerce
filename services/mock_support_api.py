@@ -3,7 +3,7 @@
 import logging
 import uuid
 from typing import Optional
-from datetime import datetime
+from datetime import datetime, timezone
 from database.connection import SessionLocal
 from database.models import Policy, SupportTicket
 
@@ -29,7 +29,7 @@ def get_policy(issue_type: str) -> Optional[dict]:
             return {
                 "issue_type":   issue_type,
                 "policy_text":  "Please contact our support team for assistance. We will resolve your issue within 5-7 business days.",
-                "updated_at":   str(datetime.utcnow())
+                "updated_at":   str(datetime.now(timezone.utc))
             }
 
         return {
@@ -63,7 +63,7 @@ def get_user_complaint_history(user_id: str, order_id: Optional[str] = None) -> 
         ticket = query.first()
 
         if ticket:
-            days_open = (datetime.utcnow() - ticket.created_at).days
+            days_open = (datetime.now(timezone.utc) - ticket.created_at).days
             logger.info(
                 f"Open ticket found: {ticket.ticket_id} for user {user_id}, "
                 f"days_open={days_open}"
@@ -141,7 +141,7 @@ def create_ticket(
             issue_type = issue_type,
             priority   = priority,
             status     = "open",
-            created_at = datetime.utcnow()
+            created_at = datetime.now(timezone.utc)
         )
         db.add(ticket)
         db.commit()
