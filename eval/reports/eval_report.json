@@ -1,6 +1,6 @@
 {
-  "run_timestamp": "2026-05-30T11:30:47.772603+00:00",
-  "git_commit_sha": "72ac58806666262bda0dcba37148171d15c77b50",
+  "run_timestamp": "2026-05-30T11:38:50.395723+00:00",
+  "git_commit_sha": "efa304119e4d386b75571d58f71799d39e4569de",
   "branch_name": "main",
   "total_samples": 5,
   "mode": "mocked",
@@ -8,13 +8,15 @@
     "answer_relevancy": 1.0,
     "faithfulness": 1.0,
     "task_completion": 1.0,
-    "correctness": 0.8333
+    "correctness": 0.8333,
+    "hallucination_free": 1.0
   },
   "thresholds": {
     "answer_relevancy": 0.7,
     "faithfulness": 0.8,
     "task_completion": 0.8,
-    "correctness": 0.7
+    "correctness": 0.7,
+    "hallucination_free": 0.8
   },
   "per_sample_scores": [
     {
@@ -26,7 +28,8 @@
         "answer_relevancy": 1.0,
         "faithfulness": 1.0,
         "task_completion": 1.0,
-        "correctness": 0.8333
+        "correctness": 0.8333,
+        "hallucination_free": 1.0
       },
       "passed": true,
       "mode": "MOCKED"
@@ -40,7 +43,8 @@
         "answer_relevancy": 1.0,
         "faithfulness": 1.0,
         "task_completion": 1.0,
-        "correctness": 0.8333
+        "correctness": 0.8333,
+        "hallucination_free": 1.0
       },
       "passed": true,
       "mode": "MOCKED"
@@ -54,7 +58,8 @@
         "answer_relevancy": 1.0,
         "faithfulness": 1.0,
         "task_completion": 1.0,
-        "correctness": 0.8333
+        "correctness": 0.8333,
+        "hallucination_free": 1.0
       },
       "passed": true,
       "mode": "MOCKED"
@@ -68,7 +73,8 @@
         "answer_relevancy": 1.0,
         "faithfulness": 1.0,
         "task_completion": 1.0,
-        "correctness": 0.8333
+        "correctness": 0.8333,
+        "hallucination_free": 1.0
       },
       "passed": true,
       "mode": "MOCKED"
@@ -82,7 +88,8 @@
         "answer_relevancy": 1.0,
         "faithfulness": 1.0,
         "task_completion": 1.0,
-        "correctness": 0.8333
+        "correctness": 0.8333,
+        "hallucination_free": 1.0
       },
       "passed": true,
       "mode": "MOCKED"

@@ -20,6 +20,9 @@ metrics:
   correctness:
     threshold: 0.7
     description: "Response must contain the expected information and keywords"
+  hallucination_free:
+    threshold: 0.8
+    description: "Response must not invent facts (order IDs, prices, ticket IDs) not grounded in input or reference"
 
 reporting:
   json_report_path: "eval/reports/eval_report.json"

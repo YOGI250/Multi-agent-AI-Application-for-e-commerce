@@ -135,13 +135,80 @@ def _score_correctness(response: str, expected: dict) -> float:
     return round(hits / len(markers), 4)
 
 
+def _score_hallucination_free(
+    message: str, response: str, reference: str
+) -> float:
+    """
+    Detects whether the response invents specific facts not present in the
+    user's message or the reference (ground-truth) response.
+
+    Convention: 1.0 = no hallucination detected (good), 0.0 = hallucination (bad).
+    Same direction as all other metrics — higher is better.
+
+    Approach (rule-based, no LLM required):
+    ┌─────────────────────────────────────────────────────────────────┐
+    │  1. Extract specific factual entities from the actual response: │
+    │     • Order IDs  (ORD-XXXXXX-NNN)                              │
+    │     • Prices     (₹NNNN)                                       │
+    │     • Ticket IDs (8-char uppercase alphanumeric)               │
+    │     • Tracking numbers (carrier + digits)                      │
+    │                                                                 │
+    │  2. For each entity, check if it is "grounded" — i.e. it       │
+    │     appears in EITHER the user message OR the reference.       │
+    │     If it appears in neither, the agent invented it.           │
+    │                                                                 │
+    │  3. score = grounded_claims / total_claims                     │
+    │     (no specific claims → score = 1.0)                         │
+    └─────────────────────────────────────────────────────────────────┘
+
+    In mocked mode, actual_output == reference, so every claim is
+    grounded and the score is always 1.0 (correct — the reference IS
+    the ground truth). In live mode, invented facts will drop the score.
+    """
+    grounding_pool = (message + " " + reference).upper()
+    claims: list[bool] = []
+
+    # ── 1. Order IDs (ORD-XXXXXX-NNN) ────────────────────────────────
+    # Example: ORD-620678-001
+    # Hallucination: responding with ORD-620678-002 when user asked about 001
+    for oid in re.findall(r"\bORD-[A-Z0-9]+-\d+\b", response, re.IGNORECASE):
+        claims.append(oid.upper() in grounding_pool)
+
+    # ── 2. Prices (₹NNNN) ────────────────────────────────────────────
+    # Example: ₹42999.0
+    # Hallucination: quoting a price that never appeared in reference
+    for price in re.findall(r"₹[\d,]+(?:\.\d+)?", response):
+        claims.append(price in grounding_pool)
+
+    # ── 3. Ticket IDs (8 uppercase alphanumeric chars) ────────────────
+    # Example: TKT-001 or the raw 8-char ID our system generates
+    # These must come from the reference (system-generated, never in user message)
+    for tid in re.findall(r"\b[A-Z0-9]{8}\b", response):
+        claims.append(tid in grounding_pool)
+
+    # ── 4. Format sanity (no LLM data without proper formatting) ─────
+    # If response mentions "price" but uses plain numbers instead of ₹,
+    # that's a sign of ungrounded/hallucinated price data.
+    if "price" in response.lower() and "₹" not in response:
+        # Penalty: response claims to give prices but uses no ₹ formatting
+        claims.append(False)
+
+    if not claims:
+        # No specific factual assertions found → nothing to hallucinate
+        return 1.0
+
+    grounded = sum(1 for c in claims if c)
+    return round(grounded / len(claims), 4)
+
+
 def score_case(message: str, response: str,
                reference: str, expected: dict) -> dict[str, float]:
     return {
-        "answer_relevancy": _score_answer_relevancy(message, response),
-        "faithfulness":     _score_faithfulness(response, reference),
-        "task_completion":  _score_task_completion(response, expected),
-        "correctness":      _score_correctness(response, expected),
+        "answer_relevancy":   _score_answer_relevancy(message, response),
+        "faithfulness":       _score_faithfulness(response, reference),
+        "task_completion":    _score_task_completion(response, expected),
+        "correctness":        _score_correctness(response, expected),
+        "hallucination_free": _score_hallucination_free(message, response, reference),
     }
 
 
