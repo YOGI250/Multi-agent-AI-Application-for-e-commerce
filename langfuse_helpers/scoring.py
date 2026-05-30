@@ -27,7 +27,7 @@ def score_response(
         scores = _calculate_scores(agent_used, message, response)
 
         for metric_name, score_value in scores.items():
-            langfuse_client.score(
+            langfuse_client.create_score(
                 trace_id = trace_id,
                 name     = metric_name,
                 value    = score_value,

@@ -15,7 +15,7 @@ class TestScoreResponse:
                 message    = "show me laptops",
                 response   = "Here are top 3 laptops for you."
             )
-        assert mock_lf.score.called
+        assert mock_lf.create_score.called
 
     def test_score_order_agent(self):
         with patch("langfuse_helpers.scoring.langfuse_client") as mock_lf:
@@ -26,7 +26,7 @@ class TestScoreResponse:
                 message    = "where is my order ORD-1001",
                 response   = "Your order ORD-1001 is shipped."
             )
-        assert mock_lf.score.called
+        assert mock_lf.create_score.called
 
     def test_score_support_agent(self):
         with patch("langfuse_helpers.scoring.langfuse_client") as mock_lf:
@@ -37,7 +37,7 @@ class TestScoreResponse:
                 message    = "my product arrived damaged",
                 response   = "We apologize for the damaged product."
             )
-        assert mock_lf.score.called
+        assert mock_lf.create_score.called
 
     def test_score_access_control(self):
         with patch("langfuse_helpers.scoring.langfuse_client") as mock_lf:
@@ -48,11 +48,11 @@ class TestScoreResponse:
                 message    = "where is my order",
                 response   = "Please log in to track orders."
             )
-        assert mock_lf.score.called
+        assert mock_lf.create_score.called
 
     def test_score_handles_exception(self):
         with patch("langfuse_helpers.scoring.langfuse_client") as mock_lf:
-            mock_lf.score.side_effect = Exception("LangFuse error")
+            mock_lf.create_score.side_effect = Exception("LangFuse error")
             from langfuse_helpers.scoring import score_response
             # should not raise
             score_response(

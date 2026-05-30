@@ -60,9 +60,9 @@ def run_evaluation(dataset_name: str = "ecommerce-eval-dataset"):
             agent_used = result.get("agent_used", "unknown")
             intent     = result.get("intent", "unknown")
 
-            langfuse_client.trace(
-                id     = trace.id,
-                output = {"response": response, "agent_used": agent_used}
+            # update trace output (v4: use set_trace_io on the root span)
+            trace._span.set_trace_io(
+                output={"response": response, "agent_used": agent_used}
             )
 
             # score — check if expected keywords appear in response
@@ -80,24 +80,24 @@ def run_evaluation(dataset_name: str = "ecommerce-eval-dataset"):
             expected_intent = expected.get("intent", "")
             intent_correct  = 1.0 if intent == expected_intent else 0.0
 
-            # submit scores to LangFuse
-            langfuse_client.score(
+            # submit scores to LangFuse (v4: create_score replaces score)
+            langfuse_client.create_score(
                 trace_id = trace.id,
                 name     = "keyword_coverage",
                 value    = keyword_score,
                 comment  = f"matched {matches}/{len(expected_contains)} keywords"
             )
 
-            langfuse_client.score(
+            langfuse_client.create_score(
                 trace_id = trace.id,
                 name     = "intent_accuracy",
                 value    = intent_correct,
                 comment  = f"expected={expected_intent} got={intent}"
             )
 
-            # link run to dataset item
+            # link run to dataset item (v4: item.link API unchanged)
             item.link(
-                trace,
+                trace._span,
                 run_name,
                 run_description = "Automated evaluation run 1"
             )

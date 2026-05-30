@@ -55,7 +55,7 @@ services:
   # LangFuse — self-hosted observability
   # ==========================================
   langfuse-server:
-    image: langfuse/langfuse:2
+    image: langfuse/langfuse:3
     container_name: langfuse-server
     depends_on:
       - langfuse-db

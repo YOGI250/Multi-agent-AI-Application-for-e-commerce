@@ -15,8 +15,8 @@ class TestTestConnection:
         assert isinstance(result, bool)
 
     def test_returns_false_on_exception(self):
-        with patch("database.connection.SessionLocal",
-                   side_effect=Exception("connection failed")):
+        with patch("database.connection.engine") as mock_engine:
+            mock_engine.connect.side_effect = Exception("connection failed")
             from database.connection import test_connection
             result = test_connection()
         assert result == False
