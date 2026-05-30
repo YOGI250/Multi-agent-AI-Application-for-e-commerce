@@ -442,35 +442,46 @@ def generate_html_report(per_sample, averages, overall_pass) -> Path:
 
 # ── Push JSON report to LangFuse ────────────────────────────────────────────────
 
-def push_report_to_langfuse(json_path: Path, overall_pass: bool) -> None:
+def push_report_to_langfuse(json_path: Path, per_sample: list, overall_pass: bool) -> None:
     try:
-        # Only import when needed — avoids import errors in CI without LangFuse
         sys.path.insert(0, str(REPO_ROOT))
-        from langfuse_helpers.tracing import langfuse_client, flush
+        from langfuse import Langfuse
+
+        lf = Langfuse(
+            public_key = os.getenv("LANGFUSE_PUBLIC_KEY", "placeholder"),
+            secret_key = os.getenv("LANGFUSE_SECRET_KEY", "placeholder"),
+            host       = os.getenv("LANGFUSE_HOST", "http://localhost:3000"),
+        )
 
         dataset_name = config["evaluation"]["dataset_name"]
         run_name     = f"ci-eval-{GIT_SHA[:8]}-{datetime.now(timezone.utc).strftime('%Y%m%d%H%M')}"
 
-        report_content = json.loads(json_path.read_text())
+        # Create a dataset run item for each evaluated sample so results are
+        # visible under Datasets → ecommerce-eval-dataset → Runs in LangFuse UI
+        for sample in per_sample:
+            try:
+                item = lf.create_dataset_item(
+                    dataset_name    = dataset_name,
+                    input           = {"message": sample["message"]},
+                    expected_output = {"intent": sample.get("intent")},
+                )
+                lf.create_dataset_run_item(
+                    run_name        = run_name,
+                    dataset_item_id = item.id,
+                    metadata        = {
+                        "scores":  sample["scores"],
+                        "passed":  sample["passed"],
+                        "mode":    sample.get("mode", "mocked"),
+                    },
+                )
+            except Exception:
+                pass  # item may already exist; skip duplicates
 
-        # Link the run to the LangFuse dataset
-        langfuse_client.create_dataset_run_item = getattr(
-            langfuse_client, "create_dataset_run_item", None
-        )
-
-        # Score the overall run at the dataset level
-        langfuse_client.score(
-            trace_id = None,
-            name     = "eval_run_pass",
-            value    = 1.0 if overall_pass else 0.0,
-            comment  = f"CI eval run {run_name} — {'PASS' if overall_pass else 'FAIL'}"
-        )
-
-        flush()
-        logger.info(f"LangFuse: eval run pushed as '{run_name}'")
+        lf.flush()
+        logger.info(f"LangFuse: eval run '{run_name}' pushed ({len(per_sample)} items)")
 
     except Exception as e:
-        # LangFuse may not be reachable in CI; don't fail the pipeline for this
+        # LangFuse may not be reachable in CI — don't fail the pipeline for this
         logger.warning(f"LangFuse push skipped: {e}")
 
 
@@ -483,7 +494,7 @@ def main() -> int:
     generate_html_report(per_sample, averages, overall_pass)
 
     if config.get("reporting", {}).get("push_to_langfuse", False):
-        push_report_to_langfuse(json_path, overall_pass)
+        push_report_to_langfuse(json_path, per_sample, overall_pass)
 
     if overall_pass:
         logger.info("Evaluation PASSED — all metrics above thresholds.")

@@ -3,8 +3,10 @@
 import logging
 import json
 import re
-from typing import TypedDict, Optional
+from typing import TypedDict, Optional, List, Any
 from langgraph.graph import StateGraph, END
+from langgraph.prebuilt import ToolNode
+from langchain_core.messages import AIMessage, ToolMessage
 from langchain_groq import ChatGroq
 from config.settings import settings
 from subgraphs.product_enrichment import product_enrichment_subgraph
@@ -52,6 +54,7 @@ class ProductAgentState(TypedDict):
     session_context:         Optional[dict]
     langfuse_trace_id:       Optional[str]
     langfuse_parent_span_id: Optional[str]
+    messages:                Optional[List[Any]]
 
 
 # ==========================================
@@ -159,7 +162,8 @@ Respond ONLY with JSON:
             usage                 = usage,
             parent_observation_id = parent_id,
             prompt_name           = "extract_preferences",
-            prompt_version        = prompt_version
+            prompt_version        = prompt_version,
+            agent_used            = "product_agent"
         )
 
     try:
@@ -232,29 +236,51 @@ Respond ONLY with JSON:
 
 
 # ==========================================
-# NODE 2 — search_products_node (tool)
+# NODE 2a — search_products_node (prepare tool call for ToolNode)
 # ==========================================
 def search_products_node(state: ProductAgentState) -> ProductAgentState:
-    logger.info("Product Agent node: search_products_node")
+    logger.info("Product Agent node: prepare_product_search")
+    filters = state.get("filters") or {}
+    tool_call = {
+        "name": "search_products_tool",
+        "args": {"filters": filters},
+        "id":   "product_search_1",
+        "type": "tool_call",
+    }
+    state["messages"] = [AIMessage(content="", tool_calls=[tool_call])]
+    return state
+
+
+# ==========================================
+# NODE 2b — process_search_result (reads ToolNode output)
+# ==========================================
+def process_search_result(state: ProductAgentState) -> ProductAgentState:
+    logger.info("Product Agent node: process_search_result")
 
     trace_id  = state.get("langfuse_trace_id")
     parent_id = state.get("langfuse_parent_span_id")
-    filters   = state.get("filters", {})
+    messages  = state.get("messages") or []
+
+    tool_msg = next((m for m in messages if isinstance(m, ToolMessage)), None)
+    results  = []
+    if tool_msg:
+        try:
+            results = json.loads(tool_msg.content) or []
+        except (json.JSONDecodeError, TypeError):
+            results = []
+
+    state["search_results"] = results if isinstance(results, list) else []
 
     span = create_span(
         trace_id              = trace_id,
         name                  = "search_products",
         parent_observation_id = parent_id,
-        input_data            = {"filters": filters}
+        input_data            = {"filters": state.get("filters", {})}
     ) if trace_id else None
-
-    results = search_products_tool.invoke({"filters": filters})
-    state["search_results"] = results
-
     if span:
-        end_span(span, {"results_count": len(results)})
+        end_span(span, {"results_count": len(state["search_results"])})
 
-    logger.info(f"Search returned {len(results)} products")
+    logger.info(f"Search returned {len(state['search_results'])} products")
     return state
 
 
@@ -380,7 +406,8 @@ Maximum {settings.product_recommendation_count} products. No explanation."""
             usage                 = usage,
             parent_observation_id = parent_id,
             prompt_name           = "rank_and_filter",
-            prompt_version        = prompt_version
+            prompt_version        = prompt_version,
+            agent_used            = "product_agent"
         )
 
     try:
@@ -609,10 +636,14 @@ def no_results_response(
 # BUILD PRODUCT AGENT
 # ==========================================
 def build_product_agent():
+    product_tool_node = ToolNode([search_products_tool])
+
     graph = StateGraph(ProductAgentState)
 
     graph.add_node("extract_preferences",     extract_preferences)
     graph.add_node("search_products_node",    search_products_node)
+    graph.add_node("product_tool_node",       product_tool_node)
+    graph.add_node("process_search_result",   process_search_result)
     graph.add_node("broaden_search",          broaden_search)
     graph.add_node("rank_and_filter",         rank_and_filter)
     graph.add_node("product_enrichment_node", product_enrichment_node)
@@ -621,10 +652,12 @@ def build_product_agent():
 
     graph.set_entry_point("extract_preferences")
 
-    graph.add_edge("extract_preferences", "search_products_node")
+    graph.add_edge("extract_preferences",   "search_products_node")
+    graph.add_edge("search_products_node",  "product_tool_node")
+    graph.add_edge("product_tool_node",     "process_search_result")
 
     graph.add_conditional_edges(
-        "search_products_node",
+        "process_search_result",
         route_results_found,
         {
             "rank_and_filter":     "rank_and_filter",

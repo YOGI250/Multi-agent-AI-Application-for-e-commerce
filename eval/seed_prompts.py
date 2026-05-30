@@ -26,7 +26,7 @@ def create(name, prompt, labels=None):
 def seed_prompts():
 
     # ──────────────────────────────────────────
-    # 1. intent_router  (v1 — version-based)
+    # 1a. intent_router  (v1 — production label)
     # ──────────────────────────────────────────
     create("intent_router", """You are an intent classifier for an e-commerce customer support system.
 Classify the user message into exactly one of these intents.
@@ -48,10 +48,40 @@ Respond ONLY with a JSON object. No explanation.
   "intent": "order_query or product_query or support_query or unknown",
   "confidence": "high or medium or low",
   "reason": "one sentence explaining why"
-}""")
+}""", labels=["production"])
 
     # ──────────────────────────────────────────
-    # 2. analyze_order_status  (v1 — basic)
+    # 1b. intent_router  (v2 — stricter, "v2" label)
+    #   Switch to v2: set INTENT_ROUTER_PROMPT_LABEL=v2 in .env
+    # ──────────────────────────────────────────
+    create("intent_router", """You are a strict intent classifier for an e-commerce support system.
+You MUST classify the message into exactly one intent. Never return more than one.
+
+Intents (choose exactly one):
+- order_query: anything about an existing order — tracking, delivery, status, delays
+- product_query: product search, recommendations, comparisons, availability, pricing
+- support_query: complaints, refund requests, damaged goods, wrong items, cancellations
+- unknown: greetings, off-topic, unclear messages
+
+Rules:
+- If the user says "hi", "hello", or asks what you can do → unknown
+- If the message contains ORD- followed by digits → lean toward order_query or support_query
+- Prioritise the MOST SPECIFIC match
+
+Conversation context:
+{{history}}
+
+User message: "{{message}}"
+
+Respond ONLY with valid JSON. No markdown, no explanation.
+{
+  "intent": "order_query | product_query | support_query | unknown",
+  "confidence": "high | medium | low",
+  "reason": "one sentence"
+}""", labels=["v2"])
+
+    # ──────────────────────────────────────────
+    # 2a. analyze_order_status  (v1 — production label)
     # ──────────────────────────────────────────
     create("analyze_order_status", """You are an e-commerce order analyst.
 Analyze the following order and identify any issues.
@@ -67,18 +97,16 @@ Order details:
 Respond in this exact JSON format:
 {
   "issue_type": "delayed/on_track/delivered/cancelled/processing",
-  "severity": "high/medium/low",
   "summary": "one sentence summary of the order situation"
-}""")
+}""", labels=["production"])
 
     # ──────────────────────────────────────────
-    # 3. analyze_order_status  (v2 — with empathy)
-    #    Switching between v1/v2 requires only
-    #    changing ORDER_ANALYSIS_PROMPT_VERSION in .env
+    # 2b. analyze_order_status  (v2 — empathetic, "v2" label)
+    #   Switch to v2: set ORDER_ANALYSIS_PROMPT_LABEL=v2 in .env
     # ──────────────────────────────────────────
     create("analyze_order_status", """You are an empathetic e-commerce order analyst.
-Carefully analyze the following order details and identify any issues or concerns.
-Consider the customer's experience and any potential frustrations they may have.
+Carefully analyze the following order details and identify any issues.
+Consider the customer's experience and any potential frustrations.
 
 Order details:
 - Order ID: {{order_id}}
@@ -88,14 +116,11 @@ Order details:
 - Order value: Rs.{{order_value}}
 - Carrier: {{carrier}}
 
-Please acknowledge any delays or problems from the customer's perspective.
-
 Respond in this exact JSON format:
 {
   "issue_type": "delayed/on_track/delivered/cancelled/processing",
-  "severity": "high/medium/low",
-  "summary": "one empathetic sentence summarizing the order situation and acknowledging any customer concerns"
-}""")
+  "summary": "one empathetic sentence acknowledging the order situation from the customer's perspective"
+}""", labels=["v2"])
 
     # ──────────────────────────────────────────
     # 4. order_generate_response  (v1 — version-based)
@@ -229,8 +254,9 @@ Maximum 8 products. No explanation.""", labels=["production"])
 
     flush()
     logger.info("All prompts seeded successfully.")
-    logger.info("analyze_order_status has v1 (basic) and v2 (empathy).")
-    logger.info("Switch versions via ORDER_ANALYSIS_PROMPT_VERSION in .env")
+    logger.info("Two-version prompts (switch via .env):")
+    logger.info("  intent_router: INTENT_ROUTER_PROMPT_LABEL=production (v1) or v2")
+    logger.info("  analyze_order_status: ORDER_ANALYSIS_PROMPT_LABEL=production (v1) or v2")
 
 
 if __name__ == "__main__":

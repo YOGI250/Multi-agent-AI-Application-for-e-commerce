@@ -52,25 +52,114 @@ services:
       retries: 5
 
   # ==========================================
-  # LangFuse — self-hosted observability
+  # LangFuse — self-hosted observability (v3)
+  # v3 requires ClickHouse + Redis + langfuse-worker
   # ==========================================
   langfuse-server:
     image: langfuse/langfuse:3
     container_name: langfuse-server
     depends_on:
       - langfuse-db
+      - clickhouse
+      - redis
+      - minio
     ports:
       - "3000:3000"
     environment:
-      DATABASE_URL:      postgresql://langfuse:langfuse@langfuse-db:5432/langfuse
-      NEXTAUTH_SECRET:   ${LANGFUSE_NEXTAUTH_SECRET}
-      SALT:              ${LANGFUSE_SALT}
-      NEXTAUTH_URL:      http://localhost:3000
-      TELEMETRY_ENABLED: "false"
-      LANGFUSE_ENABLE_EXPERIMENTAL_FEATURES: "false"
+      DATABASE_URL:                           postgresql://langfuse:langfuse@langfuse-db:5432/langfuse
+      NEXTAUTH_SECRET:                        ${LANGFUSE_NEXTAUTH_SECRET}
+      SALT:                                   ${LANGFUSE_SALT}
+      ENCRYPTION_KEY:                         ${LANGFUSE_ENCRYPTION_KEY}
+      NEXTAUTH_URL:                           http://localhost:3000
+      TELEMETRY_ENABLED:                      "false"
+      CLICKHOUSE_MIGRATION_URL:               clickhouse://langfuse:langfuse@clickhouse:9000/langfuse
+      CLICKHOUSE_URL:                         http://clickhouse:8123
+      CLICKHOUSE_USER:                        langfuse
+      CLICKHOUSE_PASSWORD:                    langfuse
+      REDIS_HOST:                             redis
+      REDIS_PORT:                             "6379"
+      LANGFUSE_S3_EVENT_UPLOAD_BUCKET:        langfuse
+      LANGFUSE_S3_EVENT_UPLOAD_ACCESS_KEY_ID: minio
+      LANGFUSE_S3_EVENT_UPLOAD_SECRET_ACCESS_KEY: miniopassword
+      LANGFUSE_S3_EVENT_UPLOAD_ENDPOINT:      http://minio:9000
+      LANGFUSE_S3_EVENT_UPLOAD_REGION:        us-east-1
+      LANGFUSE_S3_EVENT_UPLOAD_FORCE_PATH_STYLE: "true"
+      LANGFUSE_S3_MEDIA_UPLOAD_BUCKET:        langfuse
+      LANGFUSE_S3_MEDIA_UPLOAD_ACCESS_KEY_ID: minio
+      LANGFUSE_S3_MEDIA_UPLOAD_SECRET_ACCESS_KEY: miniopassword
+      LANGFUSE_S3_MEDIA_UPLOAD_ENDPOINT:      http://minio:9000
+      LANGFUSE_S3_MEDIA_UPLOAD_REGION:        us-east-1
+      LANGFUSE_S3_MEDIA_UPLOAD_FORCE_PATH_STYLE: "true"
+      LANGFUSE_LOG_LEVEL:                     info
     networks:
       - ecommerce-network
     restart: unless-stopped
+
+  langfuse-worker:
+    image: langfuse/langfuse-worker:3
+    container_name: langfuse-worker
+    depends_on:
+      - langfuse-db
+      - clickhouse
+      - redis
+      - minio
+    environment:
+      DATABASE_URL:                           postgresql://langfuse:langfuse@langfuse-db:5432/langfuse
+      SALT:                                   ${LANGFUSE_SALT}
+      ENCRYPTION_KEY:                         ${LANGFUSE_ENCRYPTION_KEY}
+      CLICKHOUSE_MIGRATION_URL:               clickhouse://langfuse:langfuse@clickhouse:9000/langfuse
+      CLICKHOUSE_URL:                         http://clickhouse:8123
+      CLICKHOUSE_USER:                        langfuse
+      CLICKHOUSE_PASSWORD:                    langfuse
+      REDIS_HOST:                             redis
+      REDIS_PORT:                             "6379"
+      LANGFUSE_S3_EVENT_UPLOAD_BUCKET:        langfuse
+      LANGFUSE_S3_EVENT_UPLOAD_ACCESS_KEY_ID: minio
+      LANGFUSE_S3_EVENT_UPLOAD_SECRET_ACCESS_KEY: miniopassword
+      LANGFUSE_S3_EVENT_UPLOAD_ENDPOINT:      http://minio:9000
+      LANGFUSE_S3_EVENT_UPLOAD_REGION:        us-east-1
+      LANGFUSE_S3_EVENT_UPLOAD_FORCE_PATH_STYLE: "true"
+      LANGFUSE_S3_MEDIA_UPLOAD_BUCKET:        langfuse
+      LANGFUSE_S3_MEDIA_UPLOAD_ACCESS_KEY_ID: minio
+      LANGFUSE_S3_MEDIA_UPLOAD_SECRET_ACCESS_KEY: miniopassword
+      LANGFUSE_S3_MEDIA_UPLOAD_ENDPOINT:      http://minio:9000
+      LANGFUSE_S3_MEDIA_UPLOAD_REGION:        us-east-1
+      LANGFUSE_S3_MEDIA_UPLOAD_FORCE_PATH_STYLE: "true"
+      LANGFUSE_LOG_LEVEL:                     info
+    networks:
+      - ecommerce-network
+    restart: unless-stopped
+
+  # MinIO — S3-compatible object storage for LangFuse v3 event/media uploads
+  minio:
+    image: minio/minio:latest
+    container_name: langfuse-minio
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER:     minio
+      MINIO_ROOT_PASSWORD: miniopassword
+    volumes:
+      - minio_data:/data
+    networks:
+      - ecommerce-network
+    restart: unless-stopped
+
+  # Creates the "langfuse" bucket in MinIO on first run
+  minio-init:
+    image: minio/mc:latest
+    container_name: langfuse-minio-init
+    depends_on:
+      - minio
+    entrypoint: >
+      /bin/sh -c "
+        sleep 5;
+        mc alias set local http://minio:9000 minio miniopassword;
+        mc mb --ignore-existing local/langfuse;
+        echo 'Bucket ready.';
+      "
+    networks:
+      - ecommerce-network
+    restart: on-failure
 
   langfuse-db:
     image: postgres:15-alpine
@@ -81,6 +170,35 @@ services:
       POSTGRES_PASSWORD: langfuse
     volumes:
       - langfuse_db_data:/var/lib/postgresql/data
+    networks:
+      - ecommerce-network
+    restart: unless-stopped
+
+  # ClickHouse — analytical store for traces/observations
+  clickhouse:
+    image: clickhouse/clickhouse-server:24.8
+    container_name: langfuse-clickhouse
+    environment:
+      CLICKHOUSE_DB:       langfuse
+      CLICKHOUSE_USER:     langfuse
+      CLICKHOUSE_PASSWORD: langfuse
+    volumes:
+      - clickhouse_data:/var/lib/clickhouse
+      - ./monitoring/clickhouse-config.xml:/etc/clickhouse-server/config.d/cluster.xml
+    networks:
+      - ecommerce-network
+    restart: unless-stopped
+    ulimits:
+      nofile:
+        soft: 262144
+        hard: 262144
+
+  # Redis — async queue between langfuse-server and langfuse-worker
+  redis:
+    image: redis:7-alpine
+    container_name: langfuse-redis
+    volumes:
+      - redis_data:/data
     networks:
       - ecommerce-network
     restart: unless-stopped
@@ -171,6 +289,9 @@ services:
 volumes:
   postgres_data:
   langfuse_db_data:
+  clickhouse_data:
+  redis_data:
+  minio_data:
   prometheus_data:
   grafana_data:
   loki_data:

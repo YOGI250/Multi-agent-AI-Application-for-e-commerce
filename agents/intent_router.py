@@ -165,7 +165,8 @@ Respond ONLY with a JSON object. No explanation.
             usage                 = usage,
             parent_observation_id = parent_id,
             prompt_name           = "intent_router",
-            prompt_version        = prompt_version
+            prompt_version        = prompt_version,
+            agent_used            = "intent_router"
         )
 
     try:

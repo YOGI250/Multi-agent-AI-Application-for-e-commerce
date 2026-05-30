@@ -3,8 +3,10 @@
 import logging
 import json
 import re
-from typing import TypedDict, Optional
+from typing import TypedDict, Optional, List, Any
 from langgraph.graph import StateGraph, END
+from langgraph.prebuilt import ToolNode
+from langchain_core.messages import AIMessage, ToolMessage
 from langchain_groq import ChatGroq
 from config.settings import settings
 from subgraphs.escalation_handler import escalation_handler_subgraph
@@ -43,6 +45,7 @@ class SupportAgentState(TypedDict):
     session_context:         Optional[dict]
     langfuse_trace_id:       Optional[str]
     langfuse_parent_span_id: Optional[str]
+    messages:                Optional[List[Any]]
 
 
 # ==========================================
@@ -133,7 +136,8 @@ Respond ONLY with a JSON object. No explanation.
             usage                 = usage,
             parent_observation_id = parent_id,
             prompt_name           = "classify_issue",
-            prompt_version        = prompt_version
+            prompt_version        = prompt_version,
+            agent_used            = "support_agent"
         )
 
     try:
@@ -276,16 +280,42 @@ def assess_severity(state: SupportAgentState) -> SupportAgentState:
 
 
 # ==========================================
-# NODE 3 — lookup_policy_node (tool)
+# NODE 3a — lookup_policy_node (prepare tool call for ToolNode)
 # ==========================================
-def lookup_policy_node(
-    state: SupportAgentState
-) -> SupportAgentState:
-    logger.info("Support Agent node: lookup_policy_node")
+def lookup_policy_node(state: SupportAgentState) -> SupportAgentState:
+    logger.info("Support Agent node: prepare_policy_fetch")
+    issue_type = state.get("issue_type", "general_query")
+    tool_call = {
+        "name": "lookup_policy_tool",
+        "args": {"issue_type": issue_type},
+        "id":   "policy_fetch_1",
+        "type": "tool_call",
+    }
+    state["messages"] = [AIMessage(content="", tool_calls=[tool_call])]
+    return state
+
+
+# ==========================================
+# NODE 3b — process_policy_result (reads ToolNode output)
+# ==========================================
+def process_policy_result(state: SupportAgentState) -> SupportAgentState:
+    logger.info("Support Agent node: process_policy_result")
 
     trace_id   = state.get("langfuse_trace_id")
     parent_id  = state.get("langfuse_parent_span_id")
     issue_type = state.get("issue_type", "general_query")
+    messages   = state.get("messages") or []
+
+    tool_msg = next((m for m in messages if isinstance(m, ToolMessage)), None)
+    policy_text = "Please contact our support team for assistance."
+    if tool_msg:
+        try:
+            result = json.loads(tool_msg.content)
+            policy_text = result.get("policy_text", policy_text)
+        except (json.JSONDecodeError, TypeError, AttributeError):
+            pass
+
+    state["policy_text"] = policy_text
 
     span = create_span(
         trace_id              = trace_id,
@@ -293,18 +323,8 @@ def lookup_policy_node(
         parent_observation_id = parent_id,
         input_data            = {"issue_type": issue_type}
     ) if trace_id else None
-
-    policy = lookup_policy_tool.invoke({"issue_type": issue_type})
-    state["policy_text"] = policy.get(
-        "policy_text",
-        "Please contact our support team for assistance."
-    )
-
     if span:
-        end_span(span, {
-            "policy_found": bool(policy.get("policy_text")),
-            "issue_type":   issue_type
-        })
+        end_span(span, {"policy_found": bool(policy_text), "issue_type": issue_type})
 
     return state
 
@@ -515,7 +535,8 @@ Instructions:
             usage                 = usage,
             parent_observation_id = parent_id,
             prompt_name           = "draft_resolution",
-            prompt_version        = prompt_version
+            prompt_version        = prompt_version,
+            agent_used            = "support_agent"
         )
 
     state["resolution"]    = response.content
@@ -568,12 +589,16 @@ def format_response(
 # BUILD SUPPORT AGENT
 # ==========================================
 def build_support_agent():
+    support_tool_node = ToolNode([lookup_policy_tool])
+
     graph = StateGraph(SupportAgentState)
 
     graph.add_node("classify_issue",          classify_issue)
     graph.add_node("request_order_id",        request_order_id)
     graph.add_node("assess_severity",         assess_severity)
     graph.add_node("lookup_policy_node",      lookup_policy_node)
+    graph.add_node("support_tool_node",       support_tool_node)
+    graph.add_node("process_policy_result",   process_policy_result)
     graph.add_node("escalation_handler_node", escalation_handler_node)
     graph.add_node("draft_resolution",        draft_resolution)
     graph.add_node("format_response",         format_response)
@@ -588,11 +613,13 @@ def build_support_agent():
             "assess_severity":  "assess_severity"
         }
     )
-    graph.add_edge("request_order_id", END)
-    graph.add_edge("assess_severity", "lookup_policy_node")
+    graph.add_edge("request_order_id",    END)
+    graph.add_edge("assess_severity",     "lookup_policy_node")
+    graph.add_edge("lookup_policy_node",  "support_tool_node")
+    graph.add_edge("support_tool_node",   "process_policy_result")
 
     graph.add_conditional_edges(
-        "lookup_policy_node",
+        "process_policy_result",
         route_severity,
         {
             "escalation_handler_node": "escalation_handler_node",

@@ -21,8 +21,6 @@ from config.settings import settings
 from fastapi import BackgroundTasks
 from google.oauth2 import id_token
 from google.auth.transport import requests as google_requests
-from langfuse_helpers.tracing import get_trace_token_usage
-from monitoring.metrics import TOKEN_COUNTER
 
 logger = logging.getLogger(__name__)
 
@@ -438,17 +436,6 @@ async def chat(
             status          = "success",
             latency_seconds = latency_seconds
         )
-
-        # 11. record token usage in background — non-blocking
-        def record_tokens_background(tid: str, aused: str):
-            import time as _time
-            _time.sleep(3)
-            usage = get_trace_token_usage(tid)
-            if usage["input"] > 0:
-                TOKEN_COUNTER.labels(agent_used=aused, token_type="input").inc(usage["input"])
-                TOKEN_COUNTER.labels(agent_used=aused, token_type="output").inc(usage["output"])
-
-        background_tasks.add_task(record_tokens_background, trace.id, agent_used)
 
         # 11. save to database
         save_messages(

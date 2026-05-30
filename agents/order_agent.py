@@ -3,12 +3,14 @@
 import re
 import json
 import logging
-from typing import TypedDict, Optional
+from typing import TypedDict, Optional, List, Any
 from langgraph.graph import StateGraph, END
+from langgraph.prebuilt import ToolNode
+from langchain_core.messages import AIMessage, ToolMessage
 from langchain_groq import ChatGroq
 from config.settings import settings
 from subgraphs.shipment_tracking import shipment_tracking_subgraph
-from tools.order_tools import fetch_order_data
+from tools.order_tools import fetch_order_data, fetch_all_orders_for_user
 from langfuse_helpers.tracing import (
     create_span, end_span,
     create_generation, get_prompt,
@@ -36,8 +38,9 @@ class OrderAgentState(TypedDict):
     session_context:        Optional[dict]
     langfuse_trace_id:      Optional[str]
     langfuse_parent_span_id: Optional[str]
-    all_orders:       Optional[list]
-    show_all_orders:  Optional[bool]
+    all_orders:             Optional[list]
+    show_all_orders:        Optional[bool]
+    messages:               Optional[List[Any]]
 
 
 
@@ -130,61 +133,80 @@ def route_order_found(state: OrderAgentState) -> str:
 
 
 # ==========================================
-# NODE 2 — fetch_order_data_node (tool)
+# NODE 2a — prepare_order_fetch
+# Builds an AIMessage with the appropriate tool_call so ToolNode can execute it.
 # ==========================================
-def fetch_order_data_node(state: OrderAgentState) -> OrderAgentState:
-    logger.info("Order Agent node: fetch_order_data_node")
+def prepare_order_fetch(state: OrderAgentState) -> OrderAgentState:
+    logger.info("Order Agent node: prepare_order_fetch")
+    order_id   = state.get("order_id")
+    user_id    = state.get("user_id")
+    show_all   = state.get("show_all_orders")
+
+    if order_id and not show_all:
+        tool_call = {
+            "name": "fetch_order_data",
+            "args": {"order_id": order_id},
+            "id":   "order_fetch_1",
+            "type": "tool_call",
+        }
+    else:
+        tool_call = {
+            "name": "fetch_all_orders_for_user",
+            "args": {"user_id": user_id},
+            "id":   "order_fetch_1",
+            "type": "tool_call",
+        }
+
+    state["messages"] = [AIMessage(content="", tool_calls=[tool_call])]
+    return state
+
+
+# ==========================================
+# NODE 2b — process_order_result
+# Reads the ToolMessage from ToolNode and updates state fields.
+# ==========================================
+def process_order_result(state: OrderAgentState) -> OrderAgentState:
+    logger.info("Order Agent node: process_order_result")
 
     trace_id  = state.get("langfuse_trace_id")
     parent_id = state.get("langfuse_parent_span_id")
-    order_id  = state.get("order_id")
     user_id   = state.get("user_id")
+    messages  = state.get("messages") or []
 
     span = create_span(
         trace_id              = trace_id,
         name                  = "fetch_order_data",
         parent_observation_id = parent_id,
-        input_data            = {"order_id": order_id, "user_id": user_id}
+        input_data            = {"order_id": state.get("order_id"), "user_id": user_id}
     ) if trace_id else None
 
-    if order_id:
-        # fetch specific order by ID
-        result = fetch_order_data.invoke({"order_id": order_id})
+    tool_msg = next((m for m in messages if isinstance(m, ToolMessage)), None)
+    result   = None
+    if tool_msg:
+        try:
+            result = json.loads(tool_msg.content)
+        except (json.JSONDecodeError, TypeError):
+            result = None
 
-        if not result:
-            state["order_data"]     = None
-            state["order_id_found"] = False
-            if span:
-                end_span(span, {"found": False, "reason": "order not in DB"})
-            return state
-
-        if result.get("user_id") != user_id:
-            state["order_data"]     = None
-            state["order_id_found"] = False
-            if span:
-                end_span(span, {"found": False, "reason": "ownership mismatch"})
-            return state
-
-        state["order_data"]      = result
-        state["all_orders"]      = None
-        state["order_id_found"]  = True
-
-    elif state.get("show_all_orders"):
-        # user asked to see all their orders
-        from tools.order_tools import fetch_all_orders_for_user
-        all_orders = fetch_all_orders_for_user.invoke({"user_id": user_id})
-
-        if not all_orders:
-            state["order_data"]     = None
-            state["all_orders"]     = None
-            state["order_id_found"] = False
-        else:
+    if isinstance(result, list):
+        all_orders = result
+        if all_orders:
             state["order_data"]     = all_orders[0]
             state["all_orders"]     = all_orders
             state["order_id_found"] = True
-
+        else:
+            state["order_data"]     = None
+            state["all_orders"]     = None
+            state["order_id_found"] = False
+    elif isinstance(result, dict) and result:
+        if result.get("user_id") != user_id:
+            state["order_data"]     = None
+            state["order_id_found"] = False
+        else:
+            state["order_data"]     = result
+            state["all_orders"]     = None
+            state["order_id_found"] = True
     else:
-        # no order ID and not asking for all orders
         state["order_data"]     = None
         state["all_orders"]     = None
         state["order_id_found"] = False
@@ -268,7 +290,8 @@ Respond in this exact JSON format:
             usage                 = usage,
             parent_observation_id = parent_id,
             prompt_name           = "analyze_order_status",
-            prompt_version        = prompt_version
+            prompt_version        = prompt_version,
+            agent_used            = "order_agent"
         )
 
     try:
@@ -402,7 +425,8 @@ At the end add one plain line: "Ask me about any order using its ID for tracking
                 prompt                = all_orders_prompt,
                 response              = response.content,
                 usage                 = usage,
-                parent_observation_id = parent_id
+                parent_observation_id = parent_id,
+                agent_used            = "order_agent"
             )
 
         # Build status → [order_ids] map for contextual follow-up resolution
@@ -484,7 +508,8 @@ current status, and expected delivery date. Be empathetic if there is a delay.""
             usage                 = usage,
             parent_observation_id = parent_id,
             prompt_name           = "order_generate_response",
-            prompt_version        = prompt_version
+            prompt_version        = prompt_version,
+            agent_used            = "order_agent"
         )
 
     state["response"]        = response.content
@@ -538,10 +563,14 @@ def error_response(state: OrderAgentState) -> OrderAgentState:
 # BUILD ORDER AGENT
 # ==========================================
 def build_order_agent():
+    order_tool_node = ToolNode([fetch_order_data, fetch_all_orders_for_user])
+
     graph = StateGraph(OrderAgentState)
 
     graph.add_node("validate_input",        validate_input)
-    graph.add_node("fetch_order_data_node", fetch_order_data_node)
+    graph.add_node("fetch_order_data_node", prepare_order_fetch)
+    graph.add_node("order_tool_node",       order_tool_node)
+    graph.add_node("process_order_result",  process_order_result)
     graph.add_node("analyze_order_status",  analyze_order_status)
     graph.add_node("shipment_tracking_node",shipment_tracking_node)
     graph.add_node("generate_response",     generate_response)
@@ -558,8 +587,11 @@ def build_order_agent():
         }
     )
 
+    graph.add_edge("fetch_order_data_node", "order_tool_node")
+    graph.add_edge("order_tool_node",       "process_order_result")
+
     graph.add_conditional_edges(
-        "fetch_order_data_node",
+        "process_order_result",
         route_order_data_found,
         {
             "analyze_order_status": "analyze_order_status",

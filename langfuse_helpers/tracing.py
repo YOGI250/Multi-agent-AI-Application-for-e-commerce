@@ -16,6 +16,7 @@ from typing import Optional
 from langfuse import Langfuse
 from langfuse.types import TraceContext
 from config.settings import settings
+from monitoring.metrics import TOKEN_COUNTER
 
 _prompt_cache: dict = {}
 
@@ -171,7 +172,8 @@ def create_generation(
     usage:                 Optional[dict] = None,
     parent_observation_id: Optional[str]  = None,
     prompt_name:           Optional[str]  = None,
-    prompt_version:        Optional[int]  = None
+    prompt_version:        Optional[int]  = None,
+    agent_used:            str            = "unknown"
 ):
     """
     Creates and immediately ends a generation span for one LLM call.
@@ -209,6 +211,11 @@ def create_generation(
         metadata      = metadata if metadata else None
     )
     gen.end()
+
+    if input_tokens > 0:
+        TOKEN_COUNTER.labels(agent_used=agent_used, token_type="input").inc(input_tokens)
+    if output_tokens > 0:
+        TOKEN_COUNTER.labels(agent_used=agent_used, token_type="output").inc(output_tokens)
 
     logger.info(
         f"LangFuse generation: {name} | "
