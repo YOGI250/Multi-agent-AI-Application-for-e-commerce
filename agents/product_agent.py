@@ -61,7 +61,7 @@ class ProductAgentState(TypedDict):
 # NODE 1 — extract_preferences (LLM)
 # ==========================================
 def extract_preferences(state: ProductAgentState) -> ProductAgentState:
-    logger.info("Product Agent node: extract_preferences")
+    logger.info("Product Agent node: extract_preferences", extra={"node_name": "extract_preferences"})
 
     trace_id  = state.get("langfuse_trace_id")
     parent_id = state.get("langfuse_parent_span_id")
@@ -239,8 +239,19 @@ Respond ONLY with JSON:
 # NODE 2a — search_products_node (prepare tool call for ToolNode)
 # ==========================================
 def search_products_node(state: ProductAgentState) -> ProductAgentState:
-    logger.info("Product Agent node: prepare_product_search")
-    filters = state.get("filters") or {}
+    logger.info("Product Agent node: search_products_node", extra={"node_name": "search_products_node"})
+
+    trace_id  = state.get("langfuse_trace_id")
+    parent_id = state.get("langfuse_parent_span_id")
+    filters   = state.get("filters") or {}
+
+    span = create_span(
+        trace_id              = trace_id,
+        name                  = "search_products_node",
+        parent_observation_id = parent_id,
+        input_data            = {"filters": filters}
+    ) if trace_id else None
+
     tool_call = {
         "name": "search_products_tool",
         "args": {"filters": filters},
@@ -248,6 +259,10 @@ def search_products_node(state: ProductAgentState) -> ProductAgentState:
         "type": "tool_call",
     }
     state["messages"] = [AIMessage(content="", tool_calls=[tool_call])]
+
+    if span:
+        end_span(span, {"tool": "search_products_tool", "filters": filters})
+
     return state
 
 
@@ -255,7 +270,7 @@ def search_products_node(state: ProductAgentState) -> ProductAgentState:
 # NODE 2b — process_search_result (reads ToolNode output)
 # ==========================================
 def process_search_result(state: ProductAgentState) -> ProductAgentState:
-    logger.info("Product Agent node: process_search_result")
+    logger.info("Product Agent node: process_search_result", extra={"node_name": "process_search_result"})
 
     trace_id  = state.get("langfuse_trace_id")
     parent_id = state.get("langfuse_parent_span_id")
@@ -302,7 +317,7 @@ def route_results_found(state: ProductAgentState) -> str:
 # NODE 3 — broaden_search (pure code)
 # ==========================================
 def broaden_search(state: ProductAgentState) -> ProductAgentState:
-    logger.info("Product Agent node: broaden_search")
+    logger.info("Product Agent node: broaden_search", extra={"node_name": "broaden_search"})
 
     trace_id  = state.get("langfuse_trace_id")
     parent_id = state.get("langfuse_parent_span_id")
@@ -337,7 +352,7 @@ def broaden_search(state: ProductAgentState) -> ProductAgentState:
 # NODE 4 — rank_and_filter (LLM)
 # ==========================================
 def rank_and_filter(state: ProductAgentState) -> ProductAgentState:
-    logger.info("Product Agent node: rank_and_filter")
+    logger.info("Product Agent node: rank_and_filter", extra={"node_name": "rank_and_filter"})
 
     trace_id  = state.get("langfuse_trace_id")
     parent_id = state.get("langfuse_parent_span_id")
@@ -443,7 +458,7 @@ Maximum {settings.product_recommendation_count} products. No explanation."""
 def product_enrichment_node(
     state: ProductAgentState
 ) -> ProductAgentState:
-    logger.info("Product Agent node: product_enrichment_node")
+    logger.info("Product Agent node: product_enrichment_node", extra={"node_name": "product_enrichment_node"})
 
     trace_id  = state.get("langfuse_trace_id")
     parent_id = state.get("langfuse_parent_span_id")
@@ -484,7 +499,7 @@ def product_enrichment_node(
 def format_recommendations(
     state: ProductAgentState
 ) -> ProductAgentState:
-    logger.info("Product Agent node: format_recommendations")
+    logger.info("Product Agent node: format_recommendations", extra={"node_name": "format_recommendations"})
 
     trace_id         = state.get("langfuse_trace_id")
     parent_id        = state.get("langfuse_parent_span_id")
@@ -597,7 +612,7 @@ def format_recommendations(
 def no_results_response(
     state: ProductAgentState
 ) -> ProductAgentState:
-    logger.info("Product Agent node: no_results_response")
+    logger.info("Product Agent node: no_results_response", extra={"node_name": "no_results_response"})
 
     trace_id  = state.get("langfuse_trace_id")
     parent_id = state.get("langfuse_parent_span_id")
@@ -636,13 +651,38 @@ def no_results_response(
 # BUILD PRODUCT AGENT
 # ==========================================
 def build_product_agent():
-    product_tool_node = ToolNode([search_products_tool])
+    _tool_node = ToolNode([search_products_tool])
+
+    def product_tool_node_fn(state: ProductAgentState) -> dict:
+        logger.info("Product Agent node: product_tool_node", extra={"node_name": "product_tool_node"})
+        trace_id  = state.get("langfuse_trace_id")
+        parent_id = state.get("langfuse_parent_span_id")
+        msgs      = state.get("messages", [])
+        last_ai   = next((m for m in reversed(msgs) if hasattr(m, "tool_calls") and m.tool_calls), None)
+        tool_name = last_ai.tool_calls[0].get("name", "unknown") if last_ai else "unknown"
+        tool_args = last_ai.tool_calls[0].get("args", {}) if last_ai else {}
+
+        span = create_span(
+            trace_id              = trace_id,
+            name                  = "product_tool_node",
+            parent_observation_id = parent_id,
+            input_data            = {"tool": tool_name, "args": tool_args}
+        ) if trace_id else None
+
+        result = _tool_node.invoke(state)
+
+        if span:
+            tool_msgs = result.get("messages", [])
+            output    = tool_msgs[0].content[:200] if tool_msgs else None
+            end_span(span, {"tool_output": output, "tool": tool_name})
+
+        return result
 
     graph = StateGraph(ProductAgentState)
 
     graph.add_node("extract_preferences",     extract_preferences)
     graph.add_node("search_products_node",    search_products_node)
-    graph.add_node("product_tool_node",       product_tool_node)
+    graph.add_node("product_tool_node",       product_tool_node_fn)
     graph.add_node("process_search_result",   process_search_result)
     graph.add_node("broaden_search",          broaden_search)
     graph.add_node("rank_and_filter",         rank_and_filter)

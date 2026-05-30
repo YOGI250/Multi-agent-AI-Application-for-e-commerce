@@ -78,7 +78,7 @@ class RouterState(TypedDict):
 # NODE 1 — intent_router (LLM)
 # ==========================================
 def intent_router(state: RouterState) -> RouterState:
-    logger.info("Intent Router: classifying message")
+    logger.info("Intent Router: classifying message", extra={"node_name": "intent_router"})
 
     trace_id  = state.get("langfuse_trace_id")
     parent_id = state.get("langfuse_parent_span_id")
@@ -88,7 +88,7 @@ def intent_router(state: RouterState) -> RouterState:
     # ── Pre-check 1: greetings and generic help — always unknown, never context-biased ──
     msg_lower = message.strip().lower()
     if msg_lower in _GREETINGS or any(msg_lower.startswith(p) for p in _HELP_PREFIXES):
-        logger.info("Intent Router: greeting/help detected — bypassing LLM, routing to unknown")
+        logger.info("Intent Router: greeting/help detected — bypassing LLM, routing to unknown", extra={"node_name": "intent_router"})
         state["intent"]     = "unknown"
         state["confidence"] = "1.0"
         state["reason"]     = "Greeting or generic help request"
@@ -102,7 +102,8 @@ def intent_router(state: RouterState) -> RouterState:
         if order_id_in_message:
             logger.info(
                 "Intent Router: pending support context detected + order ID provided — "
-                "bypassing LLM, routing to support_query"
+                "bypassing LLM, routing to support_query",
+                extra={"node_name": "intent_router"}
             )
             state["intent"]     = "support_query"
             state["confidence"] = "1.0"
@@ -188,7 +189,7 @@ Respond ONLY with a JSON object. No explanation.
     state["confidence"] = result.get("confidence", "low")
     state["reason"]     = result.get("reason", "")
 
-    logger.info(f"Intent: {state['intent']} | Confidence: {state['confidence']}")
+    logger.info(f"Intent: {state['intent']} | Confidence: {state['confidence']}", extra={"node_name": "intent_router"})
     return state
 
 
@@ -230,7 +231,7 @@ def route_to_agent(state: RouterState) -> str:
 # NODE 2 — run_order_agent
 # ==========================================
 def run_order_agent(state: RouterState) -> RouterState:
-    logger.info("Router: running Order Agent")
+    logger.info("Router: running Order Agent", extra={"node_name": "run_order_agent"})
 
     trace_id  = state.get("langfuse_trace_id")
     parent_id = state.get("langfuse_parent_span_id")
@@ -266,7 +267,7 @@ def run_order_agent(state: RouterState) -> RouterState:
 # NODE 3 — run_product_agent
 # ==========================================
 def run_product_agent(state: RouterState) -> RouterState:
-    logger.info("Router: running Product Agent")
+    logger.info("Router: running Product Agent", extra={"node_name": "run_product_agent"})
 
     trace_id  = state.get("langfuse_trace_id")
     parent_id = state.get("langfuse_parent_span_id")
@@ -303,7 +304,7 @@ def run_product_agent(state: RouterState) -> RouterState:
 # NODE 4 — run_support_agent
 # ==========================================
 def run_support_agent(state: RouterState) -> RouterState:
-    logger.info("Router: running Support Agent")
+    logger.info("Router: running Support Agent", extra={"node_name": "run_support_agent"})
 
     trace_id  = state.get("langfuse_trace_id")
     parent_id = state.get("langfuse_parent_span_id")
@@ -338,7 +339,7 @@ def run_support_agent(state: RouterState) -> RouterState:
 # NODE 5 — ask_clarification (low confidence)
 # ==========================================
 def ask_clarification(state: RouterState) -> RouterState:
-    logger.info("Router: low confidence — asking for clarification")
+    logger.info("Router: low confidence — asking for clarification", extra={"node_name": "ask_clarification"})
 
     trace_id  = state.get("langfuse_trace_id")
     parent_id = state.get("langfuse_parent_span_id")
@@ -376,7 +377,7 @@ def ask_clarification(state: RouterState) -> RouterState:
 # ==========================================
 
 def access_denied(state: RouterState) -> RouterState:
-    logger.info("Router: access denied for guest user")
+    logger.info("Router: access denied for guest user", extra={"node_name": "access_denied"})
 
     trace_id  = state.get("langfuse_trace_id")
     parent_id = state.get("langfuse_parent_span_id")
@@ -413,7 +414,7 @@ def access_denied(state: RouterState) -> RouterState:
 # NODE 7 — fallback_response
 # ==========================================
 def fallback_response(state: RouterState) -> RouterState:
-    logger.info("Router: fallback response for unknown intent")
+    logger.info("Router: fallback response for unknown intent", extra={"node_name": "fallback_response"})
 
     trace_id  = state.get("langfuse_trace_id")
     parent_id = state.get("langfuse_parent_span_id")

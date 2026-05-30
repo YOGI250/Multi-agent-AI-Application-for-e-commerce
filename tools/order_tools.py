@@ -82,7 +82,7 @@ def fetch_all_orders_for_user(user_id: str) -> list:
                 "status":            o.status,
                 "carrier":           o.carrier,
                 "tracking_number":   o.tracking_number,
-                "order_value":       o.order_value,
+                "order_value":       float(o.order_value),
                 "expected_delivery": str(o.expected_delivery),
                 "order_date":        str(o.order_date),
                 "items":             o.items,

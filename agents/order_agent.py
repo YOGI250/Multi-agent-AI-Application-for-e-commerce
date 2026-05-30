@@ -48,7 +48,7 @@ class OrderAgentState(TypedDict):
 # NODE 1 — validate_input
 # ==========================================
 def validate_input(state: OrderAgentState) -> OrderAgentState:
-    logger.info("Order Agent node: validate_input")
+    logger.info("Order Agent node: validate_input", extra={"node_name": "validate_input"})
 
     trace_id  = state.get("langfuse_trace_id")
     parent_id = state.get("langfuse_parent_span_id")
@@ -137,10 +137,20 @@ def route_order_found(state: OrderAgentState) -> str:
 # Builds an AIMessage with the appropriate tool_call so ToolNode can execute it.
 # ==========================================
 def prepare_order_fetch(state: OrderAgentState) -> OrderAgentState:
-    logger.info("Order Agent node: prepare_order_fetch")
-    order_id   = state.get("order_id")
-    user_id    = state.get("user_id")
-    show_all   = state.get("show_all_orders")
+    logger.info("Order Agent node: prepare_order_fetch", extra={"node_name": "prepare_order_fetch"})
+
+    trace_id  = state.get("langfuse_trace_id")
+    parent_id = state.get("langfuse_parent_span_id")
+    order_id  = state.get("order_id")
+    user_id   = state.get("user_id")
+    show_all  = state.get("show_all_orders")
+
+    span = create_span(
+        trace_id              = trace_id,
+        name                  = "prepare_order_fetch",
+        parent_observation_id = parent_id,
+        input_data            = {"order_id": order_id, "show_all": show_all}
+    ) if trace_id else None
 
     if order_id and not show_all:
         tool_call = {
@@ -158,6 +168,10 @@ def prepare_order_fetch(state: OrderAgentState) -> OrderAgentState:
         }
 
     state["messages"] = [AIMessage(content="", tool_calls=[tool_call])]
+
+    if span:
+        end_span(span, {"tool": tool_call["name"], "args": tool_call["args"]})
+
     return state
 
 
@@ -166,7 +180,7 @@ def prepare_order_fetch(state: OrderAgentState) -> OrderAgentState:
 # Reads the ToolMessage from ToolNode and updates state fields.
 # ==========================================
 def process_order_result(state: OrderAgentState) -> OrderAgentState:
-    logger.info("Order Agent node: process_order_result")
+    logger.info("Order Agent node: process_order_result", extra={"node_name": "process_order_result"})
 
     trace_id  = state.get("langfuse_trace_id")
     parent_id = state.get("langfuse_parent_span_id")
@@ -186,7 +200,11 @@ def process_order_result(state: OrderAgentState) -> OrderAgentState:
         try:
             result = json.loads(tool_msg.content)
         except (json.JSONDecodeError, TypeError):
-            result = None
+            import ast
+            try:
+                result = ast.literal_eval(tool_msg.content)
+            except Exception:
+                result = None
 
     if isinstance(result, list):
         all_orders = result
@@ -233,7 +251,7 @@ def route_order_data_found(state: OrderAgentState) -> str:
 # NODE 3 — analyze_order_status (LLM)
 # ==========================================
 def analyze_order_status(state: OrderAgentState) -> OrderAgentState:
-    logger.info("Order Agent node: analyze_order_status")
+    logger.info("Order Agent node: analyze_order_status", extra={"node_name": "analyze_order_status"})
 
     trace_id  = state.get("langfuse_trace_id")
     parent_id = state.get("langfuse_parent_span_id")
@@ -314,7 +332,7 @@ Respond in this exact JSON format:
 # NODE 4 — shipment_tracking_node (subgraph)
 # ==========================================
 def shipment_tracking_node(state: OrderAgentState) -> OrderAgentState:
-    logger.info("Order Agent node: shipment_tracking_node")
+    logger.info("Order Agent node: shipment_tracking_node", extra={"node_name": "shipment_tracking_node"})
 
     trace_id  = state.get("langfuse_trace_id")
     parent_id = state.get("langfuse_parent_span_id")
@@ -358,7 +376,7 @@ def shipment_tracking_node(state: OrderAgentState) -> OrderAgentState:
 # NODE 5 — generate_response (LLM)
 # ==========================================
 def generate_response(state: OrderAgentState) -> OrderAgentState:
-    logger.info("Order Agent node: generate_response")
+    logger.info("Order Agent node: generate_response", extra={"node_name": "generate_response"})
 
     from langfuse_helpers.tracing import compile_prompt
 
@@ -523,7 +541,7 @@ current status, and expected delivery date. Be empathetic if there is a delay.""
 # NODE 6 — error_response
 # ==========================================
 def error_response(state: OrderAgentState) -> OrderAgentState:
-    logger.info("Order Agent node: error_response")
+    logger.info("Order Agent node: error_response", extra={"node_name": "error_response"})
 
     trace_id  = state.get("langfuse_trace_id")
     parent_id = state.get("langfuse_parent_span_id")
@@ -563,13 +581,38 @@ def error_response(state: OrderAgentState) -> OrderAgentState:
 # BUILD ORDER AGENT
 # ==========================================
 def build_order_agent():
-    order_tool_node = ToolNode([fetch_order_data, fetch_all_orders_for_user])
+    _tool_node = ToolNode([fetch_order_data, fetch_all_orders_for_user])
+
+    def order_tool_node_fn(state: OrderAgentState) -> dict:
+        logger.info("Order Agent node: order_tool_node", extra={"node_name": "order_tool_node"})
+        trace_id  = state.get("langfuse_trace_id")
+        parent_id = state.get("langfuse_parent_span_id")
+        msgs      = state.get("messages", [])
+        last_ai   = next((m for m in reversed(msgs) if hasattr(m, "tool_calls") and m.tool_calls), None)
+        tool_name = last_ai.tool_calls[0].get("name", "unknown") if last_ai else "unknown"
+        tool_args = last_ai.tool_calls[0].get("args", {}) if last_ai else {}
+
+        span = create_span(
+            trace_id              = trace_id,
+            name                  = "order_tool_node",
+            parent_observation_id = parent_id,
+            input_data            = {"tool": tool_name, "args": tool_args}
+        ) if trace_id else None
+
+        result = _tool_node.invoke(state)
+
+        if span:
+            tool_msgs = result.get("messages", [])
+            output    = tool_msgs[0].content[:200] if tool_msgs else None
+            end_span(span, {"tool_output": output, "tool": tool_name})
+
+        return result
 
     graph = StateGraph(OrderAgentState)
 
     graph.add_node("validate_input",        validate_input)
     graph.add_node("fetch_order_data_node", prepare_order_fetch)
-    graph.add_node("order_tool_node",       order_tool_node)
+    graph.add_node("order_tool_node",       order_tool_node_fn)
     graph.add_node("process_order_result",  process_order_result)
     graph.add_node("analyze_order_status",  analyze_order_status)
     graph.add_node("shipment_tracking_node",shipment_tracking_node)

@@ -63,7 +63,10 @@ def get_user_complaint_history(user_id: str, order_id: Optional[str] = None) -> 
         ticket = query.first()
 
         if ticket:
-            days_open = (datetime.now(timezone.utc) - ticket.created_at).days
+            created = ticket.created_at
+            if created.tzinfo is None:
+                created = created.replace(tzinfo=timezone.utc)
+            days_open = (datetime.now(timezone.utc) - created).days
             logger.info(
                 f"Open ticket found: {ticket.ticket_id} for user {user_id}, "
                 f"days_open={days_open}"

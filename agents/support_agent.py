@@ -52,7 +52,7 @@ class SupportAgentState(TypedDict):
 # NODE 1 — classify_issue (LLM)
 # ==========================================
 def classify_issue(state: SupportAgentState) -> SupportAgentState:
-    logger.info("Support Agent node: classify_issue")
+    logger.info("Support Agent node: classify_issue", extra={"node_name": "classify_issue"})
 
     trace_id  = state.get("langfuse_trace_id")
     parent_id = state.get("langfuse_parent_span_id")
@@ -190,7 +190,7 @@ def route_after_classify(state: SupportAgentState) -> str:
 # NODE 1b — request_order_id
 # ==========================================
 def request_order_id(state: SupportAgentState) -> SupportAgentState:
-    logger.info("Support Agent node: request_order_id")
+    logger.info("Support Agent node: request_order_id", extra={"node_name": "request_order_id"})
 
     trace_id  = state.get("langfuse_trace_id")
     parent_id = state.get("langfuse_parent_span_id")
@@ -220,7 +220,7 @@ def request_order_id(state: SupportAgentState) -> SupportAgentState:
 # NODE 2 — assess_severity (pure code)
 # ==========================================
 def assess_severity(state: SupportAgentState) -> SupportAgentState:
-    logger.info("Support Agent node: assess_severity")
+    logger.info("Support Agent node: assess_severity", extra={"node_name": "assess_severity"})
 
     trace_id   = state.get("langfuse_trace_id")
     parent_id  = state.get("langfuse_parent_span_id")
@@ -283,8 +283,19 @@ def assess_severity(state: SupportAgentState) -> SupportAgentState:
 # NODE 3a — lookup_policy_node (prepare tool call for ToolNode)
 # ==========================================
 def lookup_policy_node(state: SupportAgentState) -> SupportAgentState:
-    logger.info("Support Agent node: prepare_policy_fetch")
+    logger.info("Support Agent node: lookup_policy_node", extra={"node_name": "lookup_policy_node"})
+
+    trace_id   = state.get("langfuse_trace_id")
+    parent_id  = state.get("langfuse_parent_span_id")
     issue_type = state.get("issue_type", "general_query")
+
+    span = create_span(
+        trace_id              = trace_id,
+        name                  = "lookup_policy_node",
+        parent_observation_id = parent_id,
+        input_data            = {"issue_type": issue_type}
+    ) if trace_id else None
+
     tool_call = {
         "name": "lookup_policy_tool",
         "args": {"issue_type": issue_type},
@@ -292,6 +303,10 @@ def lookup_policy_node(state: SupportAgentState) -> SupportAgentState:
         "type": "tool_call",
     }
     state["messages"] = [AIMessage(content="", tool_calls=[tool_call])]
+
+    if span:
+        end_span(span, {"tool": "lookup_policy_tool", "issue_type": issue_type})
+
     return state
 
 
@@ -299,7 +314,7 @@ def lookup_policy_node(state: SupportAgentState) -> SupportAgentState:
 # NODE 3b — process_policy_result (reads ToolNode output)
 # ==========================================
 def process_policy_result(state: SupportAgentState) -> SupportAgentState:
-    logger.info("Support Agent node: process_policy_result")
+    logger.info("Support Agent node: process_policy_result", extra={"node_name": "process_policy_result"})
 
     trace_id   = state.get("langfuse_trace_id")
     parent_id  = state.get("langfuse_parent_span_id")
@@ -347,7 +362,7 @@ def route_severity(state: SupportAgentState) -> str:
 def escalation_handler_node(
     state: SupportAgentState
 ) -> SupportAgentState:
-    logger.info("Support Agent node: escalation_handler_node")
+    logger.info("Support Agent node: escalation_handler_node", extra={"node_name": "escalation_handler_node"})
 
     trace_id  = state.get("langfuse_trace_id")
     parent_id = state.get("langfuse_parent_span_id")
@@ -394,7 +409,7 @@ def escalation_handler_node(
 def draft_resolution(
     state: SupportAgentState
 ) -> SupportAgentState:
-    logger.info("Support Agent node: draft_resolution")
+    logger.info("Support Agent node: draft_resolution", extra={"node_name": "draft_resolution"})
 
     trace_id       = state.get("langfuse_trace_id")
     parent_id      = state.get("langfuse_parent_span_id")
@@ -555,7 +570,7 @@ Instructions:
 def format_response(
     state: SupportAgentState
 ) -> SupportAgentState:
-    logger.info("Support Agent node: format_response")
+    logger.info("Support Agent node: format_response", extra={"node_name": "format_response"})
 
     trace_id  = state.get("langfuse_trace_id")
     parent_id = state.get("langfuse_parent_span_id")
@@ -589,7 +604,32 @@ def format_response(
 # BUILD SUPPORT AGENT
 # ==========================================
 def build_support_agent():
-    support_tool_node = ToolNode([lookup_policy_tool])
+    _tool_node = ToolNode([lookup_policy_tool])
+
+    def support_tool_node_fn(state: SupportAgentState) -> dict:
+        logger.info("Support Agent node: support_tool_node", extra={"node_name": "support_tool_node"})
+        trace_id  = state.get("langfuse_trace_id")
+        parent_id = state.get("langfuse_parent_span_id")
+        msgs      = state.get("messages", [])
+        last_ai   = next((m for m in reversed(msgs) if hasattr(m, "tool_calls") and m.tool_calls), None)
+        tool_name = last_ai.tool_calls[0].get("name", "unknown") if last_ai else "unknown"
+        tool_args = last_ai.tool_calls[0].get("args", {}) if last_ai else {}
+
+        span = create_span(
+            trace_id              = trace_id,
+            name                  = "support_tool_node",
+            parent_observation_id = parent_id,
+            input_data            = {"tool": tool_name, "args": tool_args}
+        ) if trace_id else None
+
+        result = _tool_node.invoke(state)
+
+        if span:
+            tool_msgs = result.get("messages", [])
+            output    = tool_msgs[0].content[:200] if tool_msgs else None
+            end_span(span, {"tool_output": output, "tool": tool_name})
+
+        return result
 
     graph = StateGraph(SupportAgentState)
 
@@ -597,7 +637,7 @@ def build_support_agent():
     graph.add_node("request_order_id",        request_order_id)
     graph.add_node("assess_severity",         assess_severity)
     graph.add_node("lookup_policy_node",      lookup_policy_node)
-    graph.add_node("support_tool_node",       support_tool_node)
+    graph.add_node("support_tool_node",       support_tool_node_fn)
     graph.add_node("process_policy_result",   process_policy_result)
     graph.add_node("escalation_handler_node", escalation_handler_node)
     graph.add_node("draft_resolution",        draft_resolution)

@@ -58,7 +58,7 @@ postgres:
 # ─────────────────────────────────────────────────────────────
 langfuse:
   enabled: true
-  image: langfuse/langfuse:2
+  image: langfuse/langfuse:3
   port: 3000
   nextauthUrl: http://localhost:3000
   telemetry: false

@@ -7,3 +7,5 @@ __pycache__/
 .env
 logs/
 google_credentials.json
+.coverage
+htmlcov/
