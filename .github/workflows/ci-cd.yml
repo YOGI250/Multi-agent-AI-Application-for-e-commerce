@@ -242,8 +242,8 @@ jobs:
 
       - name: Load image into minikube
         run: |
+          eval $(minikube docker-env)
           docker build -t ecommerce-agent:${{ github.sha }} .
-          minikube image load ecommerce-agent:${{ github.sha }}
 
       - name: Scale down FastAPI before deploy
         run: |
