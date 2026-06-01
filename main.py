@@ -7,8 +7,10 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 from prometheus_fastapi_instrumentator import Instrumentator
+from slowapi import _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
 
-from api.routes import router
+from api.routes import router, limiter
 from database.connection import create_tables, test_connection
 from config.settings import settings
 from monitoring.logging_config import setup_logging
@@ -68,6 +70,12 @@ app.add_middleware(
 # Records: request count, latency, status codes
 # ==========================================
 Instrumentator().instrument(app).expose(app)
+
+# ==========================================
+# RATE LIMITING
+# ==========================================
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 # ==========================================
 # ROUTES

@@ -4,9 +4,13 @@ import uuid
 import time
 import logging
 from datetime import datetime, timedelta, timezone
-from fastapi import APIRouter, Header, HTTPException
+from fastapi import APIRouter, Header, HTTPException, Request
 from typing import Optional
 from sqlalchemy.orm import Session
+from slowapi import Limiter
+from slowapi.util import get_remote_address
+
+limiter = Limiter(key_func=get_remote_address)
 
 from langfuse_helpers.tracing import create_trace, flush
 from langfuse_helpers.scoring import score_response
@@ -308,8 +312,10 @@ def update_session_context(session_id: str, new_facts: dict, db: Session):
 # POST /chat
 # ==========================================
 @router.post("/chat", response_model=ChatResponse)
+@limiter.limit("20/minute")
 async def chat(
-    request: ChatRequest,
+    request: Request,
+    body: ChatRequest,
     background_tasks: BackgroundTasks,
     authorization: Optional[str] = Header(default=None, alias="Authorization"),
     x_session_id: Optional[str] = Header(default=None, alias="X-Session-ID"),
@@ -321,7 +327,7 @@ async def chat(
 
     try:
         # 1. resolve user
-        user_info = resolve_user(authorization, request.guest_id, db)
+        user_info = resolve_user(authorization, body.guest_id, db)
         user_id = user_info["user_id"]
         is_authenticated = user_info["is_authenticated"]
 
@@ -338,13 +344,13 @@ async def chat(
 
         # 3. create LangFuse trace
         trace = create_trace(
-            session_id=session_id, user_id=user_id, is_authenticated=is_authenticated, message=request.message
+            session_id=session_id, user_id=user_id, is_authenticated=is_authenticated, message=body.message
         )
 
         # 4. run intent router
         result = intent_router_graph.invoke(
             {
-                "message": request.message,
+                "message": body.message,
                 "user_id": user_id,
                 "session_id": session_id,
                 "history": history,
@@ -366,7 +372,7 @@ async def chat(
         update_session_context(session_id, updated_context, db)
 
         # 6. score response
-        score_response(trace_id=trace.id, agent_used=agent_used, message=request.message, response=response)
+        score_response(trace_id=trace.id, agent_used=agent_used, message=body.message, response=response)
 
         # 7. update trace output
         trace.update(output={"response": response, "agent_used": agent_used})
@@ -379,12 +385,18 @@ async def chat(
         latency_ms = int(latency_seconds * 1000)
 
         # 10. record Prometheus metrics
-        record_request_metrics(agent_used=agent_used, status="success", latency_seconds=latency_seconds)
+        record_request_metrics(
+            agent_used=agent_used,
+            status="success",
+            latency_seconds=latency_seconds,
+            input_tokens=result.get("total_input_tokens", 0),
+            output_tokens=result.get("total_output_tokens", 0),
+        )
 
         # 11. save to database
         save_messages(
             session_id=session_id,
-            user_message=request.message,
+            user_message=body.message,
             ai_response=response,
             intent=intent,
             confidence=confidence,

@@ -75,6 +75,8 @@ class RouterState(TypedDict):
     session_context: Optional[dict]
     langfuse_trace_id: Optional[str]
     langfuse_parent_span_id: Optional[str]
+    total_input_tokens: Optional[int]
+    total_output_tokens: Optional[int]
 
 
 # ==========================================
@@ -153,7 +155,15 @@ Respond ONLY with a JSON object. No explanation.
         prompt_text = compile_prompt(prompt_text, message=message, history=recent_msgs)
 
     llm = ChatGroq(api_key=settings.groq_api_key, model=settings.llm_model_name)
-    response = llm.invoke(prompt_text)
+    try:
+        response = llm.invoke(prompt_text)
+    except Exception as e:
+        logger.error(f"LLM invoke failed in intent_router: {e}")
+        state["intent"] = "unknown"
+        state["confidence"] = 0.0
+        state["reason"] = "Service temporarily unavailable"
+        return state
+
     usage = extract_token_usage(response)
 
     if trace_id:
@@ -184,6 +194,8 @@ Respond ONLY with a JSON object. No explanation.
     state["intent"] = result.get("intent", "unknown")
     state["confidence"] = result.get("confidence", "low")
     state["reason"] = result.get("reason", "")
+    state["total_input_tokens"] = (state.get("total_input_tokens") or 0) + usage.get("input", 0)
+    state["total_output_tokens"] = (state.get("total_output_tokens") or 0) + usage.get("output", 0)
 
     logger.info(f"Intent: {state['intent']} | Confidence: {state['confidence']}", extra={"node_name": "intent_router"})
     return state

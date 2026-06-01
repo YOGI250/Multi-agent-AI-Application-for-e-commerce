@@ -124,8 +124,15 @@ Respond ONLY with a JSON object. No explanation.
         prompt_text = compile_prompt(prompt_text, message=message, history=recent_msgs)
 
     llm = ChatGroq(api_key=settings.groq_api_key, model=settings.llm_model_name)
-    response = llm.invoke(prompt_text)
+    try:
+        response = llm.invoke(prompt_text)
+    except Exception as e:
+        logger.error(f"LLM invoke failed in classify_issue: {e}")
+        state["response"] = "I'm having trouble reaching the AI service right now. Please try again in a moment."
+        return state
     usage = extract_token_usage(response)
+    state["total_input_tokens"] = (state.get("total_input_tokens") or 0) + usage.get("input", 0)
+    state["total_output_tokens"] = (state.get("total_output_tokens") or 0) + usage.get("output", 0)
 
     if trace_id:
         create_generation(
@@ -545,8 +552,15 @@ Instructions:
         )
 
     llm = ChatGroq(api_key=settings.groq_api_key, model=settings.llm_model_name)
-    response = llm.invoke(prompt_text)
+    try:
+        response = llm.invoke(prompt_text)
+    except Exception as e:
+        logger.error(f"LLM invoke failed in draft_resolution: {e}")
+        state["response"] = "I'm having trouble reaching the AI service right now. Please try again in a moment."
+        return state
     usage = extract_token_usage(response)
+    state["total_input_tokens"] = (state.get("total_input_tokens") or 0) + usage.get("input", 0)
+    state["total_output_tokens"] = (state.get("total_output_tokens") or 0) + usage.get("output", 0)
 
     if trace_id:
         create_generation(
