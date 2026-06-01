@@ -617,7 +617,7 @@ def build_order_agent():
     graph.add_node("order_tool_node",       order_tool_node_fn)
     graph.add_node("process_order_result",  process_order_result)
     graph.add_node("analyze_order_status",  analyze_order_status)
-    graph.add_node("shipment_tracking_node",shipment_tracking_node)
+    graph.add_node("shipment_tracking_node", shipment_tracking_node)
     graph.add_node("generate_response",     generate_response)
     graph.add_node("error_response",        error_response)
 

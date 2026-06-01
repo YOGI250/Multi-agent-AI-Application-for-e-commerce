@@ -17,7 +17,7 @@ from langfuse_helpers.tracing import (
     get_prompt, compile_prompt,
     extract_token_usage
 )
-from utils.memory import merge_context, format_context
+from utils.memory import merge_context
 
 logger = logging.getLogger(__name__)
 
@@ -60,9 +60,7 @@ def extract_preferences(state: ProductAgentState) -> ProductAgentState:
         logger.info(f"Using broadened filters: {filters}")
         return state
 
-    ctx         = state.get("session_context") or {}
     history     = state.get("history", [])
-    context_str = format_context(ctx)
     # For extract_preferences we only need user messages from history
     # User messages contain the product search terms we need to carry forward
     user_msgs = [m for m in history if m.get("role") == "user"]
@@ -187,20 +185,20 @@ Respond ONLY with JSON:
     # 2. session context — for genuinely vague follow-ups ("under 2000", "what about X")
     if not filters.get("product_type"):
         KEYWORD_MAP = [
-            ("smart watch","smartwatch"),("smartwatch","smartwatch"),
-            ("laptop bag","laptop_bag"),("air purifier","air_purifier"),
-            ("water purifier","water_purifier"),("room heater","room_heater"),
-            ("water heater","water_heater"),("phone case","phone_case"),
-            ("hard disk","hard_disk"),("memory card","memory_card"),
-            ("usb hub","usb_hub"),("pen drive","pendrive"),
-            ("headphone","headphones"),("earphone","headphones"),("earbud","headphones"),
-            ("speaker","speaker"),("keyboard","keyboard"),("monitor","monitor"),
-            ("tablet","tablet"),("webcam","webcam"),("router","router"),
-            ("charger","charger"),("pendrive","pendrive"),
-            ("grinder","mixer"),("mixer","mixer"),("vacuum","vacuum"),
-            ("kettle","kettle"),("microwave","microwave"),("trimmer","trimmer"),
-            ("camera","camera"),("printer","printer"),("laptop","laptop"),
-            ("mouse","mouse"),("iron","iron"),("fan","fan"),("ssd","ssd"),
+            ("smart watch", "smartwatch"), ("smartwatch", "smartwatch"),
+            ("laptop bag", "laptop_bag"), ("air purifier", "air_purifier"),
+            ("water purifier", "water_purifier"), ("room heater", "room_heater"),
+            ("water heater", "water_heater"), ("phone case", "phone_case"),
+            ("hard disk", "hard_disk"), ("memory card", "memory_card"),
+            ("usb hub", "usb_hub"), ("pen drive", "pendrive"),
+            ("headphone", "headphones"), ("earphone", "headphones"), ("earbud", "headphones"),
+            ("speaker", "speaker"), ("keyboard", "keyboard"), ("monitor", "monitor"),
+            ("tablet", "tablet"), ("webcam", "webcam"), ("router", "router"),
+            ("charger", "charger"), ("pendrive", "pendrive"),
+            ("grinder", "mixer"), ("mixer", "mixer"), ("vacuum", "vacuum"),
+            ("kettle", "kettle"), ("microwave", "microwave"), ("trimmer", "trimmer"),
+            ("camera", "camera"), ("printer", "printer"), ("laptop", "laptop"),
+            ("mouse", "mouse"), ("iron", "iron"), ("fan", "fan"), ("ssd", "ssd"),
         ]
         msg_lower = message.lower()
         keyword_ptype = next(
@@ -507,20 +505,20 @@ def format_recommendations(
 
     if not products:
         state["response"] = (
-        f"I couldn't find any products matching \"{message}\".\n\n"
-        f"Here's what we currently have available:\n\n"
-        f"  -Computers & Accessories\n"
-        f"    laptops, keyboards, mice, cables, chargers, USB hubs, webcams\n\n"
-        f"  -Electronics\n"
-        f"    headphones, speakers, smartwatches, cameras\n\n"
-        f"  -Home & Kitchen\n"
-        f"    fans, mixers, kettles, irons, geysers, vacuum cleaners, air purifiers\n\n"
-        f"  -Office Products\n"
-        f"    pens, notebooks, desk organizers\n\n"
-        f"  -Car & Motorbike\n"
-        f"    car accessories\n\n"
-        f"Try searching within one of these categories."
-    )
+            f"I couldn't find any products matching \"{message}\".\n\n"
+            f"Here's what we currently have available:\n\n"
+            f"  -Computers & Accessories\n"
+            f"    laptops, keyboards, mice, cables, chargers, USB hubs, webcams\n\n"
+            f"  -Electronics\n"
+            f"    headphones, speakers, smartwatches, cameras\n\n"
+            f"  -Home & Kitchen\n"
+            f"    fans, mixers, kettles, irons, geysers, vacuum cleaners, air purifiers\n\n"
+            f"  -Office Products\n"
+            f"    pens, notebooks, desk organizers\n\n"
+            f"  -Car & Motorbike\n"
+            f"    car accessories\n\n"
+            f"Try searching within one of these categories."
+        )
         if span:
             end_span(span, {"response_type": "no_products"})
         return state
