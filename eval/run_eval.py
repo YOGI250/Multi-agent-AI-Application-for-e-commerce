@@ -79,18 +79,21 @@ _STOP = {
     # request/action words — appear in question but not in answer
     "show", "give", "find", "list", "need", "want", "received",
     "get", "please", "tell", "look", "check", "see", "have",
+    # quality/context modifiers — appear in query intent but not in product listings
+    "best", "good", "home", "use",
 }
 
 
 def _score_answer_relevancy(message: str, response: str) -> float:
     """
     Fraction of content-bearing message tokens that appear in the response.
-    Uses substring match so '50000' matches '₹50000', 'ORD-001' matches sentence text.
+    Numbers are comma-normalized so '50000' matches '₹50,000'.
     """
     msg_words = set(message.lower().split()) - _STOP
     if not msg_words:
         return 0.8
-    resp_lower = response.lower()
+    # strip commas from numbers so "50000" matches "50,000"
+    resp_lower = response.lower().replace(",", "")
     hits = sum(1 for w in msg_words if w in resp_lower)
     return round(min(hits / len(msg_words), 1.0), 4)
 

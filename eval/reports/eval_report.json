@@ -1,6 +1,6 @@
 {
-  "run_timestamp": "2026-06-01T07:37:36.004128+00:00",
-  "git_commit_sha": "81e5107fa21c151fb64ba7ad0c9e34dd006df73f",
+  "run_timestamp": "2026-06-01T15:33:13.904130+00:00",
+  "git_commit_sha": "2d45699da4f7dba83806ab1802212b1c78a5206e",
   "branch_name": "main",
   "total_samples": 5,
   "mode": "mocked",
@@ -8,7 +8,7 @@
     "answer_relevancy": 1.0,
     "faithfulness": 1.0,
     "task_completion": 1.0,
-    "correctness": 0.8333,
+    "correctness": 1.0,
     "hallucination_free": 1.0
   },
   "thresholds": {
@@ -23,12 +23,12 @@
       "sample_id": 1,
       "message": "show me laptops under 50000",
       "intent": "product_query",
-      "actual_output": "Here are my top 3 recommendations for laptops under \u20b950000:\n\n1. HP 15s Laptop\n   Price  : \u20b942999.0\n   Rating : 4.3 \u2b50 (1,234 reviews)\n   Brand  : HP\n   Features:\n   \u2022 Intel Core i5 processor\n   \u2022 8GB RAM, 512GB SSD\n   \u2022 15.6 inch FHD display\n   Score  : 0.92\n\n2. Lenovo IdeaPad Slim 3\n   Price  : \u20b9389...",
+      "actual_output": "Here are my top recommendations for laptops under \u20b950,000:\n\n1. HP 15s Laptop\n   Price  : \u20b942,999\n   Rating : 4.3 \u2b50 (1,234 reviews)\n   Brand  : HP\n   Features:\n   \u2022 Intel Core i5 processor\n   \u2022 8GB RAM, 512GB SSD\n\n2. Lenovo IdeaPad Slim 3\n   Price  : \u20b938,999\n   Rating : 4.2 \u2b50 (987 reviews)\n   Brand  ...",
       "scores": {
         "answer_relevancy": 1.0,
         "faithfulness": 1.0,
         "task_completion": 1.0,
-        "correctness": 0.8333,
+        "correctness": 1.0,
         "hallucination_free": 1.0
       },
       "passed": true,
@@ -38,12 +38,12 @@
       "sample_id": 2,
       "message": "I need a wireless mouse with good reviews",
       "intent": "product_query",
-      "actual_output": "Here are my top 3 recommendations for wireless mouse with good reviews:\n\n1. Logitech M331 Silent Plus Wireless Mouse\n   Price  : \u20b91295.0\n   Rating : 4.6 \u2b50 (12,375 reviews)\n   Brand  : Logitech\n   Features:\n   \u2022 Silent click technology reduces noise by 90%\n   \u2022 24-month battery life\n   \u2022 USB nano rec...",
+      "actual_output": "Here are my top recommendations for wireless mouse:\n\n1. Logitech M331 Silent Plus Wireless Mouse\n   Price  : \u20b91,295\n   Rating : 4.6 \u2b50 (12,375 reviews)\n   Brand  : Logitech\n   Features:\n   \u2022 Silent click technology\n   \u2022 24-month battery life\n\n2. Logitech Pebble M350\n   Price  : \u20b91,490\n   Rating : 4.6...",
       "scores": {
         "answer_relevancy": 1.0,
         "faithfulness": 1.0,
         "task_completion": 1.0,
-        "correctness": 0.8333,
+        "correctness": 1.0,
         "hallucination_free": 1.0
       },
       "passed": true,
@@ -51,14 +51,14 @@
     },
     {
       "sample_id": 3,
-      "message": "where is my order ORD-620678-001",
-      "intent": "order_query",
-      "actual_output": "Here is the status of your order ORD-620678-001:\n\nOrder ID  : ORD-620678-001\nItem      : Wireless Headphones\nStatus    : Delivered\nCarrier   : DTDC\nTracking  : DT251092059\nOrder Value: \u20b91299.0\n\nTracking Details:\n\u2022 Order placed and confirmed on May 1, 2026\n\u2022 Package picked up by DTDC carrier\n\u2022 In tra...",
+      "message": "show me headphones under 2000",
+      "intent": "product_query",
+      "actual_output": "Here are my top recommendations for headphones under \u20b92,000:\n\n1. boAt Rockerz 450\n   Price  : \u20b91,299\n   Rating : 4.1 \u2b50 (45,230 reviews)\n   Brand  : boAt\n   Features:\n   \u2022 15 hours playback\n   \u2022 Bluetooth 5.0\n\n2. Sony WH-CH510\n   Price  : \u20b91,799\n   Rating : 4.3 \u2b50 (12,456 reviews)\n   Brand  : Sony\n\n3....",
       "scores": {
         "answer_relevancy": 1.0,
         "faithfulness": 1.0,
         "task_completion": 1.0,
-        "correctness": 0.8333,
+        "correctness": 1.0,
         "hallucination_free": 1.0
       },
       "passed": true,
@@ -66,14 +66,14 @@
     },
     {
       "sample_id": 4,
-      "message": "show me all my orders",
-      "intent": "order_query",
-      "actual_output": "Here are all your orders:\n\n1. ORD-620678-001 \u2014 Wireless Headphones\n   Status : Delivered\n   Value  : \u20b91299.0\n   Date   : May 1, 2026\n\n2. ORD-620678-002 \u2014 Laptop Stand\n   Status : Shipped\n   Value  : \u20b92500.0\n   Date   : May 22, 2026\n\n3. ORD-620678-003 \u2014 USB Hub\n   Status : Processing\n   Value  : \u20b9499...",
+      "message": "best smartwatch under 10000",
+      "intent": "product_query",
+      "actual_output": "Here are my top recommendations for smartwatch under \u20b910,000:\n\n1. Noise ColorFit Pro 4\n   Price  : \u20b93,499\n   Rating : 4.2 \u2b50 (28,450 reviews)\n   Brand  : Noise\n   Features:\n   \u2022 1.72 inch display\n   \u2022 SpO2 and heart rate monitor\n\n2. boAt Wave Call 2\n   Price  : \u20b92,299\n   Rating : 4.0 \u2b50 (15,670 review...",
       "scores": {
         "answer_relevancy": 1.0,
         "faithfulness": 1.0,
         "task_completion": 1.0,
-        "correctness": 0.8333,
+        "correctness": 1.0,
         "hallucination_free": 1.0
       },
       "passed": true,
@@ -81,14 +81,14 @@
     },
     {
       "sample_id": 5,
-      "message": "I received a damaged product and want to return it",
-      "intent": "support_query",
-      "actual_output": "I'm sorry to hear about your damaged product. Here's how we can help:\n\nReturn Policy:\nYou can return damaged or defective items within 30 days of delivery. We offer a full refund or free replacement for damaged products at no extra cost.\n\nResolution Steps:\n1. Take clear photos of the damaged product...",
+      "message": "I need a good mixer grinder for home use",
+      "intent": "product_query",
+      "actual_output": "Here are my top recommendations for mixer grinder:\n\n1. Bajaj GX8 1000W Mixer Grinder\n   Price  : \u20b92,699\n   Rating : 4.3 \u2b50 (34,120 reviews)\n   Brand  : Bajaj\n   Features:\n   \u2022 1000W motor\n   \u2022 3 stainless steel jars\n\n2. Preethi Blue Leaf Diamond\n   Price  : \u20b93,299\n   Rating : 4.4 \u2b50 (21,450 reviews)\n ...",
       "scores": {
         "answer_relevancy": 1.0,
         "faithfulness": 1.0,
         "task_completion": 1.0,
-        "correctness": 0.8333,
+        "correctness": 1.0,
         "hallucination_free": 1.0
       },
       "passed": true,

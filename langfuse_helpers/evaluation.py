@@ -33,53 +33,53 @@ def run_evaluation(dataset_name: str = "ecommerce-eval-dataset"):
             message=message,
         )
 
-        result = intent_router_graph.invoke({
-            "message":                 message,
-            "user_id":                 user_id,
-            "session_id":              f"eval-{message[:20]}",
-            "history":                 [],
-            "is_authenticated":        True,
-            "langfuse_trace_id":       trace.id,
-            "langfuse_parent_span_id": None,
-        })
+        result = intent_router_graph.invoke(
+            {
+                "message": message,
+                "user_id": user_id,
+                "session_id": f"eval-{message[:20]}",
+                "history": [],
+                "is_authenticated": True,
+                "langfuse_trace_id": trace.id,
+                "langfuse_parent_span_id": None,
+            }
+        )
 
-        response   = result.get("response", "")
+        response = result.get("response", "")
         agent_used = result.get("agent_used", "unknown")
-        intent     = result.get("intent", "unknown")
+        intent = result.get("intent", "unknown")
 
         trace._span.set_trace_io(output={"response": response, "agent_used": agent_used})
 
         expected_contains = (expected or {}).get("should_contain", [])
-        matches      = sum(1 for kw in expected_contains if kw.lower() in response.lower())
+        matches = sum(1 for kw in expected_contains if kw.lower() in response.lower())
         keyword_score = matches / len(expected_contains) if expected_contains else 1.0
 
         expected_intent = (expected or {}).get("intent", "")
-        intent_correct  = 1.0 if intent == expected_intent else 0.0
+        intent_correct = 1.0 if intent == expected_intent else 0.0
 
         langfuse_client.create_score(
-            trace_id = trace.id,
-            name     = "keyword_coverage",
-            value    = keyword_score,
-            comment  = f"matched {matches}/{len(expected_contains)} keywords",
+            trace_id=trace.id,
+            name="keyword_coverage",
+            value=keyword_score,
+            comment=f"matched {matches}/{len(expected_contains)} keywords",
         )
         langfuse_client.create_score(
-            trace_id = trace.id,
-            name     = "intent_accuracy",
-            value    = intent_correct,
-            comment  = f"expected={expected_intent} got={intent}",
+            trace_id=trace.id,
+            name="intent_accuracy",
+            value=intent_correct,
+            comment=f"expected={expected_intent} got={intent}",
         )
 
         flush()
-        logger.info(
-            f"agent={agent_used} | keyword={keyword_score:.2f} | intent={intent_correct:.0f}"
-        )
+        logger.info(f"agent={agent_used} | keyword={keyword_score:.2f} | intent={intent_correct:.0f}")
         return {"response": response, "trace_id": trace.id}
 
     langfuse_client.run_experiment(
-        name     = dataset_name,
-        run_name = run_name,
-        data     = dataset.items,
-        task     = task,
+        name=dataset_name,
+        run_name=run_name,
+        data=dataset.items,
+        task=task,
     )
 
     logger.info("Evaluation run completed")

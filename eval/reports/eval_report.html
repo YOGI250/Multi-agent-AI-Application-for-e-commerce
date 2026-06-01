@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Eval Report — 2026-06-01 07:37 UTC</title>
+<title>Eval Report — 2026-06-01 15:33 UTC</title>
 <style>
   body   { font-family: Arial, sans-serif; margin: 40px; color: #333; }
   h1     { color: #1a1a2e; }
@@ -29,8 +29,8 @@
 <body>
 <h1>LLM Evaluation Report</h1>
 <p class="meta">
-  Generated: 2026-06-01 07:37 UTC &nbsp;|&nbsp;
-  Commit: <code>81e5107f</code> &nbsp;|&nbsp;
+  Generated: 2026-06-01 15:33 UTC &nbsp;|&nbsp;
+  Commit: <code>2d45699d</code> &nbsp;|&nbsp;
   Branch: <code>main</code> &nbsp;|&nbsp;
   Samples: 5 &nbsp;|&nbsp;
   Mode: MOCKED
@@ -44,14 +44,14 @@
   <tr class='pass-row'><td>answer_relevancy</td><td>1.0000</td><td>0.7</td><td>✅ PASS</td></tr>
 <tr class='pass-row'><td>faithfulness</td><td>1.0000</td><td>0.8</td><td>✅ PASS</td></tr>
 <tr class='pass-row'><td>task_completion</td><td>1.0000</td><td>0.8</td><td>✅ PASS</td></tr>
-<tr class='pass-row'><td>correctness</td><td>0.8333</td><td>0.7</td><td>✅ PASS</td></tr>
+<tr class='pass-row'><td>correctness</td><td>1.0000</td><td>0.7</td><td>✅ PASS</td></tr>
 <tr class='pass-row'><td>hallucination_free</td><td>1.0000</td><td>0.8</td><td>✅ PASS</td></tr>
 
 </table>
 
 <h2>Score Charts <span style="font-size:0.7em;color:#666">(vertical line = threshold)</span></h2>
 <div style="max-width:600px">
-  <div class='bar-label'>answer_relevancy</div><div class='bar-track'>  <div class='bar-fill' style='width:100%;background:#4caf50'>    1.0000  </div>  <span class='threshold-line' style='left:70%'></span></div><div class='bar-label'>faithfulness</div><div class='bar-track'>  <div class='bar-fill' style='width:100%;background:#4caf50'>    1.0000  </div>  <span class='threshold-line' style='left:80%'></span></div><div class='bar-label'>task_completion</div><div class='bar-track'>  <div class='bar-fill' style='width:100%;background:#4caf50'>    1.0000  </div>  <span class='threshold-line' style='left:80%'></span></div><div class='bar-label'>correctness</div><div class='bar-track'>  <div class='bar-fill' style='width:83%;background:#4caf50'>    0.8333  </div>  <span class='threshold-line' style='left:70%'></span></div><div class='bar-label'>hallucination_free</div><div class='bar-track'>  <div class='bar-fill' style='width:100%;background:#4caf50'>    1.0000  </div>  <span class='threshold-line' style='left:80%'></span></div>
+  <div class='bar-label'>answer_relevancy</div><div class='bar-track'>  <div class='bar-fill' style='width:100%;background:#4caf50'>    1.0000  </div>  <span class='threshold-line' style='left:70%'></span></div><div class='bar-label'>faithfulness</div><div class='bar-track'>  <div class='bar-fill' style='width:100%;background:#4caf50'>    1.0000  </div>  <span class='threshold-line' style='left:80%'></span></div><div class='bar-label'>task_completion</div><div class='bar-track'>  <div class='bar-fill' style='width:100%;background:#4caf50'>    1.0000  </div>  <span class='threshold-line' style='left:80%'></span></div><div class='bar-label'>correctness</div><div class='bar-track'>  <div class='bar-fill' style='width:100%;background:#4caf50'>    1.0000  </div>  <span class='threshold-line' style='left:70%'></span></div><div class='bar-label'>hallucination_free</div><div class='bar-track'>  <div class='bar-fill' style='width:100%;background:#4caf50'>    1.0000  </div>  <span class='threshold-line' style='left:80%'></span></div>
 </div>
 
 <h2>Per-Sample Results</h2>
@@ -59,11 +59,11 @@
   <tr>
     <th>#</th><th>Intent</th><th>Message</th><th>Scores</th><th>Pass</th>
   </tr>
-  <tr class='pass-row'><td>1</td><td>product_query</td><td style='max-width:300px;word-break:break-word'>show me laptops under 50000</td><td style='font-size:0.8em'>answer_relevancy: 1.00 | faithfulness: 1.00 | task_completion: 1.00 | correctness: 0.83 | hallucination_free: 1.00</td><td>✅</td></tr>
-<tr class='pass-row'><td>2</td><td>product_query</td><td style='max-width:300px;word-break:break-word'>I need a wireless mouse with good reviews</td><td style='font-size:0.8em'>answer_relevancy: 1.00 | faithfulness: 1.00 | task_completion: 1.00 | correctness: 0.83 | hallucination_free: 1.00</td><td>✅</td></tr>
-<tr class='pass-row'><td>3</td><td>order_query</td><td style='max-width:300px;word-break:break-word'>where is my order ORD-620678-001</td><td style='font-size:0.8em'>answer_relevancy: 1.00 | faithfulness: 1.00 | task_completion: 1.00 | correctness: 0.83 | hallucination_free: 1.00</td><td>✅</td></tr>
-<tr class='pass-row'><td>4</td><td>order_query</td><td style='max-width:300px;word-break:break-word'>show me all my orders</td><td style='font-size:0.8em'>answer_relevancy: 1.00 | faithfulness: 1.00 | task_completion: 1.00 | correctness: 0.83 | hallucination_free: 1.00</td><td>✅</td></tr>
-<tr class='pass-row'><td>5</td><td>support_query</td><td style='max-width:300px;word-break:break-word'>I received a damaged product and want to return it</td><td style='font-size:0.8em'>answer_relevancy: 1.00 | faithfulness: 1.00 | task_completion: 1.00 | correctness: 0.83 | hallucination_free: 1.00</td><td>✅</td></tr>
+  <tr class='pass-row'><td>1</td><td>product_query</td><td style='max-width:300px;word-break:break-word'>show me laptops under 50000</td><td style='font-size:0.8em'>answer_relevancy: 1.00 | faithfulness: 1.00 | task_completion: 1.00 | correctness: 1.00 | hallucination_free: 1.00</td><td>✅</td></tr>
+<tr class='pass-row'><td>2</td><td>product_query</td><td style='max-width:300px;word-break:break-word'>I need a wireless mouse with good reviews</td><td style='font-size:0.8em'>answer_relevancy: 1.00 | faithfulness: 1.00 | task_completion: 1.00 | correctness: 1.00 | hallucination_free: 1.00</td><td>✅</td></tr>
+<tr class='pass-row'><td>3</td><td>product_query</td><td style='max-width:300px;word-break:break-word'>show me headphones under 2000</td><td style='font-size:0.8em'>answer_relevancy: 1.00 | faithfulness: 1.00 | task_completion: 1.00 | correctness: 1.00 | hallucination_free: 1.00</td><td>✅</td></tr>
+<tr class='pass-row'><td>4</td><td>product_query</td><td style='max-width:300px;word-break:break-word'>best smartwatch under 10000</td><td style='font-size:0.8em'>answer_relevancy: 1.00 | faithfulness: 1.00 | task_completion: 1.00 | correctness: 1.00 | hallucination_free: 1.00</td><td>✅</td></tr>
+<tr class='pass-row'><td>5</td><td>product_query</td><td style='max-width:300px;word-break:break-word'>I need a good mixer grinder for home use</td><td style='font-size:0.8em'>answer_relevancy: 1.00 | faithfulness: 1.00 | task_completion: 1.00 | correctness: 1.00 | hallucination_free: 1.00</td><td>✅</td></tr>
 
 </table>
 </body>
