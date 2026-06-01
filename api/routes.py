@@ -3,7 +3,7 @@
 import uuid
 import time
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from fastapi import APIRouter, Header, HTTPException
 from typing import Optional
 from sqlalchemy.orm import Session
@@ -138,14 +138,14 @@ def resolve_user(
                     email            = email,
                     name             = name,
                     auth_provider    = "google",
-                    created_at       = datetime.utcnow(),
-                    last_login_at    = datetime.utcnow()
+                    created_at       = datetime.now(timezone.utc),
+                    last_login_at    = datetime.now(timezone.utc)
                 )
                 db.add(user)
                 db.commit()
                 create_sample_orders_for_user(user_id, db)
             else:
-                user.last_login_at = datetime.utcnow()
+                user.last_login_at = datetime.now(timezone.utc)
 
             db.commit()
 
@@ -172,8 +172,8 @@ def resolve_user(
                 user_id          = guest_id,
                 is_authenticated = False,
                 auth_provider    = "anonymous",
-                created_at       = datetime.utcnow(),
-                last_login_at    = datetime.utcnow()
+                created_at       = datetime.now(timezone.utc),
+                last_login_at    = datetime.now(timezone.utc)
             )
             db.add(user)
             db.commit()
@@ -188,8 +188,8 @@ def resolve_user(
         user_id          = new_guest_id,
         is_authenticated = False,
         auth_provider    = "anonymous",
-        created_at       = datetime.utcnow(),
-        last_login_at    = datetime.utcnow()
+        created_at       = datetime.now(timezone.utc),
+        last_login_at    = datetime.now(timezone.utc)
     )
     db.add(user)
     db.commit()
@@ -219,7 +219,7 @@ def resolve_session(
         ).first()
 
         if session:
-            cutoff = datetime.utcnow() - timedelta(minutes=expiry_minutes)
+            cutoff = datetime.now(timezone.utc) - timedelta(minutes=expiry_minutes)
             if session.last_active_at < cutoff:
                 session.is_active    = False
                 session.ended_reason = "expired"
@@ -251,8 +251,8 @@ def resolve_session(
     new_session    = SessionModel(
         session_id     = new_session_id,
         user_id        = user_id,
-        created_at     = datetime.utcnow(),
-        last_active_at = datetime.utcnow(),
+        created_at     = datetime.now(timezone.utc),
+        last_active_at = datetime.now(timezone.utc),
         is_active      = True,
         message_count  = 0,
         ended_reason   = None
@@ -293,7 +293,7 @@ def save_messages(
         content           = user_message,
         intent            = intent,
         intent_confidence = confidence,
-        created_at        = datetime.utcnow()
+        created_at        = datetime.now(timezone.utc)
     )
     db.add(user_msg)
 
@@ -305,7 +305,7 @@ def save_messages(
         agent_name        = agent_name,
         latency_ms        = latency_ms,
         langfuse_trace_id = trace_id,
-        created_at        = datetime.utcnow()
+        created_at        = datetime.now(timezone.utc)
     )
     db.add(ai_msg)
 
@@ -314,7 +314,7 @@ def save_messages(
     ).first()
 
     if session:
-        session.last_active_at  = datetime.utcnow()
+        session.last_active_at  = datetime.now(timezone.utc)
         session.agent_last_used = agent_name
         session.message_count  += 2
 

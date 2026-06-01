@@ -49,6 +49,15 @@ class TestGetOrder:
 # ==========================================
 # TESTS — get_tracking
 # ==========================================
+    def test_get_order_exception_returns_none(self):
+        mock_db = MagicMock()
+        mock_db.query.side_effect = Exception("DB error")
+        with patch("services.mock_order_api.SessionLocal", return_value=mock_db):
+            from services.mock_order_api import get_order
+            result = get_order("ORD-ERR")
+        assert result is None
+
+
 class TestGetTracking:
 
     def test_get_tracking_returns_none_for_unknown(self):
@@ -60,3 +69,33 @@ class TestGetTracking:
         from services.mock_order_api import get_tracking
         result = get_tracking("INVALID_TRACKING_12345")
         assert result is None or isinstance(result, dict)
+
+    def test_get_tracking_returns_dict_when_found(self):
+        mock_tracking                    = MagicMock()
+        mock_tracking.tracking_number    = "BD999"
+        mock_tracking.carrier_name       = "BlueDart"
+        mock_tracking.current_status     = "in_transit"
+        mock_tracking.current_location   = "Mumbai"
+        mock_tracking.events             = []
+        mock_tracking.estimated_delivery = "2026-06-10"
+        mock_tracking.last_updated       = "2026-06-01"
+
+        mock_db = MagicMock()
+        mock_db.query.return_value \
+            .filter.return_value.first.return_value = mock_tracking
+
+        with patch("services.mock_order_api.SessionLocal", return_value=mock_db):
+            from services.mock_order_api import get_tracking
+            result = get_tracking("BD999")
+
+        assert result is not None
+        assert result["tracking_number"] == "BD999"
+        assert result["carrier_name"]    == "BlueDart"
+
+    def test_get_tracking_exception_returns_none(self):
+        mock_db = MagicMock()
+        mock_db.query.side_effect = Exception("DB error")
+        with patch("services.mock_order_api.SessionLocal", return_value=mock_db):
+            from services.mock_order_api import get_tracking
+            result = get_tracking("ERR-TRACK")
+        assert result is None

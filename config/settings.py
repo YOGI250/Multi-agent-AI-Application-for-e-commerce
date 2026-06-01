@@ -1,157 +1,108 @@
 # config/settings.py
 
-from pydantic_settings import BaseSettings
 from pydantic import Field
+from pydantic_settings import BaseSettings, SettingsConfigDict
 from functools import lru_cache
 
 
 class Settings(BaseSettings):
 
+    model_config = SettingsConfigDict(
+        env_file          = ".env",
+        env_file_encoding = "utf-8",
+        case_sensitive    = False,
+        extra             = "ignore"
+    )
+
     # ==========================================
     # LLM
     # ==========================================
-    groq_api_key: str = Field(..., env="GROQ_API_KEY")
-    llm_model_name: str = Field(
-        default="llama-3.3-70b-versatile",
-        env="LLM_MODEL_NAME"
-    )
+    groq_api_key: str
+    llm_model_name: str = "llama-3.3-70b-versatile"
 
     # ==========================================
     # DATABASE
     # ==========================================
-    database_url: str = Field(..., env="DATABASE_URL")
-    postgres_user: str = Field(default="postgres", env="POSTGRES_USER")
-    postgres_password: str = Field(default="postgres", env="POSTGRES_PASSWORD")
-    postgres_db: str = Field(default="ecommerce_agent_db", env="POSTGRES_DB")
+    database_url: str
+    postgres_user: str     = "postgres"
+    postgres_password: str = "postgres"
+    postgres_db: str       = "ecommerce_agent_db"
 
     # ==========================================
     # LANGFUSE
     # ==========================================
-    langfuse_secret_key: str = Field(
-        default="placeholder", env="LANGFUSE_SECRET_KEY"
-    )
-    langfuse_public_key: str = Field(
-        default="placeholder", env="LANGFUSE_PUBLIC_KEY"
-    )
-    langfuse_host: str = Field(
-        default="http://localhost:3000", env="LANGFUSE_HOST"
-    )
+    langfuse_secret_key: str = "placeholder"
+    langfuse_public_key: str = "placeholder"
+    langfuse_host: str       = "http://localhost:3000"
 
     # ==========================================
     # GOOGLE OAUTH
     # ==========================================
-    google_client_id: str = Field(
-        default="placeholder", env="GOOGLE_CLIENT_ID"
-    )
-    google_client_secret: str = Field(
-        default="placeholder", env="GOOGLE_CLIENT_SECRET"
-    )
-    google_redirect_uri: str = Field(
-        default="http://localhost:8000",
-        env="GOOGLE_REDIRECT_URI"
-    )
+    google_client_id: str      = "placeholder"
+    google_client_secret: str  = "placeholder"
+    google_redirect_uri: str   = "http://localhost:8000"
 
     # ==========================================
     # SESSION
     # ==========================================
-    session_expiry_minutes: int = Field(
-        default=30, env="SESSION_EXPIRY_MINUTES"
-    )
-    history_window_size: int = Field(
-        default=10, env="HISTORY_WINDOW_SIZE"
-    )
+    session_expiry_minutes: int = 30
+    history_window_size: int    = 10
 
     # ==========================================
     # APPLICATION
     # ==========================================
-    environment: str = Field(default="development", env="ENVIRONMENT")
-    log_level: str = Field(default="INFO", env="LOG_LEVEL")
-    app_host: str = Field(default="0.0.0.0", env="APP_HOST")
-    app_port: int = Field(default=8000, env="APP_PORT")
-
+    environment: str = "development"
+    log_level: str   = "INFO"
+    app_host: str    = "0.0.0.0"
+    app_port: int    = 8000
 
     # ==========================================
     # PROMETHEUS
     # ==========================================
-    prometheus_port: int = Field(default=9090, env="PROMETHEUS_PORT")
+    prometheus_port: int = 9090
 
     # ==========================================
     # LANGFUSE PROMPT VERSIONS
     # ==========================================
-    intent_router_prompt_label: str = Field(
-        default="production", env="INTENT_ROUTER_PROMPT_LABEL"
-    )
-    order_response_prompt_label: str = Field(
-        default="production", env="ORDER_RESPONSE_PROMPT_LABEL"
-    )
-    order_analysis_prompt_label: str = Field(
-        default="production", env="ORDER_ANALYSIS_PROMPT_LABEL"
-    )
+    intent_router_prompt_label: str  = "production"
+    order_response_prompt_label: str = "production"
+    order_analysis_prompt_label: str = "production"
 
     # ==========================================
     # MONITORING
     # ==========================================
-    grafana_admin_password: str = Field(
-        default="admin", env="GRAFANA_ADMIN_PASSWORD"
-    )
-    langfuse_nextauth_secret: str = Field(
-        default="mysecret", env="LANGFUSE_NEXTAUTH_SECRET"
-    )
-    langfuse_salt: str = Field(
-        default="mysalt", env="LANGFUSE_SALT"
-    )
+    grafana_admin_password: str    = "admin"
+    langfuse_nextauth_secret: str  = "mysecret"
+    langfuse_salt: str             = "mysalt"
+
     # ==========================================
     # GROQ PRICING
     # ==========================================
-    groq_input_cost_per_million: float = Field(
-        default=0.59, env="GROQ_INPUT_COST_PER_MILLION"
-    )
-    groq_output_cost_per_million: float = Field(
-        default=0.79, env="GROQ_OUTPUT_COST_PER_MILLION"
-    )
+    groq_input_cost_per_million: float  = 0.59
+    groq_output_cost_per_million: float = 0.79
 
     # ==========================================
     # INTENT ROUTER
     # ==========================================
-    intent_confidence_threshold: float = Field(
-        default=0.7, env="INTENT_CONFIDENCE_THRESHOLD"
-    )
+    intent_confidence_threshold: float = 0.7
 
     # ==========================================
     # SUPPORT AGENT
     # ==========================================
-    support_high_value_threshold: float = Field(
-        default=1500.0, env="SUPPORT_HIGH_VALUE_THRESHOLD"
-    )
+    support_high_value_threshold: float = 1500.0
 
     # ==========================================
     # PRODUCT AGENT
     # ==========================================
-    product_search_candidates: int = Field(
-        default=20, env="PRODUCT_SEARCH_CANDIDATES"
-    )
-    product_recommendation_count: int = Field(
-        default=8, env="PRODUCT_RECOMMENDATION_COUNT"
-    )
-    product_default_max_price: float = Field(
-        default=100000.0, env="PRODUCT_DEFAULT_MAX_PRICE"
-    )
-    product_price_broaden_factor: float = Field(
-        default=1.5, env="PRODUCT_PRICE_BROADEN_FACTOR"
-    )
+    product_search_candidates: int       = 20
+    product_recommendation_count: int    = 8
+    product_default_max_price: float     = 100000.0
+    product_price_broaden_factor: float  = 1.5
 
     # ==========================================
     # EVALUATION
     # ==========================================
-    eval_user_id: str = Field(
-        default="", env="EVAL_USER_ID"
-    )
-
-    class Config:
-        env_file = ".env"
-        env_file_encoding = "utf-8"
-        case_sensitive = False
-        extra = "ignore"
+    eval_user_id: str = ""
 
 
 @lru_cache()

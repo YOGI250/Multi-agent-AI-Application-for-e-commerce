@@ -1,6 +1,7 @@
 # main.py
 
 import logging
+from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
@@ -22,6 +23,29 @@ setup_logging(
 )
 logger = logging.getLogger(__name__)
 
+
+# ==========================================
+# LIFESPAN
+# ==========================================
+@asynccontextmanager
+async def lifespan(_: FastAPI):
+    logger.info("Starting E-Commerce AI Support System...")
+    if test_connection():
+        logger.info("Database connected successfully")
+    else:
+        logger.error("Database connection failed")
+    create_tables()
+    logger.info("Database tables verified")
+    logger.info(
+        "Application started",
+        extra={
+            "environment": settings.environment,
+            "llm_model":   settings.llm_model_name
+        }
+    )
+    yield
+
+
 # ==========================================
 # FASTAPI APP
 # ==========================================
@@ -30,7 +54,8 @@ app = FastAPI(
     description = "Multi-agent AI customer support powered by LangGraph",
     version     = "1.0.0",
     docs_url    = "/docs",
-    redoc_url   = "/redoc"
+    redoc_url   = "/redoc",
+    lifespan    = lifespan
 )
 
 # ==========================================
@@ -65,28 +90,6 @@ app.mount(
 @app.get("/app")
 async def serve_frontend():
     return FileResponse("frontend/index.html")
-
-# ==========================================
-# STARTUP
-# ==========================================
-@app.on_event("startup")
-async def startup():
-    logger.info("Starting E-Commerce AI Support System...")
-
-    if test_connection():
-        logger.info("Database connected successfully")
-    else:
-        logger.error("Database connection failed")
-
-    create_tables()
-    logger.info("Database tables verified")
-    logger.info(
-        "Application started",
-        extra={
-            "environment": settings.environment,
-            "llm_model":   settings.llm_model_name
-        }
-    )
 
 # ==========================================
 # ROOT
