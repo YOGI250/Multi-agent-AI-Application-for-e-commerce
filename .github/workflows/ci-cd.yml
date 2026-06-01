@@ -230,7 +230,7 @@ jobs:
             --namespace=ecommerce \
             --from-literal=groq-api-key="${{ secrets.GROQ_API_KEY }}" \
             --from-literal=database-url="postgresql://ecommerce_user:${{ secrets.POSTGRES_PASSWORD }}@ecommerce-postgres:5432/ecommerce_db" \
-            --from-literal=langfuse-encryption-key="22a1286c1e388a77b2cdfdf5c65e2ea03e9eb8377c828f10a6870b9c77142cd6" \
+            --from-literal=langfuse-encryption-key="${{ secrets.LANGFUSE_ENCRYPTION_KEY }}" \
             --from-literal=langfuse-secret-key="${{ secrets.LANGFUSE_SECRET_KEY }}" \
             --from-literal=langfuse-public-key="${{ secrets.LANGFUSE_PUBLIC_KEY }}" \
             --from-literal=langfuse-nextauth-secret="${{ secrets.LANGFUSE_NEXTAUTH_SECRET }}" \

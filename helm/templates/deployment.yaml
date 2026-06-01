@@ -312,7 +312,142 @@ spec:
 
 ---
 # ─────────────────────────────────────────────────────────────
-# LangFuse Application
+# Redis — async queue for LangFuse v3
+# ─────────────────────────────────────────────────────────────
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}-langfuse-redis
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "ecommerce.labels" . | nindent 4 }}
+    component: langfuse-redis
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "ecommerce.selectorLabels" . | nindent 6 }}
+      component: langfuse-redis
+  template:
+    metadata:
+      labels:
+        {{- include "ecommerce.selectorLabels" . | nindent 8 }}
+        component: langfuse-redis
+    spec:
+      containers:
+        - name: redis
+          image: {{ .Values.redis.image }}
+          ports:
+            - containerPort: 6379
+
+---
+# ─────────────────────────────────────────────────────────────
+# ClickHouse — analytical store for LangFuse v3 traces
+# ─────────────────────────────────────────────────────────────
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ .Release.Name }}-langfuse-clickhouse
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "ecommerce.labels" . | nindent 4 }}
+    component: langfuse-clickhouse
+spec:
+  serviceName: {{ .Release.Name }}-langfuse-clickhouse
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "ecommerce.selectorLabels" . | nindent 6 }}
+      component: langfuse-clickhouse
+  template:
+    metadata:
+      labels:
+        {{- include "ecommerce.selectorLabels" . | nindent 8 }}
+        component: langfuse-clickhouse
+    spec:
+      containers:
+        - name: clickhouse
+          image: {{ .Values.clickhouse.image }}
+          ports:
+            - containerPort: 8123
+            - containerPort: 9000
+          env:
+            - name: CLICKHOUSE_DB
+              value: langfuse
+            - name: CLICKHOUSE_USER
+              value: langfuse
+            - name: CLICKHOUSE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.secretName }}
+                  key: langfuse-nextauth-secret
+          volumeMounts:
+            - name: clickhouse-data
+              mountPath: /var/lib/clickhouse
+  volumeClaimTemplates:
+    - metadata:
+        name: clickhouse-data
+      spec:
+        accessModes: [ReadWriteOnce]
+        resources:
+          requests:
+            storage: {{ .Values.clickhouse.storage }}
+
+---
+# ─────────────────────────────────────────────────────────────
+# MinIO — S3-compatible object storage for LangFuse v3
+# ─────────────────────────────────────────────────────────────
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ .Release.Name }}-langfuse-minio
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "ecommerce.labels" . | nindent 4 }}
+    component: langfuse-minio
+spec:
+  serviceName: {{ .Release.Name }}-langfuse-minio
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "ecommerce.selectorLabels" . | nindent 6 }}
+      component: langfuse-minio
+  template:
+    metadata:
+      labels:
+        {{- include "ecommerce.selectorLabels" . | nindent 8 }}
+        component: langfuse-minio
+    spec:
+      containers:
+        - name: minio
+          image: {{ .Values.minio.image }}
+          command: ["server", "/data", "--console-address", ":9001"]
+          ports:
+            - containerPort: 9000
+            - containerPort: 9001
+          env:
+            - name: MINIO_ROOT_USER
+              value: minio
+            - name: MINIO_ROOT_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.secretName }}
+                  key: langfuse-salt
+          volumeMounts:
+            - name: minio-data
+              mountPath: /data
+  volumeClaimTemplates:
+    - metadata:
+        name: minio-data
+      spec:
+        accessModes: [ReadWriteOnce]
+        resources:
+          requests:
+            storage: {{ .Values.minio.storage }}
+
+---
+# ─────────────────────────────────────────────────────────────
+# LangFuse Server (v3)
 # ─────────────────────────────────────────────────────────────
 apiVersion: apps/v1
 kind: Deployment
@@ -335,14 +470,16 @@ spec:
         component: langfuse
     spec:
       initContainers:
-        - name: wait-for-langfuse-db
+        - name: wait-for-deps
           image: busybox:1.36
           command:
             - sh
             - -c
             - |
-              until nc -z {{ .Release.Name }}-langfuse-db 5432; do
-                echo "Waiting for langfuse-db..."; sleep 2;
+              until nc -z {{ .Release.Name }}-langfuse-db 5432 && \
+                    nc -z {{ .Release.Name }}-langfuse-redis 6379 && \
+                    nc -z {{ .Release.Name }}-langfuse-clickhouse 8123; do
+                echo "Waiting for langfuse-db, redis, clickhouse..."; sleep 3;
               done
       containers:
         - name: langfuse
@@ -362,6 +499,11 @@ spec:
                 secretKeyRef:
                   name: {{ .Values.secretName }}
                   key: langfuse-salt
+            - name: ENCRYPTION_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.secretName }}
+                  key: langfuse-encryption-key
             - name: LANGFUSE_DB_PASSWORD
               valueFrom:
                 secretKeyRef:
@@ -369,7 +511,37 @@ spec:
                   key: langfuse-nextauth-secret
             - name: DATABASE_URL
               value: "postgresql://{{ .Values.langfuseDb.user }}:$(LANGFUSE_DB_PASSWORD)@{{ .Release.Name }}-langfuse-db:5432/{{ .Values.langfuseDb.database }}"
-            - name: LANGFUSE_TELEMETRY_ENABLED
+            - name: CLICKHOUSE_MIGRATION_URL
+              value: "clickhouse://langfuse:$(LANGFUSE_DB_PASSWORD)@{{ .Release.Name }}-langfuse-clickhouse:9000/langfuse"
+            - name: CLICKHOUSE_URL
+              value: "http://{{ .Release.Name }}-langfuse-clickhouse:8123"
+            - name: CLICKHOUSE_USER
+              value: langfuse
+            - name: CLICKHOUSE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.secretName }}
+                  key: langfuse-nextauth-secret
+            - name: REDIS_HOST
+              value: {{ .Release.Name }}-langfuse-redis
+            - name: REDIS_PORT
+              value: "6379"
+            - name: LANGFUSE_S3_EVENT_UPLOAD_BUCKET
+              value: langfuse
+            - name: LANGFUSE_S3_EVENT_UPLOAD_ACCESS_KEY_ID
+              value: minio
+            - name: LANGFUSE_S3_EVENT_UPLOAD_SECRET_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.secretName }}
+                  key: langfuse-salt
+            - name: LANGFUSE_S3_EVENT_UPLOAD_ENDPOINT
+              value: "http://{{ .Release.Name }}-langfuse-minio:9000"
+            - name: LANGFUSE_S3_EVENT_UPLOAD_REGION
+              value: us-east-1
+            - name: LANGFUSE_S3_EVENT_UPLOAD_FORCE_PATH_STYLE
+              value: "true"
+            - name: TELEMETRY_ENABLED
               value: {{ .Values.langfuse.telemetry | quote }}
           readinessProbe:
             httpGet:
@@ -378,4 +550,80 @@ spec:
             initialDelaySeconds: 30
             periodSeconds: 10
             failureThreshold: 6
+
+---
+# ─────────────────────────────────────────────────────────────
+# LangFuse Worker (v3)
+# ─────────────────────────────────────────────────────────────
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}-langfuse-worker
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "ecommerce.labels" . | nindent 4 }}
+    component: langfuse-worker
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "ecommerce.selectorLabels" . | nindent 6 }}
+      component: langfuse-worker
+  template:
+    metadata:
+      labels:
+        {{- include "ecommerce.selectorLabels" . | nindent 8 }}
+        component: langfuse-worker
+    spec:
+      containers:
+        - name: langfuse-worker
+          image: {{ .Values.langfuseWorker.image }}
+          env:
+            - name: SALT
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.secretName }}
+                  key: langfuse-salt
+            - name: ENCRYPTION_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.secretName }}
+                  key: langfuse-encryption-key
+            - name: LANGFUSE_DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.secretName }}
+                  key: langfuse-nextauth-secret
+            - name: DATABASE_URL
+              value: "postgresql://{{ .Values.langfuseDb.user }}:$(LANGFUSE_DB_PASSWORD)@{{ .Release.Name }}-langfuse-db:5432/{{ .Values.langfuseDb.database }}"
+            - name: CLICKHOUSE_MIGRATION_URL
+              value: "clickhouse://langfuse:$(LANGFUSE_DB_PASSWORD)@{{ .Release.Name }}-langfuse-clickhouse:9000/langfuse"
+            - name: CLICKHOUSE_URL
+              value: "http://{{ .Release.Name }}-langfuse-clickhouse:8123"
+            - name: CLICKHOUSE_USER
+              value: langfuse
+            - name: CLICKHOUSE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.secretName }}
+                  key: langfuse-nextauth-secret
+            - name: REDIS_HOST
+              value: {{ .Release.Name }}-langfuse-redis
+            - name: REDIS_PORT
+              value: "6379"
+            - name: LANGFUSE_S3_EVENT_UPLOAD_BUCKET
+              value: langfuse
+            - name: LANGFUSE_S3_EVENT_UPLOAD_ACCESS_KEY_ID
+              value: minio
+            - name: LANGFUSE_S3_EVENT_UPLOAD_SECRET_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.secretName }}
+                  key: langfuse-salt
+            - name: LANGFUSE_S3_EVENT_UPLOAD_ENDPOINT
+              value: "http://{{ .Release.Name }}-langfuse-minio:9000"
+            - name: LANGFUSE_S3_EVENT_UPLOAD_REGION
+              value: us-east-1
+            - name: LANGFUSE_S3_EVENT_UPLOAD_FORCE_PATH_STYLE
+              value: "true"
 {{- end }}

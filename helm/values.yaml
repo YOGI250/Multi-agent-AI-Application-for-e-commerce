@@ -60,16 +60,30 @@ postgres:
 # ─────────────────────────────────────────────────────────────
 langfuse:
   enabled: true
-  image: langfuse/langfuse:2   # v2 = PostgreSQL only; prod uses v3+ with ClickHouse
+  image: langfuse/langfuse:3
   port: 3000
   nextauthUrl: http://localhost:3000
   telemetry: false
+
+langfuseWorker:
+  image: langfuse/langfuse-worker:3
 
 langfuseDb:
   image: postgres:15-alpine
   database: langfuse
   user: langfuse
   storage: 2Gi
+
+clickhouse:
+  image: clickhouse/clickhouse-server:24.8
+  storage: 5Gi
+
+redis:
+  image: redis:7-alpine
+
+minio:
+  image: minio/minio:latest
+  storage: 5Gi
 
 # ─────────────────────────────────────────────────────────────
 # Monitoring (Prometheus + Grafana)
