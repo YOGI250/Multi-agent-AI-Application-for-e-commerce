@@ -6,6 +6,10 @@ on:
   pull_request:
     branches: [main]
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 env:
   REGISTRY:   docker.io
   IMAGE_NAME: ${{ secrets.DOCKER_USERNAME }}/ecommerce-agent
@@ -280,6 +284,7 @@ jobs:
 
       - name: Smoke test — health check endpoint
         id: smoke_test
+        timeout-minutes: 8
         run: |
           # Wait for deployment rollout (FastAPI waits for PG + seeds DB)
           kubectl rollout status deployment/ecommerce-fastapi \
