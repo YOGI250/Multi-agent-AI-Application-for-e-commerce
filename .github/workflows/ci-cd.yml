@@ -218,20 +218,6 @@ jobs:
       - name: Create namespace if missing
         run: kubectl create namespace ecommerce --dry-run=client -o yaml | kubectl apply -f -
 
-      - name: Create Kubernetes secrets
-        run: |
-          kubectl create secret generic ecommerce-secrets \
-            --namespace=ecommerce \
-            --from-literal=groq-api-key="${{ secrets.GROQ_API_KEY }}" \
-            --from-literal=database-url="postgresql://ecommerce_user:${{ secrets.POSTGRES_PASSWORD }}@ecommerce-postgres:5432/ecommerce_db" \
-            --from-literal=langfuse-secret-key="${{ secrets.LANGFUSE_SECRET_KEY }}" \
-            --from-literal=langfuse-public-key="${{ secrets.LANGFUSE_PUBLIC_KEY }}" \
-            --from-literal=langfuse-nextauth-secret="${{ secrets.LANGFUSE_NEXTAUTH_SECRET }}" \
-            --from-literal=langfuse-salt="${{ secrets.LANGFUSE_SALT }}" \
-            --from-literal=google-client-id="${{ secrets.GOOGLE_CLIENT_ID }}" \
-            --from-literal=postgres-password="${{ secrets.POSTGRES_PASSWORD }}" \
-            --dry-run=client -o yaml | kubectl apply -f -
-
       - name: Load image into minikube
         run: |
           docker build -t ecommerce-agent:${{ github.sha }} .
