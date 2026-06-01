@@ -27,12 +27,14 @@ resources:
 probes:
   liveness:
     path: /health
-    initialDelaySeconds: 30
+    initialDelaySeconds: 60
     periodSeconds: 30
+    failureThreshold: 5
   readiness:
     path: /health
-    initialDelaySeconds: 15
+    initialDelaySeconds: 60
     periodSeconds: 10
+    failureThreshold: 12
 
 ingress:
   enabled: false
