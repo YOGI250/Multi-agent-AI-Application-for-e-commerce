@@ -72,7 +72,7 @@
       "targets": [
         {
           "datasource": "Prometheus",
-          "expr": "rate(chat_errors_total[1m])",
+          "expr": "sum(rate(chat_errors_total[1m])) or vector(0)",
           "legendFormat": "{{error_type}}"
         }
       ]

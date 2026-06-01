@@ -411,6 +411,7 @@ async def chat(
         logger.error(
             f"Chat endpoint error: {e}", extra={"session_id": session_id, "agent_used": "unknown", "request_id": ""}
         )
+        record_request_metrics(agent_used="unknown", status="error", latency_seconds=latency_seconds)
         record_error(error_type=type(e).__name__, agent_used="unknown")
         raise HTTPException(status_code=500, detail=str(e))
 
