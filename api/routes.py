@@ -13,7 +13,7 @@ from langfuse_helpers.scoring import score_response
 from monitoring.metrics import record_request_metrics, record_error
 from utils.memory import merge_context
 
-from api.schemas import ChatRequest, ChatResponse, HealthResponse
+from api.schemas import ChatRequest, ChatResponse, HealthResponse, HistoryResponse
 from agents.intent_router import intent_router_graph
 from database.connection import SessionLocal, test_connection
 from database.models import User, Session as SessionModel, Message, Order
@@ -483,6 +483,90 @@ async def chat(
         record_error(error_type=type(e).__name__, agent_used="unknown")
         raise HTTPException(status_code=500, detail=str(e))
 
+    finally:
+        db.close()
+
+
+# ==========================================
+# POST /session/close
+# Marks the caller's session as closed.
+# Called when user clicks "Clear Chat".
+# ==========================================
+@router.post("/session/close")
+async def close_session(
+    guest_id:      Optional[str] = None,
+    authorization: Optional[str] = Header(default=None, alias="Authorization"),
+    x_session_id:  Optional[str] = Header(default=None, alias="X-Session-ID")
+):
+    db = SessionLocal()
+    try:
+        user_info = resolve_user(authorization, guest_id, db)
+        user_id   = user_info["user_id"]
+
+        if not x_session_id:
+            return {"closed": False}
+
+        session = db.query(SessionModel).filter(
+            SessionModel.session_id == x_session_id,
+            SessionModel.user_id    == user_id,
+            SessionModel.is_active  == True
+        ).first()
+
+        if not session:
+            return {"closed": False}
+
+        session.is_active    = False
+        session.ended_reason = "user_cleared"
+        db.commit()
+
+        logger.info(
+            f"Session closed by user: {x_session_id}",
+            extra={"session_id": x_session_id, "agent_used": "unknown", "request_id": ""}
+        )
+        return {"closed": True}
+    finally:
+        db.close()
+
+
+# ==========================================
+# GET /history
+# Returns all messages for the caller's active session.
+# Authenticated users: Authorization header.
+# Guest users: ?guest_id=<id> query param.
+# ==========================================
+@router.get("/history", response_model=HistoryResponse)
+async def get_history(
+    guest_id:      Optional[str] = None,
+    authorization: Optional[str] = Header(default=None, alias="Authorization"),
+    x_session_id:  Optional[str] = Header(default=None, alias="X-Session-ID")
+):
+    db = SessionLocal()
+    try:
+        user_info = resolve_user(authorization, guest_id, db)
+        user_id   = user_info["user_id"]
+
+        if not x_session_id:
+            return HistoryResponse(session_id="", messages=[])
+
+        session = db.query(SessionModel).filter(
+            SessionModel.session_id == x_session_id,
+            SessionModel.user_id    == user_id
+        ).first()
+
+        if not session:
+            return HistoryResponse(session_id=x_session_id, messages=[])
+
+        rows = db.query(Message).filter(
+            Message.session_id == x_session_id
+        ).order_by(Message.created_at.asc()).all()
+
+        return HistoryResponse(
+            session_id = x_session_id,
+            messages   = [
+                {"role": m.role, "content": m.content, "agent_name": m.agent_name}
+                for m in rows
+            ]
+        )
     finally:
         db.close()
 

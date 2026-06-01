@@ -1,7 +1,6 @@
 # api/schemas.py
 
 from pydantic import BaseModel, Field
-from typing import Optional
 from typing import Optional, Union
 
 
@@ -53,6 +52,17 @@ class HealthResponse(BaseModel):
     status:   str
     database: str
     version:  str = "1.0.0"
+
+
+class MessageItem(BaseModel):
+    role:       str
+    content:    str
+    agent_name: Optional[str] = None
+
+
+class HistoryResponse(BaseModel):
+    session_id: str
+    messages:   list[MessageItem]
 
 
 class ErrorResponse(BaseModel):

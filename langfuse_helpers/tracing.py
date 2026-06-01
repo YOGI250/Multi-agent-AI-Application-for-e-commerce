@@ -282,15 +282,6 @@ def compile_prompt(template: str, **kwargs) -> str:
     return result
 
 
-def get_trace_token_usage(trace_id: str) -> dict:
-    """
-    In v4, fetch_trace() has been removed from the SDK.
-    Token usage is still tracked via Prometheus metrics in monitoring/metrics.py.
-    Returns zero-dict so callers don't need to change.
-    """
-    return {"input": 0, "output": 0, "total": 0}
-
-
 # ─────────────────────────────────────────────────────────────
 # FLUSH
 # ─────────────────────────────────────────────────────────────

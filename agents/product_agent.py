@@ -17,21 +17,9 @@ from langfuse_helpers.tracing import (
     get_prompt, compile_prompt,
     extract_token_usage
 )
-from utils.memory import merge_context, format_context, format_recent_messages
+from utils.memory import merge_context, format_context
 
 logger = logging.getLogger(__name__)
-
-AVAILABLE_CATEGORIES = [
-    "Electronics",
-    "Home and Kitchen",
-    "Computers and Accessories",
-    "OfficeProducts",
-    "HomeImprovement",
-    "MusicalInstruments",
-    "Car and Motorbike",
-    "Health and PersonalCare",
-    "Toys and Games"
-]
 
 
 # ==========================================
@@ -49,7 +37,6 @@ class ProductAgentState(TypedDict):
     ranked_products:         Optional[list]
     final_recommendations:   Optional[list]
     products:                Optional[list]   # all enriched products for frontend pagination
-    partial_match:           Optional[bool]   # True when results exist but don't fully match request
     response:                Optional[str]
     session_context:         Optional[dict]
     langfuse_trace_id:       Optional[str]
@@ -540,11 +527,6 @@ def format_recommendations(
 
     ctx = state.get("session_context") or {}
 
-    partial = state.get("partial_match", False)
-
-    # Detect when every result is above the user's original budget
-    # (takes priority over partial_match — a found product that's over budget
-    # is more informative than a generic "no exact match" message)
     over_budget = (
         original_max
         and all(float(p.get("price", 0)) > original_max for p in products)
@@ -554,11 +536,6 @@ def format_recommendations(
         lines = [
             f"No {ptype_name} found under ₹{int(original_max):,}. "
             f"Here's the closest option available:\n"
-        ]
-    elif partial:
-        lines = [
-            f"I couldn't find an exact match for \"{message}\". "
-            f"Here are the closest products we have:\n"
         ]
     else:
         lines = [

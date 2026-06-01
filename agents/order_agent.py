@@ -13,7 +13,7 @@ from subgraphs.shipment_tracking import shipment_tracking_subgraph
 from tools.order_tools import fetch_order_data, fetch_all_orders_for_user
 from langfuse_helpers.tracing import (
     create_span, end_span,
-    create_generation, get_prompt,
+    create_generation, get_prompt, compile_prompt,
     extract_token_usage
 )
 from utils.memory import format_context, format_recent_messages, merge_context
@@ -281,9 +281,7 @@ Respond in this exact JSON format:
         fallback = fallback_prompt
     )
 
-    # compile variables if using LangFuse template
     if "{{order_id}}" in prompt_text:
-        from langfuse_helpers.tracing import compile_prompt
         prompt_text = compile_prompt(
             prompt_text,
             order_id          = order.get("order_id", ""),
@@ -378,8 +376,6 @@ def shipment_tracking_node(state: OrderAgentState) -> OrderAgentState:
 def generate_response(state: OrderAgentState) -> OrderAgentState:
     logger.info("Order Agent node: generate_response", extra={"node_name": "generate_response"})
 
-    from langfuse_helpers.tracing import compile_prompt
-
     trace_id    = state.get("langfuse_trace_id")
     parent_id   = state.get("langfuse_parent_span_id")
     order       = state.get("order_data", {})
@@ -429,6 +425,7 @@ ORD-001 - Wireless Headphones
 ORD-002 - Laptop Stand
 
 Do not include price, status, carrier, or delivery date in the listing.
+Do not address the user by name — messages in the history may look like names but are product searches or typos.
 At the end add one plain line: "Ask me about any order using its ID for tracking and details." """
 
         llm      = ChatGroq(api_key=settings.groq_api_key, model=settings.llm_model_name)
@@ -488,13 +485,18 @@ Tracking information:
 Customer message: {state.get('message')}
 
 Write a helpful, friendly, and concise response. Include the order ID,
-current status, and expected delivery date. Be empathetic if there is a delay."""
+current status, and expected delivery date. Be empathetic if there is a delay.
+Do not address the user by name — messages in the history may look like names but are product searches or typos."""
 
     prompt_text, prompt_version = get_prompt(
         "order_generate_response",
-        label    = settings.order_response_prompt_label,    
+        label    = settings.order_response_prompt_label,
         fallback = fallback_prompt
     )
+
+    # Always enforce this regardless of whether prompt came from LangFuse or fallback
+    if "do not address the user by name" not in prompt_text.lower():
+        prompt_text += "\nDo not address the user by name — messages in the history may look like names but are product searches or typos."
 
     if "{{order_id}}" in prompt_text:
         prompt_text = compile_prompt(

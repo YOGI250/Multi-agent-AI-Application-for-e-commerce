@@ -927,6 +927,7 @@ function handleGoogleLogin(response) {
     localStorage.setItem("userName",     payload.name || payload.email);
 
     showChatPage();
+    loadChatHistory();
     showToast(`Welcome, ${state.userName}`);
 }
 
@@ -954,6 +955,7 @@ function continueAsGuest() {
     state.sessionId       = loadSession(guestId);
 
     showChatPage();
+    loadChatHistory();
 }
 
 
@@ -1229,6 +1231,36 @@ function hideTyping() {
 
 
 // ==========================================
+// LOAD CHAT HISTORY
+// Called after login if a session already exists.
+// ==========================================
+async function loadChatHistory() {
+    if (!state.sessionId) return;
+
+    const headers = { "Content-Type": "application/json", "X-Session-ID": state.sessionId };
+    if (state.googleToken) headers["Authorization"] = `Bearer ${state.googleToken}`;
+
+    const url = state.isAuthenticated
+        ? `/history`
+        : `/history?guest_id=${state.userId}`;
+
+    try {
+        const res = await fetch(url, { headers });
+        if (!res.ok) return;
+        const data = await res.json();
+        if (!data.messages || data.messages.length === 0) return;
+
+        document.getElementById("messages").innerHTML = "";
+        data.messages.forEach(m => {
+            addMessage(m.role === "user" ? "user" : "assistant", m.content, m.agent_name);
+        });
+    } catch(e) {
+        console.error("Failed to load chat history:", e);
+    }
+}
+
+
+// ==========================================
 // HELPERS
 // ==========================================
 function clearMessagesUI() {
@@ -1265,7 +1297,13 @@ function autoResize(el) {
     el.style.height = Math.min(el.scrollHeight, 120) + "px";
 }
 
-function clearChat() {
+async function clearChat() {
+    if (state.sessionId) {
+        const headers = { "Content-Type": "application/json", "X-Session-ID": state.sessionId };
+        if (state.googleToken) headers["Authorization"] = `Bearer ${state.googleToken}`;
+        const url = state.isAuthenticated ? `/session/close` : `/session/close?guest_id=${state.userId}`;
+        try { await fetch(url, { method: "POST", headers }); } catch(e) {}
+    }
     state.sessionId = null;
     clearSession(state.isAuthenticated ? state.googleUserId : state.userId);
     clearMessagesUI();
@@ -1309,6 +1347,7 @@ function showToast(msg) {
         state.googleUserId    = savedUserId;
         state.sessionId       = loadSession(savedUserId);
         showChatPage();
+        loadChatHistory();
     }
 })();
 </script>

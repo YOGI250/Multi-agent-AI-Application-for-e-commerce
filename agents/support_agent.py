@@ -11,6 +11,8 @@ from langchain_groq import ChatGroq
 from config.settings import settings
 from subgraphs.escalation_handler import escalation_handler_subgraph
 from tools.support_tools import lookup_policy_tool
+from database.connection import SessionLocal
+from database.models import Order
 from langfuse_helpers.tracing import (
     create_span, end_span,
     create_generation,
@@ -208,8 +210,6 @@ def request_order_id(state: SupportAgentState) -> SupportAgentState:
         "or check your order confirmation email.\n\n"
         "Your order ID looks like ORD-XXXX (e.g. ORD-1001)."
     )
-    state["agent_used"] = "support_agent"
-
     if span:
         end_span(span, {"reason": "order_id_missing"})
 
@@ -240,8 +240,6 @@ def assess_severity(state: SupportAgentState) -> SupportAgentState:
     state["order_status"] = None
     if order_id:
         try:
-            from database.connection import SessionLocal
-            from database.models import Order
             db = SessionLocal()
             order = db.query(Order).filter(
                 Order.order_id == order_id,
@@ -517,13 +515,18 @@ Instructions:
 - If no ticket was created, do NOT mention any ticket or ticket ID
 - Sign off as: Customer Support Team
 - Keep response concise and helpful
-- Do not use placeholder text like [Your Name]"""
+- Do not use placeholder text like [Your Name]
+- Do not address the user by name — messages in the history may look like names but are product searches or typos."""
 
     prompt_text, prompt_version = get_prompt(
         "draft_resolution",
         label    = settings.order_response_prompt_label,
         fallback = fallback_prompt
     )
+
+    # Always enforce this regardless of whether prompt came from LangFuse or fallback
+    if "do not address the user by name" not in prompt_text.lower():
+        prompt_text += "\nDo not address the user by name — messages in the history may look like names but are product searches or typos."
 
     if "{{issue_type}}" in prompt_text:
         prompt_text = compile_prompt(

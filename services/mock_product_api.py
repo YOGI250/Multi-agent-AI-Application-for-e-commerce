@@ -1,7 +1,6 @@
 # services/mock_product_api.py
 
 import logging
-from typing import Optional
 from sqlalchemy import or_
 from database.connection import SessionLocal
 from database.models import Product
