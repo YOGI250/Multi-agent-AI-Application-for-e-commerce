@@ -44,7 +44,7 @@ jobs:
 # Stage 2 — Unit Tests + Coverage
 # ─────────────────────────────────────────────────────────────
   test:
-    name: "Stage 2 — Unit Tests (≥70% coverage)"
+    name: "Stage 2 — Unit Tests (≥85% coverage)"
     runs-on: ubuntu-latest
     needs: lint
 
@@ -83,7 +83,7 @@ jobs:
             --cov-config=.coveragerc \
             --cov-report=term-missing \
             --cov-report=xml:coverage.xml \
-            --cov-fail-under=70 \
+            --cov-fail-under=85 \
             -v
 
       - name: Upload coverage report
