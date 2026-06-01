@@ -4,29 +4,27 @@ import uuid
 import time
 import logging
 from datetime import datetime, timedelta, timezone
-from fastapi import APIRouter, Header, HTTPException, Request
 from typing import Optional
+from fastapi import APIRouter, BackgroundTasks, Header, HTTPException, Request
 from sqlalchemy.orm import Session
 from slowapi import Limiter
 from slowapi.util import get_remote_address
-
-limiter = Limiter(key_func=get_remote_address)
+from google.oauth2 import id_token
+from google.auth.transport import requests as google_requests
 
 from langfuse_helpers.tracing import create_trace, flush
 from langfuse_helpers.scoring import score_response
 from monitoring.metrics import record_request_metrics, record_error
 from utils.memory import merge_context
-
 from api.schemas import ChatRequest, ChatResponse, HealthResponse, HistoryResponse
 from agents.intent_router import intent_router_graph
 from database.connection import SessionLocal, test_connection
 from database.models import User, Session as SessionModel, Message, Order
 from config.settings import settings
-from fastapi import BackgroundTasks
-from google.oauth2 import id_token
-from google.auth.transport import requests as google_requests
 
 logger = logging.getLogger(__name__)
+
+limiter = Limiter(key_func=get_remote_address)
 
 router = APIRouter()
 
