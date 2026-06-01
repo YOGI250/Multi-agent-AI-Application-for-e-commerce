@@ -248,7 +248,6 @@ jobs:
             --set image.repository=ecommerce-agent \
             --set image.tag=${{ github.sha }} \
             --set image.pullPolicy=Never \
-            --wait \
             --timeout=300s
 
       - name: Smoke test — health check endpoint
