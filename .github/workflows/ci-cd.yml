@@ -239,6 +239,8 @@ jobs:
             --from-literal=database-url="${{ secrets.DATABASE_URL }}" \
             --from-literal=langfuse-secret-key="${{ secrets.LANGFUSE_SECRET_KEY }}" \
             --from-literal=langfuse-public-key="${{ secrets.LANGFUSE_PUBLIC_KEY }}" \
+            --from-literal=langfuse-nextauth-secret="${{ secrets.LANGFUSE_NEXTAUTH_SECRET }}" \
+            --from-literal=langfuse-salt="${{ secrets.LANGFUSE_SALT }}" \
             --from-literal=google-client-id="${{ secrets.GOOGLE_CLIENT_ID }}" \
             --from-literal=postgres-password="${{ secrets.POSTGRES_PASSWORD }}" \
             --dry-run=client -o yaml | kubectl apply -f -

@@ -15,5 +15,3 @@ data:
   APP_HOST:                     "0.0.0.0"
   APP_PORT:                     "8000"
   LANGFUSE_HOST:                "http://{{ .Release.Name }}-langfuse:{{ .Values.langfuse.port }}"
-  DATABASE_URL: >-
-    postgresql://{{ .Values.postgres.user }}:$(POSTGRES_PASSWORD)@{{ .Release.Name }}-postgres:{{ .Values.postgres.port }}/{{ .Values.postgres.database }}

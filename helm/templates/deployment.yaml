@@ -28,6 +28,11 @@ spec:
             - configMapRef:
                 name: {{ .Release.Name }}-config
           env:
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.secretName }}
+                  key: database-url
             - name: GROQ_API_KEY
               valueFrom:
                 secretKeyRef:
