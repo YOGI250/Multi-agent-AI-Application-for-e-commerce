@@ -253,18 +253,20 @@ jobs:
       - name: Smoke test — health check endpoint
         id: smoke_test
         run: |
-          # Wait for deployment rollout
+          # Wait for deployment rollout (FastAPI waits for PG + seeds DB)
           kubectl rollout status deployment/ecommerce-fastapi \
-            --namespace=ecommerce --timeout=120s
+            --namespace=ecommerce --timeout=300s
 
-          # Port-forward to the service and hit /health
+          # Port-forward and poll until /health responds
           kubectl port-forward svc/ecommerce-fastapi 8080:80 \
             --namespace=ecommerce &
           PF_PID=$!
-          sleep 5
-
-          HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
-            http://localhost:8080/health || echo "000")
+          for i in $(seq 1 30); do
+            HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
+              http://localhost:8080/health 2>/dev/null || echo "000")
+            [ "$HTTP_STATUS" = "200" ] && break
+            sleep 3
+          done
 
           kill $PF_PID 2>/dev/null || true
 
