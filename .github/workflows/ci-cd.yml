@@ -257,13 +257,6 @@ jobs:
           docker pull ${{ env.IMAGE_NAME }}:${{ github.sha }}
           docker tag ${{ env.IMAGE_NAME }}:${{ github.sha }} ecommerce-agent:${{ github.sha }}
 
-      - name: Scale down FastAPI before deploy
-        run: |
-          kubectl scale deployment/ecommerce-fastapi --replicas=0 \
-            --namespace=ecommerce 2>/dev/null || true
-          kubectl wait --for=delete pod -l component=fastapi \
-            --namespace=ecommerce --timeout=60s 2>/dev/null || true
-
       - name: Sync PostgreSQL password
         run: |
           kubectl wait pod -l component=postgres \
@@ -289,21 +282,17 @@ jobs:
 
       - name: Smoke test — health check endpoint
         id: smoke_test
-        timeout-minutes: 8
+        timeout-minutes: 3
         run: |
-          # Wait for deployment rollout (FastAPI waits for PG + seeds DB)
-          kubectl rollout status deployment/ecommerce-fastapi \
-            --namespace=ecommerce --timeout=300s
-
-          # Port-forward and poll until /health responds
+          # Port-forward to running pod and poll /health
           kubectl port-forward svc/ecommerce-fastapi 8080:80 \
             --namespace=ecommerce &
           PF_PID=$!
-          for i in $(seq 1 30); do
+          for i in $(seq 1 20); do
+            sleep 3
             HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
               http://localhost:8080/health 2>/dev/null || echo "000")
             [ "$HTTP_STATUS" = "200" ] && break
-            sleep 3
           done
 
           kill $PF_PID 2>/dev/null || true
