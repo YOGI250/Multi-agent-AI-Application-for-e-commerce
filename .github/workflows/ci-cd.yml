@@ -245,6 +245,15 @@ jobs:
           kubectl wait --for=delete pod -l component=fastapi \
             --namespace=ecommerce --timeout=60s 2>/dev/null || true
 
+      - name: Sync PostgreSQL password
+        run: |
+          kubectl wait pod -l component=postgres \
+            --namespace=ecommerce --for=condition=Ready --timeout=30s 2>/dev/null || true
+          kubectl exec -n ecommerce ecommerce-postgres-0 -- \
+            psql -U ecommerce_user -d ecommerce_db \
+            -c "ALTER USER ecommerce_user WITH PASSWORD '${{ secrets.POSTGRES_PASSWORD }}';" \
+            2>/dev/null || true
+
       - name: Deploy with Helm
         id: helm_deploy
         run: |
