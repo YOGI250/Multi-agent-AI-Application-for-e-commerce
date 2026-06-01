@@ -41,9 +41,9 @@ def create_sample_orders_for_user(user_id: str, db: Session):
             "carrier":           "DTDC",
             "tracking_number":   "DT251092059",
             "order_value":       1299.0,
-            "expected_delivery": str(today - timedelta(days=18)),
-            "order_date":        str(today - timedelta(days=27)),
-            "items":             "Wireless Headphones"
+            "expected_delivery": today - timedelta(days=18),
+            "order_date":        datetime.combine(today - timedelta(days=27), datetime.min.time()),
+            "items":             ["Wireless Headphones"]
         },
         {
             "order_id":          f"ORD-{user_id[-6:].upper()}-002",
@@ -51,9 +51,9 @@ def create_sample_orders_for_user(user_id: str, db: Session):
             "carrier":           "BlueDart",
             "tracking_number":   "BD123456789",
             "order_value":       2500.0,
-            "expected_delivery": str(today + timedelta(days=3)),
-            "order_date":        str(today - timedelta(days=6)),
-            "items":             "Laptop Stand"
+            "expected_delivery": today + timedelta(days=3),
+            "order_date":        datetime.combine(today - timedelta(days=6), datetime.min.time()),
+            "items":             ["Laptop Stand"]
         },
         {
             "order_id":          f"ORD-{user_id[-6:].upper()}-003",
@@ -61,9 +61,9 @@ def create_sample_orders_for_user(user_id: str, db: Session):
             "carrier":           "FedEx",
             "tracking_number":   "FX987654321",
             "order_value":       499.0,
-            "expected_delivery": str(today + timedelta(days=5)),
-            "order_date":        str(today - timedelta(days=2)),
-            "items":             "USB Hub"
+            "expected_delivery": today + timedelta(days=5),
+            "order_date":        datetime.combine(today - timedelta(days=2), datetime.min.time()),
+            "items":             ["USB Hub"]
         },
         {
             "order_id":          f"ORD-{user_id[-6:].upper()}-004",
@@ -71,9 +71,9 @@ def create_sample_orders_for_user(user_id: str, db: Session):
             "carrier":           "Ekart",
             "tracking_number":   "EK112233445",
             "order_value":       899.0,
-            "expected_delivery": str(today - timedelta(days=3)),
-            "order_date":        str(today - timedelta(days=13)),
-            "items":             "Mechanical Keyboard"
+            "expected_delivery": today - timedelta(days=3),
+            "order_date":        datetime.combine(today - timedelta(days=13), datetime.min.time()),
+            "items":             ["Mechanical Keyboard"]
         },
         {
             "order_id":          f"ORD-{user_id[-6:].upper()}-005",
@@ -81,9 +81,9 @@ def create_sample_orders_for_user(user_id: str, db: Session):
             "carrier":           "DHL",
             "tracking_number":   "DL941982162",
             "order_value":       350.0,
-            "expected_delivery": str(today - timedelta(days=23)),
-            "order_date":        str(today - timedelta(days=27)),
-            "items":             "Phone Case"
+            "expected_delivery": today - timedelta(days=23),
+            "order_date":        datetime.combine(today - timedelta(days=27), datetime.min.time()),
+            "items":             ["Phone Case"]
         }
     ]
 

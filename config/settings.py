@@ -24,9 +24,9 @@ class Settings(BaseSettings):
     # DATABASE
     # ==========================================
     database_url: str
-    postgres_user: str     = "postgres"
-    postgres_password: str = "postgres"
-    postgres_db: str       = "ecommerce_agent_db"
+    postgres_user: str     = "ecommerce_user"
+    postgres_password: str = "ecommerce_pass"
+    postgres_db: str       = "ecommerce_db"
 
     # ==========================================
     # LANGFUSE

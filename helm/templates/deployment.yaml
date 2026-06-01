@@ -184,9 +184,16 @@ spec:
           volumeMounts:
             - name: prometheus-data
               mountPath: /prometheus
+            - name: prometheus-config
+              mountPath: /etc/prometheus/prometheus.yml
+              subPath: prometheus.yml
+              readOnly: true
       volumes:
         - name: prometheus-data
           emptyDir: {}
+        - name: prometheus-config
+          configMap:
+            name: {{ .Release.Name }}-prometheus-config
 {{- end }}
 
 ---
