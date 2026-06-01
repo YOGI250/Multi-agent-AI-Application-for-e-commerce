@@ -61,7 +61,7 @@
     },
     {
       "id": 4,
-      "title": "Error Rate Over Time",
+      "title": "Error Count (5m window)",
       "type": "timeseries",
       "gridPos": {
         "h": 8,
@@ -72,8 +72,8 @@
       "targets": [
         {
           "datasource": "Prometheus",
-          "expr": "sum(rate(chat_errors_total[1m])) or vector(0)",
-          "legendFormat": "{{error_type}}"
+          "expr": "increase(chat_errors_total[5m]) or vector(0)",
+          "legendFormat": "{{error_type}} / {{agent_used}}"
         }
       ]
     },
