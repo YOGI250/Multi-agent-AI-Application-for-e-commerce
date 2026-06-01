@@ -103,4 +103,25 @@ spec:
       protocol: TCP
       port: {{ .Values.langfuse.port }}
       targetPort: {{ .Values.langfuse.port }}
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Release.Name }}-langfuse-db
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "ecommerce.labels" . | nindent 4 }}
+    component: langfuse-db
+spec:
+  type: ClusterIP
+  clusterIP: None
+  selector:
+    {{- include "ecommerce.selectorLabels" . | nindent 4 }}
+    component: langfuse-db
+  ports:
+    - name: postgres
+      protocol: TCP
+      port: 5432
+      targetPort: 5432
 {{- end }}

@@ -1,0 +1,131 @@
+{{- if .Values.grafana.enabled }}
+# ─────────────────────────────────────────────────────────────
+# Grafana — Prometheus datasource
+# ─────────────────────────────────────────────────────────────
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Release.Name }}-grafana-datasources
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "ecommerce.labels" . | nindent 4 }}
+data:
+  datasources.yaml: |
+    apiVersion: 1
+    datasources:
+      - name: Prometheus
+        type: prometheus
+        access: proxy
+        url: http://{{ .Release.Name }}-prometheus:{{ .Values.prometheus.port }}
+        isDefault: true
+        editable: false
+
+---
+# ─────────────────────────────────────────────────────────────
+# Grafana — E-Commerce AI dashboard
+# ─────────────────────────────────────────────────────────────
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Release.Name }}-grafana-dashboards
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "ecommerce.labels" . | nindent 4 }}
+data:
+  dashboards.yaml: |
+    apiVersion: 1
+    providers:
+      - name: default
+        type: file
+        options:
+          path: /var/lib/grafana/dashboards
+  ecommerce-dashboard.json: |
+    {
+      "title": "E-Commerce AI Support System",
+      "uid": "ecommerce-ai",
+      "schemaVersion": 36,
+      "refresh": "10s",
+      "panels": [
+        {
+          "id": 1,
+          "title": "Request Rate (req/s)",
+          "type": "stat",
+          "gridPos": { "x": 0, "y": 0, "w": 6, "h": 4 },
+          "targets": [{
+            "expr": "sum(rate(http_requests_total[1m]))",
+            "legendFormat": "req/s"
+          }]
+        },
+        {
+          "id": 2,
+          "title": "P95 Latency (ms)",
+          "type": "stat",
+          "gridPos": { "x": 6, "y": 0, "w": 6, "h": 4 },
+          "targets": [{
+            "expr": "histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket[5m])) by (le)) * 1000",
+            "legendFormat": "p95 ms"
+          }]
+        },
+        {
+          "id": 3,
+          "title": "Error Rate (%)",
+          "type": "stat",
+          "gridPos": { "x": 12, "y": 0, "w": 6, "h": 4 },
+          "targets": [{
+            "expr": "sum(rate(http_requests_total{status=~'5..'}[5m])) / sum(rate(http_requests_total[5m])) * 100",
+            "legendFormat": "error %"
+          }]
+        },
+        {
+          "id": 4,
+          "title": "Active Sessions",
+          "type": "stat",
+          "gridPos": { "x": 18, "y": 0, "w": 6, "h": 4 },
+          "targets": [{
+            "expr": "ecommerce_active_sessions_total",
+            "legendFormat": "sessions"
+          }]
+        },
+        {
+          "id": 5,
+          "title": "Request Rate by Endpoint",
+          "type": "timeseries",
+          "gridPos": { "x": 0, "y": 4, "w": 12, "h": 8 },
+          "targets": [{
+            "expr": "sum(rate(http_requests_total[1m])) by (handler)",
+            "legendFormat": "{{ `{{ handler }}` }}"
+          }]
+        },
+        {
+          "id": 6,
+          "title": "Latency by Endpoint (p95)",
+          "type": "timeseries",
+          "gridPos": { "x": 12, "y": 4, "w": 12, "h": 8 },
+          "targets": [{
+            "expr": "histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket[5m])) by (le, handler)) * 1000",
+            "legendFormat": "{{ `{{ handler }}` }}"
+          }]
+        },
+        {
+          "id": 7,
+          "title": "Agent Usage",
+          "type": "timeseries",
+          "gridPos": { "x": 0, "y": 12, "w": 12, "h": 8 },
+          "targets": [{
+            "expr": "sum(rate(ecommerce_agent_requests_total[5m])) by (agent)",
+            "legendFormat": "{{ `{{ agent }}` }}"
+          }]
+        },
+        {
+          "id": 8,
+          "title": "HTTP Status Codes",
+          "type": "timeseries",
+          "gridPos": { "x": 12, "y": 12, "w": 12, "h": 8 },
+          "targets": [{
+            "expr": "sum(rate(http_requests_total[1m])) by (status)",
+            "legendFormat": "{{ `{{ status }}` }}"
+          }]
+        }
+      ]
+    }
+{{- end }}

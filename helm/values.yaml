@@ -58,7 +58,7 @@ postgres:
 # ─────────────────────────────────────────────────────────────
 langfuse:
   enabled: true
-  image: langfuse/langfuse:3
+  image: langfuse/langfuse:2   # v2 = PostgreSQL only; prod uses v3+ with ClickHouse
   port: 3000
   nextauthUrl: http://localhost:3000
   telemetry: false

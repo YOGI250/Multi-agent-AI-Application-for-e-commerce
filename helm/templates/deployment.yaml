@@ -222,10 +222,151 @@ spec:
               value: admin
             - name: GF_USERS_ALLOW_SIGN_UP
               value: "false"
+            - name: GF_PATHS_PROVISIONING
+              value: /etc/grafana/provisioning
           volumeMounts:
             - name: grafana-data
               mountPath: /var/lib/grafana
+            - name: grafana-datasources
+              mountPath: /etc/grafana/provisioning/datasources
+            - name: grafana-dashboards
+              mountPath: /etc/grafana/provisioning/dashboards/dashboards.yaml
+              subPath: dashboards.yaml
+              readOnly: true
+            - name: grafana-dashboards
+              mountPath: /var/lib/grafana/dashboards/ecommerce-dashboard.json
+              subPath: ecommerce-dashboard.json
+              readOnly: true
       volumes:
         - name: grafana-data
           emptyDir: {}
+        - name: grafana-dashboards
+          configMap:
+            name: {{ .Release.Name }}-grafana-dashboards
+        - name: grafana-datasources
+          configMap:
+            name: {{ .Release.Name }}-grafana-datasources
+{{- end }}
+
+---
+# ─────────────────────────────────────────────────────────────
+# LangFuse DB (PostgreSQL for LangFuse)
+# ─────────────────────────────────────────────────────────────
+{{- if .Values.langfuse.enabled }}
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ .Release.Name }}-langfuse-db
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "ecommerce.labels" . | nindent 4 }}
+    component: langfuse-db
+spec:
+  serviceName: {{ .Release.Name }}-langfuse-db
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "ecommerce.selectorLabels" . | nindent 6 }}
+      component: langfuse-db
+  template:
+    metadata:
+      labels:
+        {{- include "ecommerce.selectorLabels" . | nindent 8 }}
+        component: langfuse-db
+    spec:
+      containers:
+        - name: langfuse-db
+          image: {{ .Values.langfuseDb.image }}
+          ports:
+            - containerPort: 5432
+          env:
+            - name: POSTGRES_DB
+              value: {{ .Values.langfuseDb.database }}
+            - name: POSTGRES_USER
+              value: {{ .Values.langfuseDb.user }}
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.secretName }}
+                  key: langfuse-nextauth-secret
+          volumeMounts:
+            - name: langfuse-db-data
+              mountPath: /var/lib/postgresql/data
+  volumeClaimTemplates:
+    - metadata:
+        name: langfuse-db-data
+      spec:
+        accessModes: [ReadWriteOnce]
+        resources:
+          requests:
+            storage: {{ .Values.langfuseDb.storage }}
+
+---
+# ─────────────────────────────────────────────────────────────
+# LangFuse Application
+# ─────────────────────────────────────────────────────────────
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}-langfuse
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "ecommerce.labels" . | nindent 4 }}
+    component: langfuse
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "ecommerce.selectorLabels" . | nindent 6 }}
+      component: langfuse
+  template:
+    metadata:
+      labels:
+        {{- include "ecommerce.selectorLabels" . | nindent 8 }}
+        component: langfuse
+    spec:
+      initContainers:
+        - name: wait-for-langfuse-db
+          image: busybox:1.36
+          command:
+            - sh
+            - -c
+            - |
+              until nc -z {{ .Release.Name }}-langfuse-db 5432; do
+                echo "Waiting for langfuse-db..."; sleep 2;
+              done
+      containers:
+        - name: langfuse
+          image: {{ .Values.langfuse.image }}
+          ports:
+            - containerPort: {{ .Values.langfuse.port }}
+          env:
+            - name: NEXTAUTH_URL
+              value: {{ .Values.langfuse.nextauthUrl | quote }}
+            - name: NEXTAUTH_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.secretName }}
+                  key: langfuse-nextauth-secret
+            - name: SALT
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.secretName }}
+                  key: langfuse-salt
+            - name: LANGFUSE_DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.secretName }}
+                  key: langfuse-nextauth-secret
+            - name: DATABASE_URL
+              value: "postgresql://{{ .Values.langfuseDb.user }}:$(LANGFUSE_DB_PASSWORD)@{{ .Release.Name }}-langfuse-db:5432/{{ .Values.langfuseDb.database }}"
+            - name: LANGFUSE_TELEMETRY_ENABLED
+              value: {{ .Values.langfuse.telemetry | quote }}
+          readinessProbe:
+            httpGet:
+              path: /api/public/health
+              port: {{ .Values.langfuse.port }}
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            failureThreshold: 6
 {{- end }}
