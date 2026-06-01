@@ -36,6 +36,18 @@ class TestGetPolicy:
 
         assert isinstance(result, dict)
 
+    def test_get_policy_returns_none_on_db_error(self):
+        mock_db = MagicMock()
+        mock_db.query.side_effect = Exception("DB error")
+
+        with patch("services.mock_support_api.SessionLocal", return_value=mock_db), \
+             patch("services.mock_support_api.record_error") as mock_record:
+            from services.mock_support_api import get_policy
+            result = get_policy("damaged_product")
+
+        assert result is None
+        mock_record.assert_called_once()
+
 
 class TestGetUserComplaintHistory:
 
