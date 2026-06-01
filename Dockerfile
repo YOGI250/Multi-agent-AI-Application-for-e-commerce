@@ -15,9 +15,12 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . .
 
-RUN mkdir -p logs
+RUN mkdir -p logs && \
+    chmod +x entrypoint.sh && \
+    useradd -m -u 1000 appuser && \
+    chown -R appuser:appuser /app
 
-RUN chmod +x entrypoint.sh
+USER appuser
 
 EXPOSE 8000
 

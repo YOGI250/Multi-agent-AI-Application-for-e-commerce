@@ -83,6 +83,9 @@ def create_sample_orders_for_user(user_id: str, db: Session):
         },
     ]
 
+    if db.query(Order).filter(Order.user_id == user_id).count() > 0:
+        return
+
     for o in sample_orders:
         order = Order(
             order_id=o["order_id"],

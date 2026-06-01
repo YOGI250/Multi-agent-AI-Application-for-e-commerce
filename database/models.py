@@ -2,7 +2,7 @@
 
 import uuid
 from datetime import datetime
-from sqlalchemy import Column, String, Boolean, DateTime, Text, Numeric, Date, ForeignKey, Integer
+from sqlalchemy import Column, String, Boolean, DateTime, Text, Numeric, Date, ForeignKey, Integer, Index
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import relationship
 
@@ -53,6 +53,11 @@ class Session(Base):
     user = relationship("User", back_populates="sessions")
     messages = relationship("Message", back_populates="session")
 
+    __table_args__ = (
+        Index("idx_sessions_user_id", "user_id"),
+        Index("idx_sessions_user_active", "user_id", "is_active"),
+    )
+
     def __repr__(self):
         return f"<Session session_id={self.session_id} active={self.is_active}>"
 
@@ -89,7 +94,7 @@ class Order(Base):
     __tablename__ = "orders"
 
     order_id = Column(String, primary_key=True)
-    user_id = Column(String, nullable=False)
+    user_id = Column(String, ForeignKey("users.user_id"), nullable=False)
     status = Column(String, nullable=False)
     items = Column(JSONB, nullable=False, default=list)
     carrier = Column(String, nullable=True)
@@ -97,6 +102,8 @@ class Order(Base):
     order_date = Column(DateTime, nullable=False)
     expected_delivery = Column(Date, nullable=True)
     order_value = Column(Numeric(10, 2), nullable=False)
+
+    __table_args__ = (Index("idx_orders_user_id", "user_id"),)
 
     def __repr__(self):
         return f"<Order order_id={self.order_id} status={self.status}>"
@@ -167,12 +174,14 @@ class SupportTicket(Base):
     __tablename__ = "support_tickets"
 
     ticket_id = Column(String, primary_key=True, default=generate_uuid)
-    user_id = Column(String, nullable=False)
-    order_id = Column(String, nullable=True)
+    user_id = Column(String, ForeignKey("users.user_id"), nullable=False)
+    order_id = Column(String, ForeignKey("orders.order_id"), nullable=True)
     issue_type = Column(String, nullable=False)
     priority = Column(String, nullable=False)
     status = Column(String, default="open", nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+    __table_args__ = (Index("idx_tickets_user_id", "user_id"),)
 
     def __repr__(self):
         return f"<SupportTicket ticket_id={self.ticket_id} priority={self.priority}>"

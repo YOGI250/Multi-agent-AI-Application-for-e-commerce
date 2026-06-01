@@ -27,10 +27,10 @@ logger = logging.getLogger(__name__)
 @asynccontextmanager
 async def lifespan(_: FastAPI):
     logger.info("Starting E-Commerce AI Support System...")
-    if test_connection():
-        logger.info("Database connected successfully")
-    else:
-        logger.error("Database connection failed")
+    if not test_connection():
+        logger.error("Database connection failed — aborting startup")
+        raise RuntimeError("Database unavailable at startup")
+    logger.info("Database connected successfully")
     create_tables()
     logger.info("Database tables verified")
     logger.info(

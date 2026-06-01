@@ -226,9 +226,16 @@ class TestHelperFunctions:
 
     def test_create_sample_orders_for_user(self, mock_db_session):
         from api.routes import create_sample_orders_for_user
+        mock_db_session.query.return_value.filter.return_value.count.return_value = 0
         create_sample_orders_for_user("user_abc123", mock_db_session)
         assert mock_db_session.add.call_count == 5
         mock_db_session.commit.assert_called()
+
+    def test_create_sample_orders_skips_existing_user(self, mock_db_session):
+        from api.routes import create_sample_orders_for_user
+        mock_db_session.query.return_value.filter.return_value.count.return_value = 5
+        create_sample_orders_for_user("user_abc123", mock_db_session)
+        mock_db_session.add.assert_not_called()
 
     def test_save_messages(self, mock_db_session):
         from api.routes import save_messages

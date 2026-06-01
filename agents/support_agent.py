@@ -153,7 +153,7 @@ Respond ONLY with a JSON object. No explanation.
         result = {"issue_type": "general_query", "order_id": None, "details": message}
 
     # Explicit order ID in the message always wins over LLM (history can confuse it)
-    explicit_match = re.search(r"\bORD-[A-Z0-9]+-\d+\b", message, re.IGNORECASE)
+    explicit_match = re.search(r"ORD-[A-Z0-9-]+", message, re.IGNORECASE)
     explicit_order_id = explicit_match.group().upper() if explicit_match else None
 
     state["issue_type"] = result.get("issue_type", "general_query")

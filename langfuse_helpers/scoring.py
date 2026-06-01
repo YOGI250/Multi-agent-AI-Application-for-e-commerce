@@ -88,7 +88,7 @@ def _calculate_scores(agent_used: str, message: str, response: str) -> dict:
 
     if message_words:
         relevancy = min(len(common_words) / len(message_words), 1.0)
-        scores["answer_relevancy"] = round(max(relevancy, 0.4), 2)
+        scores["answer_relevancy"] = round(relevancy, 2)
     else:
         scores["answer_relevancy"] = 0.8
 
