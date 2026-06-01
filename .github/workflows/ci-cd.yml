@@ -237,6 +237,13 @@ jobs:
           docker build -t ecommerce-agent:${{ github.sha }} .
           minikube image load ecommerce-agent:${{ github.sha }}
 
+      - name: Scale down FastAPI before deploy
+        run: |
+          kubectl scale deployment/ecommerce-fastapi --replicas=0 \
+            --namespace=ecommerce 2>/dev/null || true
+          kubectl wait --for=delete pod -l component=fastapi \
+            --namespace=ecommerce --timeout=60s 2>/dev/null || true
+
       - name: Deploy with Helm
         id: helm_deploy
         run: |
