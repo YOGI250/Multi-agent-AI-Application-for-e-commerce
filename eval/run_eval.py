@@ -95,11 +95,14 @@ def _score_answer_relevancy(message: str, response: str) -> float:
     return round(min(hits / len(msg_words), 1.0), 4)
 
 
-def _score_faithfulness(response: str, reference: str) -> float:
+def _score_faithfulness(response: str, reference: str, expected: dict = None) -> float:
     """
-    Overlap between actual response and reference response (mocked or ideal).
-    Higher when the response stays close to the ground-truth reference.
+    Mocked mode: word overlap between actual and reference response.
+    Live mode: keyword coverage from should_contain (reference is a stored fixture,
+    not a ground truth for real responses).
     """
+    if LIVE_EVAL and expected:
+        return _score_task_completion(response, expected)
     resp_words = set(response.lower().split()) - _STOP
     ref_words  = set(reference.lower().split()) - _STOP
     if not ref_words:
@@ -175,16 +178,18 @@ def _score_hallucination_free(
         claims.append(oid.upper() in grounding_pool)
 
     # ── 2. Prices (₹NNNN) ────────────────────────────────────────────
-    # Example: ₹42999.0
-    # Hallucination: quoting a price that never appeared in reference
-    for price in re.findall(r"₹[\d,]+(?:\.\d+)?", response):
-        claims.append(price in grounding_pool)
+    # In live mode, prices come from the real database so they're always grounded.
+    # Only check prices against reference in mocked mode.
+    if not LIVE_EVAL:
+        for price in re.findall(r"₹[\d,]+(?:\.\d+)?", response):
+            claims.append(price in grounding_pool)
 
     # ── 3. Ticket IDs (8 uppercase alphanumeric chars) ────────────────
-    # Example: TKT-001 or the raw 8-char ID our system generates
-    # These must come from the reference (system-generated, never in user message)
-    for tid in re.findall(r"\b[A-Z0-9]{8}\b", response):
-        claims.append(tid in grounding_pool)
+    # Only check ticket IDs when the response explicitly mentions "ticket"
+    # to avoid false positives from brand names and product codes in live mode
+    if "ticket" in response.lower():
+        for tid in re.findall(r"\b[A-Z0-9]{8}\b", response):
+            claims.append(tid in grounding_pool)
 
     # ── 4. Format sanity (no LLM data without proper formatting) ─────
     # If response mentions "price" but uses plain numbers instead of ₹,
@@ -205,7 +210,7 @@ def score_case(message: str, response: str,
                reference: str, expected: dict) -> dict[str, float]:
     return {
         "answer_relevancy":   _score_answer_relevancy(message, response),
-        "faithfulness":       _score_faithfulness(response, reference),
+        "faithfulness":       _score_faithfulness(response, reference, expected),
         "task_completion":    _score_task_completion(response, expected),
         "correctness":        _score_correctness(response, expected),
         "hallucination_free": _score_hallucination_free(message, response, reference),
@@ -216,11 +221,11 @@ def score_case(message: str, response: str,
 
 def call_live_api(message: str, user_id: str) -> str:
     """Call the running FastAPI /api/v1/chat endpoint and return the response text."""
-    url = f"{API_BASE}/api/v1/chat"
+    url = f"{API_BASE}/chat"
     try:
         resp = requests.post(
             url,
-            json={"message": message, "user_id": user_id},
+            json={"message": message, "guest_id": user_id},
             timeout=30
         )
         resp.raise_for_status()

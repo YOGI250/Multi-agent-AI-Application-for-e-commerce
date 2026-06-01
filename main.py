@@ -17,10 +17,7 @@ from monitoring.logging_config import setup_logging
 # STRUCTURED LOGGING
 # JSON format to stdout + file
 # ==========================================
-setup_logging(
-    log_level = settings.log_level,
-    log_file  = "logs/app.log"
-)
+setup_logging(log_level=settings.log_level, log_file="logs/app.log")
 logger = logging.getLogger(__name__)
 
 
@@ -37,11 +34,7 @@ async def lifespan(_: FastAPI):
     create_tables()
     logger.info("Database tables verified")
     logger.info(
-        "Application started",
-        extra={
-            "environment": settings.environment,
-            "llm_model":   settings.llm_model_name
-        }
+        "Application started", extra={"environment": settings.environment, "llm_model": settings.llm_model_name}
     )
     yield
 
@@ -50,12 +43,12 @@ async def lifespan(_: FastAPI):
 # FASTAPI APP
 # ==========================================
 app = FastAPI(
-    title       = "E-Commerce AI Support System",
-    description = "Multi-agent AI customer support powered by LangGraph",
-    version     = "1.0.0",
-    docs_url    = "/docs",
-    redoc_url   = "/redoc",
-    lifespan    = lifespan
+    title="E-Commerce AI Support System",
+    description="Multi-agent AI customer support powered by LangGraph",
+    version="1.0.0",
+    docs_url="/docs",
+    redoc_url="/redoc",
+    lifespan=lifespan,
 )
 
 # ==========================================
@@ -63,11 +56,10 @@ app = FastAPI(
 # ==========================================
 app.add_middleware(
     CORSMiddleware,
-    allow_origins     = ["http://localhost:8000",
-                         "http://localhost:3000"],
-    allow_credentials = True,
-    allow_methods     = ["GET", "POST"],
-    allow_headers     = ["Authorization", "Content-Type", "X-Session-ID"]
+    allow_origins=["http://localhost:8000", "http://localhost:3000"],
+    allow_credentials=True,
+    allow_methods=["GET", "POST"],
+    allow_headers=["Authorization", "Content-Type", "X-Session-ID"],
 )
 
 # ==========================================
@@ -81,24 +73,17 @@ Instrumentator().instrument(app).expose(app)
 # ROUTES
 # ==========================================
 app.include_router(router)
-app.mount(
-    "/static",
-    StaticFiles(directory="frontend"),
-    name="static"
-)
+app.mount("/static", StaticFiles(directory="frontend"), name="static")
+
 
 @app.get("/app")
 async def serve_frontend():
     return FileResponse("frontend/index.html")
+
 
 # ==========================================
 # ROOT
 # ==========================================
 @app.get("/")
 async def root():
-    return {
-        "message": "E-Commerce AI Support System",
-        "version": "1.0.0",
-        "docs":    "/docs",
-        "health":  "/health"
-    }
+    return {"message": "E-Commerce AI Support System", "version": "1.0.0", "docs": "/docs", "health": "/health"}

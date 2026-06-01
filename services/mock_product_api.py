@@ -20,39 +20,24 @@ def search_products(filters: dict) -> list:
         query = db.query(Product)
 
         if filters.get("category"):
-            query = query.filter(
-                Product.category.ilike(
-                    f"%{filters['category']}%"
-                )
-            )
+            query = query.filter(Product.category.ilike(f"%{filters['category']}%"))
 
         if filters.get("max_price"):
-            query = query.filter(
-                Product.price <= float(filters["max_price"])
-            )
+            query = query.filter(Product.price <= float(filters["max_price"]))
 
         if filters.get("min_price"):
-            query = query.filter(
-                Product.price >= float(filters["min_price"])
-            )
+            query = query.filter(Product.price >= float(filters["min_price"]))
 
         if filters.get("brand"):
             brand = filters["brand"]
             if isinstance(brand, list):
-                brand_filters = [
-                    Product.brand.ilike(f"%{b}%")
-                    for b in brand
-                ]
+                brand_filters = [Product.brand.ilike(f"%{b}%") for b in brand]
                 query = query.filter(or_(*brand_filters))
             else:
-                query = query.filter(
-                    Product.brand.ilike(f"%{brand}%")
-                )
+                query = query.filter(Product.brand.ilike(f"%{brand}%"))
 
         if filters.get("min_rating"):
-            query = query.filter(
-                Product.rating >= float(filters["min_rating"])
-            )
+            query = query.filter(Product.rating >= float(filters["min_rating"]))
 
         if filters.get("in_stock") is True:
             query = query.filter(Product.in_stock == True)
@@ -61,27 +46,22 @@ def search_products(filters: dict) -> list:
         product_type = filters.get("product_type")
         if product_type and product_type != "other":
             type_query = query.filter(Product.product_type == product_type)
-            type_results = (
-                type_query
-                .order_by(Product.rating.desc().nullslast())
-                .limit(20)
-                .all()
-            )
+            type_results = type_query.order_by(Product.rating.desc().nullslast()).limit(20).all()
 
             if type_results:
                 return [
                     {
-                        "product_id":       p.product_id,
-                        "name":             p.name,
-                        "category":         p.category,
-                        "price":            float(p.price),
-                        "actual_price":     float(p.actual_price) if p.actual_price else None,
+                        "product_id": p.product_id,
+                        "name": p.name,
+                        "category": p.category,
+                        "price": float(p.price),
+                        "actual_price": float(p.actual_price) if p.actual_price else None,
                         "discount_percent": float(p.discount_percent) if p.discount_percent else 0,
-                        "brand":            p.brand,
-                        "rating":           float(p.rating) if p.rating else 0,
-                        "rating_count":     p.rating_count or 0,
-                        "in_stock":         p.in_stock,
-                        "product_type":     p.product_type
+                        "brand": p.brand,
+                        "rating": float(p.rating) if p.rating else 0,
+                        "rating_count": p.rating_count or 0,
+                        "in_stock": p.in_stock,
+                        "product_type": p.product_type,
                     }
                     for p in type_results
                 ]
@@ -91,30 +71,26 @@ def search_products(filters: dict) -> list:
             return []
 
         elif filters.get("keyword"):
-            query = query.filter(
-                Product.name.ilike(f"%{filters['keyword']}%")
-            )
+            query = query.filter(Product.name.ilike(f"%{filters['keyword']}%"))
 
         # order by rating descending — best products first
-        query = query.order_by(
-            Product.rating.desc().nullslast()
-        )
+        query = query.order_by(Product.rating.desc().nullslast())
 
         products = query.limit(20).all()
 
         return [
             {
-                "product_id":       p.product_id,
-                "name":             p.name,
-                "category":         p.category,
-                "price":            float(p.price),
-                "actual_price":     float(p.actual_price) if p.actual_price else None,
+                "product_id": p.product_id,
+                "name": p.name,
+                "category": p.category,
+                "price": float(p.price),
+                "actual_price": float(p.actual_price) if p.actual_price else None,
                 "discount_percent": float(p.discount_percent) if p.discount_percent else 0,
-                "brand":            p.brand,
-                "rating":           float(p.rating) if p.rating else 0,
-                "rating_count":     p.rating_count or 0,
-                "in_stock":         p.in_stock,
-                "product_type":     p.product_type
+                "brand": p.brand,
+                "rating": float(p.rating) if p.rating else 0,
+                "rating_count": p.rating_count or 0,
+                "in_stock": p.in_stock,
+                "product_type": p.product_type,
             }
             for p in products
         ]
@@ -124,7 +100,6 @@ def search_products(filters: dict) -> list:
         return []
     finally:
         db.close()
-
 
 
 def get_specs(product_ids: list) -> dict:
@@ -138,17 +113,9 @@ def get_specs(product_ids: list) -> dict:
     """
     db = SessionLocal()
     try:
-        products = db.query(Product).filter(
-            Product.product_id.in_(product_ids)
-        ).all()
+        products = db.query(Product).filter(Product.product_id.in_(product_ids)).all()
 
-        return {
-            p.product_id: {
-                "features":    p.features or [],
-                "description": p.description or ""
-            }
-            for p in products
-        }
+        return {p.product_id: {"features": p.features or [], "description": p.description or ""} for p in products}
 
     except Exception as e:
         logger.error(f"Error fetching specs: {e}")

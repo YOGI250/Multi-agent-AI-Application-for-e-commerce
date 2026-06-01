@@ -1194,9 +1194,12 @@ function renderProductCards(container, products) {
             btn.className   = "show-more-btn";
             btn.textContent = `Show more (${products.length - shown} remaining)`;
             btn.onclick = () => {
+                const cardsBefore = cardsWrap.querySelectorAll('.product-card').length;
                 showNextPage();
-                const msgs = document.getElementById("messages");
-                msgs.scrollTop = msgs.scrollHeight;
+                const allCards = cardsWrap.querySelectorAll('.product-card');
+                if (allCards[cardsBefore]) {
+                    allCards[cardsBefore].scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                }
             };
             cardsWrap.appendChild(btn);
         }

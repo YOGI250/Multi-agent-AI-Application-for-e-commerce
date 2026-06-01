@@ -1,6 +1,8 @@
 # langfuse_helpers/evaluation.py
 
+import datetime
 import logging
+
 from langfuse_helpers.tracing import langfuse_client, flush
 from agents.intent_router import intent_router_graph
 from langfuse_helpers.tracing import create_trace
@@ -10,113 +12,78 @@ logger = logging.getLogger(__name__)
 
 
 def run_evaluation(dataset_name: str = "ecommerce-eval-dataset"):
-    """
-    Runs one evaluation against the LangFuse dataset.
-    For each item:
-      - runs the full agent pipeline
-      - scores the response
-      - links the run to the dataset item
-    """
+    """Runs one evaluation against the LangFuse dataset using the v4 run_experiment API."""
     logger.info(f"Starting evaluation run on dataset: {dataset_name}")
 
-    # fetch dataset from LangFuse
     dataset = langfuse_client.get_dataset(dataset_name)
     logger.info(f"Dataset loaded: {len(dataset.items)} items")
 
-    import datetime
     run_name = f"eval-run-{datetime.datetime.now().strftime('%Y%m%d-%H%M%S')}"
 
-    for item in dataset.items:
-        logger.info(f"Evaluating item: {item.id}")
+    def task(*, item, **kwargs):
+        input_data = item.input if hasattr(item, "input") else item.get("input", {})
+        expected = item.expected_output if hasattr(item, "expected_output") else item.get("expected_output", {})
+        message = input_data.get("message", "")
+        user_id = input_data.get("user_id", settings.eval_user_id) or "eval_guest"
 
-        input_data    = item.input
-        expected      = item.expected_output
-        message       = input_data.get("message", "")
-        user_id       = input_data.get(
-            "user_id", settings.eval_user_id
-        )
-
-        # create a trace for this eval run
         trace = create_trace(
-            session_id       = f"eval-{item.id}",
-            user_id          = user_id,
-            is_authenticated = True,
-            message          = message
+            session_id=f"eval-{message[:20]}",
+            user_id=user_id,
+            is_authenticated=True,
+            message=message,
         )
 
-        # run the agent
-        try:
-            result = intent_router_graph.invoke({
-                "message":                 message,
-                "user_id":                 user_id,
-                "session_id":              f"eval-{item.id}",
-                "history":                 [],
-                "is_authenticated":        True,
-                "langfuse_trace_id":       trace.id,
-                "langfuse_parent_span_id": None
-            })
+        result = intent_router_graph.invoke({
+            "message":                 message,
+            "user_id":                 user_id,
+            "session_id":              f"eval-{message[:20]}",
+            "history":                 [],
+            "is_authenticated":        True,
+            "langfuse_trace_id":       trace.id,
+            "langfuse_parent_span_id": None,
+        })
 
-            response   = result.get("response", "")
-            agent_used = result.get("agent_used", "unknown")
-            intent     = result.get("intent", "unknown")
+        response   = result.get("response", "")
+        agent_used = result.get("agent_used", "unknown")
+        intent     = result.get("intent", "unknown")
 
-            # update trace output (v4: use set_trace_io on the root span)
-            trace._span.set_trace_io(
-                output={"response": response, "agent_used": agent_used}
-            )
+        trace._span.set_trace_io(output={"response": response, "agent_used": agent_used})
 
-            # score — check if expected keywords appear in response
-            expected_contains = expected.get("should_contain", [])
-            matches = sum(
-                1 for keyword in expected_contains
-                if keyword.lower() in response.lower()
-            )
-            keyword_score = (
-                matches / len(expected_contains)
-                if expected_contains else 1.0
-            )
+        expected_contains = (expected or {}).get("should_contain", [])
+        matches      = sum(1 for kw in expected_contains if kw.lower() in response.lower())
+        keyword_score = matches / len(expected_contains) if expected_contains else 1.0
 
-            # score — check if intent matches
-            expected_intent = expected.get("intent", "")
-            intent_correct  = 1.0 if intent == expected_intent else 0.0
+        expected_intent = (expected or {}).get("intent", "")
+        intent_correct  = 1.0 if intent == expected_intent else 0.0
 
-            # submit scores to LangFuse (v4: create_score replaces score)
-            langfuse_client.create_score(
-                trace_id = trace.id,
-                name     = "keyword_coverage",
-                value    = keyword_score,
-                comment  = f"matched {matches}/{len(expected_contains)} keywords"
-            )
+        langfuse_client.create_score(
+            trace_id = trace.id,
+            name     = "keyword_coverage",
+            value    = keyword_score,
+            comment  = f"matched {matches}/{len(expected_contains)} keywords",
+        )
+        langfuse_client.create_score(
+            trace_id = trace.id,
+            name     = "intent_accuracy",
+            value    = intent_correct,
+            comment  = f"expected={expected_intent} got={intent}",
+        )
 
-            langfuse_client.create_score(
-                trace_id = trace.id,
-                name     = "intent_accuracy",
-                value    = intent_correct,
-                comment  = f"expected={expected_intent} got={intent}"
-            )
+        flush()
+        logger.info(
+            f"agent={agent_used} | keyword={keyword_score:.2f} | intent={intent_correct:.0f}"
+        )
+        return {"response": response, "trace_id": trace.id}
 
-            # link run to dataset item (v4: item.link API unchanged)
-            item.link(
-                trace._span,
-                run_name,
-                run_description = "Automated evaluation run 1"
-            )
-
-            logger.info(
-                f"Item {item.id} | agent={agent_used} | "
-                f"keyword_score={keyword_score:.2f} | "
-                f"intent_correct={intent_correct:.0f}"
-            )
-
-        except Exception as e:
-            logger.error(f"Error evaluating item {item.id}: {e}")
-
-    flush()
-    logger.info("Evaluation run completed")
-    logger.info(
-        f"View results at: "
-        f"http://localhost:3000 → Datasets → {dataset_name}"
+    langfuse_client.run_experiment(
+        name     = dataset_name,
+        run_name = run_name,
+        data     = dataset.items,
+        task     = task,
     )
+
+    logger.info("Evaluation run completed")
+    logger.info(f"View results at: http://localhost:3000 → Datasets → {dataset_name}")
 
 
 if __name__ == "__main__":

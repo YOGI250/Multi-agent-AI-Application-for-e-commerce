@@ -1,5 +1,6 @@
 # utils/memory.py
 
+
 def format_context(ctx: dict) -> str:
     """Compact one-line summary of session context for LLM prompts."""
     if not ctx:
@@ -25,7 +26,7 @@ def format_recent_messages(history: list, n: int = 2, max_chars: int = 150) -> s
     """Last n turns of history, each message truncated to max_chars."""
     if not history:
         return "No previous messages"
-    recent = history[-(n * 2):]
+    recent = history[-(n * 2) :]
     lines = []
     for m in recent:
         content = m["content"]

@@ -2,11 +2,7 @@
 
 import uuid
 from datetime import datetime
-from sqlalchemy import (
-    Column, String, Boolean,
-    DateTime, Text, Numeric,
-    Date, ForeignKey, Integer
-)
+from sqlalchemy import Column, String, Boolean, DateTime, Text, Numeric, Date, ForeignKey, Integer
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import relationship
 
@@ -68,9 +64,7 @@ class Message(Base):
     __tablename__ = "messages"
 
     message_id = Column(String, primary_key=True, default=generate_uuid)
-    session_id = Column(
-        String, ForeignKey("sessions.session_id"), nullable=False
-    )
+    session_id = Column(String, ForeignKey("sessions.session_id"), nullable=False)
     role = Column(String, nullable=False)
     content = Column(Text, nullable=False)
     agent_name = Column(String, nullable=True)
@@ -125,7 +119,7 @@ class Product(Base):
     rating_count = Column(Integer, nullable=True)
     description = Column(Text, nullable=True)
     features = Column(JSONB, nullable=True, default=list)
-    in_stock     = Column(Boolean, default=True, nullable=False)
+    in_stock = Column(Boolean, default=True, nullable=False)
     product_type = Column(String, nullable=True)
 
     def __repr__(self):

@@ -9,7 +9,12 @@
       "id": 1,
       "title": "Request Volume Over Time",
       "type": "timeseries",
-      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 0},
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 0
+      },
       "targets": [
         {
           "datasource": "Prometheus",
@@ -22,7 +27,12 @@
       "id": 2,
       "title": "Agent Selection Distribution",
       "type": "piechart",
-      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 0},
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 0
+      },
       "targets": [
         {
           "datasource": "Prometheus",
@@ -35,7 +45,12 @@
       "id": 3,
       "title": "Average Latency Per Agent (seconds)",
       "type": "timeseries",
-      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 8},
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 8
+      },
       "targets": [
         {
           "datasource": "Prometheus",
@@ -48,7 +63,12 @@
       "id": 4,
       "title": "Error Rate Over Time",
       "type": "timeseries",
-      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 8},
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 8
+      },
       "targets": [
         {
           "datasource": "Prometheus",
@@ -61,7 +81,12 @@
       "id": 5,
       "title": "LLM Token Consumption Over Time",
       "type": "timeseries",
-      "gridPos": {"h": 8, "w": 24, "x": 0, "y": 16},
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 16
+      },
       "targets": [
         {
           "datasource": "Prometheus",
@@ -69,6 +94,44 @@
           "legendFormat": "{{agent_used}} - {{token_type}}"
         }
       ]
+    },
+    {
+      "id": 6,
+      "title": "Application Logs",
+      "type": "logs",
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "gridPos": {
+        "h": 10,
+        "w": 24,
+        "x": 0,
+        "y": 24
+      },
+      "options": {
+        "dedupStrategy": "none",
+        "enableLogDetails": true,
+        "prettifyLogMessage": false,
+        "showCommonLabels": false,
+        "showLabels": true,
+        "showTime": true,
+        "sortOrder": "Descending",
+        "wrapLogMessage": true
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          },
+          "expr": "{job=\"ecommerce-app\"}",
+          "legendFormat": "",
+          "queryType": "range",
+          "refId": "A"
+        }
+      ],
+      "description": "Application logs filterable by session_id, agent_used, log level. Use label filters: {job=\"ecommerce-app\"} | json | session_id=\"<id>\""
     }
   ]
 }

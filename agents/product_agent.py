@@ -12,10 +12,12 @@ from config.settings import settings
 from subgraphs.product_enrichment import product_enrichment_subgraph
 from tools.product_tools import search_products_tool
 from langfuse_helpers.tracing import (
-    create_span, end_span,
+    create_span,
+    end_span,
     create_generation,
-    get_prompt, compile_prompt,
-    extract_token_usage
+    get_prompt,
+    compile_prompt,
+    extract_token_usage,
 )
 from utils.memory import merge_context
 
@@ -26,22 +28,22 @@ logger = logging.getLogger(__name__)
 # STATE
 # ==========================================
 class ProductAgentState(TypedDict):
-    message:                 str
-    user_id:                 str
-    session_id:              str
-    history:                 list
-    filters:                 Optional[dict]
-    original_filters:        Optional[dict]
-    broaden_attempts:        Optional[int]
-    search_results:          Optional[list]
-    ranked_products:         Optional[list]
-    final_recommendations:   Optional[list]
-    products:                Optional[list]   # all enriched products for frontend pagination
-    response:                Optional[str]
-    session_context:         Optional[dict]
-    langfuse_trace_id:       Optional[str]
+    message: str
+    user_id: str
+    session_id: str
+    history: list
+    filters: Optional[dict]
+    original_filters: Optional[dict]
+    broaden_attempts: Optional[int]
+    search_results: Optional[list]
+    ranked_products: Optional[list]
+    final_recommendations: Optional[list]
+    products: Optional[list]  # all enriched products for frontend pagination
+    response: Optional[str]
+    session_context: Optional[dict]
+    langfuse_trace_id: Optional[str]
     langfuse_parent_span_id: Optional[str]
-    messages:                Optional[List[Any]]
+    messages: Optional[List[Any]]
 
 
 # ==========================================
@@ -50,19 +52,17 @@ class ProductAgentState(TypedDict):
 def extract_preferences(state: ProductAgentState) -> ProductAgentState:
     logger.info("Product Agent node: extract_preferences", extra={"node_name": "extract_preferences"})
 
-    trace_id  = state.get("langfuse_trace_id")
+    trace_id = state.get("langfuse_trace_id")
     parent_id = state.get("langfuse_parent_span_id")
-    message   = state.get("message", "")
-    filters   = state.get("filters")
-    attempts  = state.get("broaden_attempts", 0)
+    message = state.get("message", "")
+    filters = state.get("filters")
+    attempts = state.get("broaden_attempts", 0)
 
     if filters and attempts > 0:
         logger.info(f"Using broadened filters: {filters}")
         return state
 
-    history     = state.get("history", [])
-    # For extract_preferences we only need user messages from history
-    # User messages contain the product search terms we need to carry forward
+    history = state.get("history", [])
     user_msgs = [m for m in history if m.get("role") == "user"]
     if user_msgs:
         last_msgs = user_msgs[-4:]
@@ -75,7 +75,6 @@ def extract_preferences(state: ProductAgentState) -> ProductAgentState:
         recent_user_msgs = "\n".join(lines)
     else:
         recent_user_msgs = "No previous searches"
-    
 
     fallback_prompt = f"""You are a product search filter extractor.
 
@@ -121,40 +120,34 @@ Respond ONLY with JSON:
 }}"""
 
     prompt_text, prompt_version = get_prompt(
-        "extract_preferences",
-        label    = settings.order_response_prompt_label,
-        fallback = fallback_prompt
+        "extract_preferences", label=settings.order_response_prompt_label, fallback=fallback_prompt
     )
 
     if "{{message}}" in prompt_text:
-        prompt_text = compile_prompt(
-            prompt_text,
-            message = message,
-            history = recent_user_msgs
-        )
+        prompt_text = compile_prompt(prompt_text, message=message, history=recent_user_msgs)
 
-    llm      = ChatGroq(api_key=settings.groq_api_key, model=settings.llm_model_name)
+    llm = ChatGroq(api_key=settings.groq_api_key, model=settings.llm_model_name)
     response = llm.invoke(prompt_text)
-    usage    = extract_token_usage(response)
+    usage = extract_token_usage(response)
 
     if trace_id:
         create_generation(
-            trace_id              = trace_id,
-            name                  = "extract_preferences",
-            model                 = settings.llm_model_name,
-            prompt                = prompt_text,
-            response              = response.content,
-            usage                 = usage,
-            parent_observation_id = parent_id,
-            prompt_name           = "extract_preferences",
-            prompt_version        = prompt_version,
-            agent_used            = "product_agent"
+            trace_id=trace_id,
+            name="extract_preferences",
+            model=settings.llm_model_name,
+            prompt=prompt_text,
+            response=response.content,
+            usage=usage,
+            parent_observation_id=parent_id,
+            prompt_name="extract_preferences",
+            prompt_version=prompt_version,
+            agent_used="product_agent",
         )
 
     try:
-        text       = response.content.strip()
-        json_match = re.search(r'\{.*\}', text, re.DOTALL)
-        filters    = json.loads(json_match.group()) if json_match else {}
+        text = response.content.strip()
+        json_match = re.search(r"\{.*\}", text, re.DOTALL)
+        filters = json.loads(json_match.group()) if json_match else {}
     except Exception:
         filters = {}
 
@@ -163,20 +156,20 @@ Respond ONLY with JSON:
         ptype = filters["product_type"].lower().strip()
         normalization = {
             "smartwatches": "smartwatch",
-            "smartwatche":  "smartwatch",
-            "mice":         "mouse",
-            "earphones":    "headphones",
-            "earphone":     "headphones",
-            "earbuds":      "headphones",
-            "earbud":       "headphones",
-            "headphone":    "headphones",
-            "laptops":      "laptop",
-            "keyboards":    "keyboard",
-            "speakers":     "speaker",
-            "tablets":      "tablet",
-            "fans":         "fan",
-            "mixers":       "mixer",
-            "irons":        "iron",
+            "smartwatche": "smartwatch",
+            "mice": "mouse",
+            "earphones": "headphones",
+            "earphone": "headphones",
+            "earbuds": "headphones",
+            "earbud": "headphones",
+            "headphone": "headphones",
+            "laptops": "laptop",
+            "keyboards": "keyboard",
+            "speakers": "speaker",
+            "tablets": "tablet",
+            "fans": "fan",
+            "mixers": "mixer",
+            "irons": "iron",
         }
         filters["product_type"] = normalization.get(ptype, ptype)
 
@@ -185,26 +178,45 @@ Respond ONLY with JSON:
     # 2. session context — for genuinely vague follow-ups ("under 2000", "what about X")
     if not filters.get("product_type"):
         KEYWORD_MAP = [
-            ("smart watch", "smartwatch"), ("smartwatch", "smartwatch"),
-            ("laptop bag", "laptop_bag"), ("air purifier", "air_purifier"),
-            ("water purifier", "water_purifier"), ("room heater", "room_heater"),
-            ("water heater", "water_heater"), ("phone case", "phone_case"),
-            ("hard disk", "hard_disk"), ("memory card", "memory_card"),
-            ("usb hub", "usb_hub"), ("pen drive", "pendrive"),
-            ("headphone", "headphones"), ("earphone", "headphones"), ("earbud", "headphones"),
-            ("speaker", "speaker"), ("keyboard", "keyboard"), ("monitor", "monitor"),
-            ("tablet", "tablet"), ("webcam", "webcam"), ("router", "router"),
-            ("charger", "charger"), ("pendrive", "pendrive"),
-            ("grinder", "mixer"), ("mixer", "mixer"), ("vacuum", "vacuum"),
-            ("kettle", "kettle"), ("microwave", "microwave"), ("trimmer", "trimmer"),
-            ("camera", "camera"), ("printer", "printer"), ("laptop", "laptop"),
-            ("mouse", "mouse"), ("iron", "iron"), ("fan", "fan"), ("ssd", "ssd"),
+            ("smart watch", "smartwatch"),
+            ("smartwatch", "smartwatch"),
+            ("laptop bag", "laptop_bag"),
+            ("air purifier", "air_purifier"),
+            ("water purifier", "water_purifier"),
+            ("room heater", "room_heater"),
+            ("water heater", "water_heater"),
+            ("phone case", "phone_case"),
+            ("hard disk", "hard_disk"),
+            ("memory card", "memory_card"),
+            ("usb hub", "usb_hub"),
+            ("pen drive", "pendrive"),
+            ("headphone", "headphones"),
+            ("earphone", "headphones"),
+            ("earbud", "headphones"),
+            ("speaker", "speaker"),
+            ("keyboard", "keyboard"),
+            ("monitor", "monitor"),
+            ("tablet", "tablet"),
+            ("webcam", "webcam"),
+            ("router", "router"),
+            ("charger", "charger"),
+            ("pendrive", "pendrive"),
+            ("grinder", "mixer"),
+            ("mixer", "mixer"),
+            ("vacuum", "vacuum"),
+            ("kettle", "kettle"),
+            ("microwave", "microwave"),
+            ("trimmer", "trimmer"),
+            ("camera", "camera"),
+            ("printer", "printer"),
+            ("laptop", "laptop"),
+            ("mouse", "mouse"),
+            ("iron", "iron"),
+            ("fan", "fan"),
+            ("ssd", "ssd"),
         ]
         msg_lower = message.lower()
-        keyword_ptype = next(
-            (ptype for kw, ptype in KEYWORD_MAP if kw in msg_lower),
-            None
-        )
+        keyword_ptype = next((ptype for kw, ptype in KEYWORD_MAP if kw in msg_lower), None)
         if keyword_ptype:
             filters["product_type"] = keyword_ptype
         else:
@@ -212,7 +224,7 @@ Respond ONLY with JSON:
             if last_ptype:
                 filters["product_type"] = last_ptype
 
-    state["filters"]          = filters
+    state["filters"] = filters
     state["original_filters"] = filters.copy() if filters else {}
     state["broaden_attempts"] = state.get("broaden_attempts", 0)
 
@@ -226,21 +238,25 @@ Respond ONLY with JSON:
 def search_products_node(state: ProductAgentState) -> ProductAgentState:
     logger.info("Product Agent node: search_products_node", extra={"node_name": "search_products_node"})
 
-    trace_id  = state.get("langfuse_trace_id")
+    trace_id = state.get("langfuse_trace_id")
     parent_id = state.get("langfuse_parent_span_id")
-    filters   = state.get("filters") or {}
+    filters = state.get("filters") or {}
 
-    span = create_span(
-        trace_id              = trace_id,
-        name                  = "search_products_node",
-        parent_observation_id = parent_id,
-        input_data            = {"filters": filters}
-    ) if trace_id else None
+    span = (
+        create_span(
+            trace_id=trace_id,
+            name="search_products_node",
+            parent_observation_id=parent_id,
+            input_data={"filters": filters},
+        )
+        if trace_id
+        else None
+    )
 
     tool_call = {
         "name": "search_products_tool",
         "args": {"filters": filters},
-        "id":   "product_search_1",
+        "id": "product_search_1",
         "type": "tool_call",
     }
     state["messages"] = [AIMessage(content="", tool_calls=[tool_call])]
@@ -257,12 +273,12 @@ def search_products_node(state: ProductAgentState) -> ProductAgentState:
 def process_search_result(state: ProductAgentState) -> ProductAgentState:
     logger.info("Product Agent node: process_search_result", extra={"node_name": "process_search_result"})
 
-    trace_id  = state.get("langfuse_trace_id")
+    trace_id = state.get("langfuse_trace_id")
     parent_id = state.get("langfuse_parent_span_id")
-    messages  = state.get("messages") or []
+    messages = state.get("messages") or []
 
     tool_msg = next((m for m in messages if isinstance(m, ToolMessage)), None)
-    results  = []
+    results = []
     if tool_msg:
         try:
             results = json.loads(tool_msg.content) or []
@@ -271,12 +287,16 @@ def process_search_result(state: ProductAgentState) -> ProductAgentState:
 
     state["search_results"] = results if isinstance(results, list) else []
 
-    span = create_span(
-        trace_id              = trace_id,
-        name                  = "search_products",
-        parent_observation_id = parent_id,
-        input_data            = {"filters": state.get("filters", {})}
-    ) if trace_id else None
+    span = (
+        create_span(
+            trace_id=trace_id,
+            name="search_products",
+            parent_observation_id=parent_id,
+            input_data={"filters": state.get("filters", {})},
+        )
+        if trace_id
+        else None
+    )
     if span:
         end_span(span, {"results_count": len(state["search_results"])})
 
@@ -288,7 +308,7 @@ def process_search_result(state: ProductAgentState) -> ProductAgentState:
 # EDGE — results_found?
 # ==========================================
 def route_results_found(state: ProductAgentState) -> str:
-    results  = state.get("search_results", [])
+    results = state.get("search_results", [])
     attempts = state.get("broaden_attempts", 0)
 
     if results:
@@ -304,17 +324,21 @@ def route_results_found(state: ProductAgentState) -> str:
 def broaden_search(state: ProductAgentState) -> ProductAgentState:
     logger.info("Product Agent node: broaden_search", extra={"node_name": "broaden_search"})
 
-    trace_id  = state.get("langfuse_trace_id")
+    trace_id = state.get("langfuse_trace_id")
     parent_id = state.get("langfuse_parent_span_id")
-    filters   = state.get("filters", {}).copy()
-    attempts  = state.get("broaden_attempts", 0)
+    filters = state.get("filters", {}).copy()
+    attempts = state.get("broaden_attempts", 0)
 
-    span = create_span(
-        trace_id              = trace_id,
-        name                  = "broaden_search",
-        parent_observation_id = parent_id,
-        input_data            = {"filters": filters, "attempt": attempts}
-    ) if trace_id else None
+    span = (
+        create_span(
+            trace_id=trace_id,
+            name="broaden_search",
+            parent_observation_id=parent_id,
+            input_data={"filters": filters, "attempt": attempts},
+        )
+        if trace_id
+        else None
+    )
 
     if filters.get("brand"):
         filters["brand"] = None
@@ -324,7 +348,7 @@ def broaden_search(state: ProductAgentState) -> ProductAgentState:
         filters["min_rating"] = None
     # product_type is never removed — it defines what the user is looking for
 
-    state["filters"]          = filters
+    state["filters"] = filters
     state["broaden_attempts"] = attempts + 1
 
     if span:
@@ -339,27 +363,26 @@ def broaden_search(state: ProductAgentState) -> ProductAgentState:
 def rank_and_filter(state: ProductAgentState) -> ProductAgentState:
     logger.info("Product Agent node: rank_and_filter", extra={"node_name": "rank_and_filter"})
 
-    trace_id  = state.get("langfuse_trace_id")
+    trace_id = state.get("langfuse_trace_id")
     parent_id = state.get("langfuse_parent_span_id")
-    message   = state.get("message", "")
-    products  = state.get("search_results", [])
+    message = state.get("message", "")
+    products = state.get("search_results", [])
 
     # Build a richer request string so rank_and_filter LLM understands context
     # for vague follow-ups like "under 2000" that carry no product name themselves
-    filters      = state.get("filters") or {}
+    filters = state.get("filters") or {}
     product_type = filters.get("product_type", "")
     if product_type and product_type.lower() not in message.lower():
         rich_request = f"{product_type.replace('_', ' ')} — {message}"
     else:
         rich_request = message
 
-    product_list = "\n".join([
-        f"{i+1}. {p['name'][:60]} | "
-        f"Price: ₹{p['price']} | "
-        f"Rating: {p['rating']} | "
-        f"Brand: {p['brand']}"
-        for i, p in enumerate(products[:settings.product_search_candidates])
-    ])
+    product_list = "\n".join(
+        [
+            f"{i+1}. {p['name'][:60]} | " f"Price: ₹{p['price']} | " f"Rating: {p['rating']} | " f"Brand: {p['brand']}"
+            for i, p in enumerate(products[: settings.product_search_candidates])
+        ]
+    )
 
     fallback_prompt = f"""You are a product recommendation expert.
 Rank these products by relevance to the user request.
@@ -380,39 +403,33 @@ Indices are 1-based. Example: [3, 1, 7, 2, 5]
 Maximum {settings.product_recommendation_count} products. No explanation."""
 
     prompt_text, prompt_version = get_prompt(
-        "rank_and_filter",
-        label    = settings.order_response_prompt_label,
-        fallback = fallback_prompt
+        "rank_and_filter", label=settings.order_response_prompt_label, fallback=fallback_prompt
     )
 
     if "{{message}}" in prompt_text:
-        prompt_text = compile_prompt(
-            prompt_text,
-            message      = rich_request,
-            product_list = product_list
-        )
+        prompt_text = compile_prompt(prompt_text, message=rich_request, product_list=product_list)
 
-    llm      = ChatGroq(api_key=settings.groq_api_key, model=settings.llm_model_name)
+    llm = ChatGroq(api_key=settings.groq_api_key, model=settings.llm_model_name)
     response = llm.invoke(prompt_text)
-    usage    = extract_token_usage(response)
+    usage = extract_token_usage(response)
 
     if trace_id:
         create_generation(
-            trace_id              = trace_id,
-            name                  = "rank_and_filter",
-            model                 = settings.llm_model_name,
-            prompt                = prompt_text,
-            response              = response.content,
-            usage                 = usage,
-            parent_observation_id = parent_id,
-            prompt_name           = "rank_and_filter",
-            prompt_version        = prompt_version,
-            agent_used            = "product_agent"
+            trace_id=trace_id,
+            name="rank_and_filter",
+            model=settings.llm_model_name,
+            prompt=prompt_text,
+            response=response.content,
+            usage=usage,
+            parent_observation_id=parent_id,
+            prompt_name="rank_and_filter",
+            prompt_version=prompt_version,
+            agent_used="product_agent",
         )
 
     try:
-        text  = response.content.strip()
-        match = re.search(r'\[.*?\]', text, re.DOTALL)
+        text = response.content.strip()
+        match = re.search(r"\[.*?\]", text, re.DOTALL)
         if match:
             indices = json.loads(match.group())
             if not indices:
@@ -423,9 +440,9 @@ Maximum {settings.product_recommendation_count} products. No explanation."""
                 for idx in indices:
                     if 1 <= idx <= len(products):
                         ranked.append(products[idx - 1])
-                ranked_ids = {p['product_id'] for p in ranked}
+                ranked_ids = {p["product_id"] for p in ranked}
                 for p in products:
-                    if p['product_id'] not in ranked_ids:
+                    if p["product_id"] not in ranked_ids:
                         ranked.append(p)
                 state["ranked_products"] = ranked
         else:
@@ -440,40 +457,39 @@ Maximum {settings.product_recommendation_count} products. No explanation."""
 # ==========================================
 # NODE 5 — product_enrichment_node (subgraph)
 # ==========================================
-def product_enrichment_node(
-    state: ProductAgentState
-) -> ProductAgentState:
+def product_enrichment_node(state: ProductAgentState) -> ProductAgentState:
     logger.info("Product Agent node: product_enrichment_node", extra={"node_name": "product_enrichment_node"})
 
-    trace_id  = state.get("langfuse_trace_id")
+    trace_id = state.get("langfuse_trace_id")
     parent_id = state.get("langfuse_parent_span_id")
-    filters   = state.get("filters", {})
+    filters = state.get("filters", {})
     max_price = filters.get("max_price") or settings.product_default_max_price
 
-    span = create_span(
-        trace_id              = trace_id,
-        name                  = "product_enrichment_subgraph",
-        parent_observation_id = parent_id,
-        input_data            = {
-            "products_count": len(state.get("ranked_products", [])),
-            "max_price":      max_price
-        }
-    ) if trace_id else None
+    span = (
+        create_span(
+            trace_id=trace_id,
+            name="product_enrichment_subgraph",
+            parent_observation_id=parent_id,
+            input_data={"products_count": len(state.get("ranked_products", [])), "max_price": max_price},
+        )
+        if trace_id
+        else None
+    )
 
-    result = product_enrichment_subgraph.invoke({
-        "ranked_products":         state.get("ranked_products", []),
-        "max_price":               max_price,
-        "langfuse_trace_id":       trace_id,
-        "langfuse_parent_span_id": span.id if span else parent_id
-    })
+    result = product_enrichment_subgraph.invoke(
+        {
+            "ranked_products": state.get("ranked_products", []),
+            "max_price": max_price,
+            "langfuse_trace_id": trace_id,
+            "langfuse_parent_span_id": span.id if span else parent_id,
+        }
+    )
 
     state["final_recommendations"] = result.get("final_recommendations", [])
-    state["products"]              = state["final_recommendations"]
+    state["products"] = state["final_recommendations"]
 
     if span:
-        end_span(span, {
-            "recommendations_count": len(state["final_recommendations"])
-        })
+        end_span(span, {"recommendations_count": len(state["final_recommendations"])})
 
     return state
 
@@ -481,31 +497,33 @@ def product_enrichment_node(
 # ==========================================
 # NODE 6 — format_recommendations (pure code)
 # ==========================================
-def format_recommendations(
-    state: ProductAgentState
-) -> ProductAgentState:
+def format_recommendations(state: ProductAgentState) -> ProductAgentState:
     logger.info("Product Agent node: format_recommendations", extra={"node_name": "format_recommendations"})
 
-    trace_id         = state.get("langfuse_trace_id")
-    parent_id        = state.get("langfuse_parent_span_id")
-    products         = state.get("final_recommendations", [])
-    message          = state.get("message", "")
+    trace_id = state.get("langfuse_trace_id")
+    parent_id = state.get("langfuse_parent_span_id")
+    products = state.get("final_recommendations", [])
+    message = state.get("message", "")
     original_filters = state.get("original_filters", {}) or {}
-    original_max     = original_filters.get("max_price")
-    ptype_name       = (original_filters.get("product_type") or "").replace("_", " ")
+    original_max = original_filters.get("max_price")
+    ptype_name = (original_filters.get("product_type") or "").replace("_", " ")
 
-    span = create_span(
-        trace_id              = trace_id,
-        name                  = "format_recommendations",
-        parent_observation_id = parent_id,
-        input_data            = {"products_count": len(products)}
-    ) if trace_id else None
+    span = (
+        create_span(
+            trace_id=trace_id,
+            name="format_recommendations",
+            parent_observation_id=parent_id,
+            input_data={"products_count": len(products)},
+        )
+        if trace_id
+        else None
+    )
 
     state["products"] = products
 
     if not products:
         state["response"] = (
-            f"I couldn't find any products matching \"{message}\".\n\n"
+            f'I couldn\'t find any products matching "{message}".\n\n'
             f"Here's what we currently have available:\n\n"
             f"  -Computers & Accessories\n"
             f"    laptops, keyboards, mice, cables, chargers, USB hubs, webcams\n\n"
@@ -525,29 +543,18 @@ def format_recommendations(
 
     ctx = state.get("session_context") or {}
 
-    over_budget = (
-        original_max
-        and all(float(p.get("price", 0)) > original_max for p in products)
-    )
+    over_budget = original_max and all(float(p.get("price", 0)) > original_max for p in products)
 
     if over_budget and ptype_name:
-        lines = [
-            f"No {ptype_name} found under ₹{int(original_max):,}. "
-            f"Here's the closest option available:\n"
-        ]
+        lines = [f"No {ptype_name} found under ₹{int(original_max):,}. " f"Here's the closest option available:\n"]
     else:
-        lines = [
-            f"Here are my top recommendations for \"{message}\":\n"
-        ]
+        lines = [f'Here are my top recommendations for "{message}":\n']
 
     # Format first 3 in text; the rest surface via cards in the frontend
     for i, p in enumerate(products[:3], 1):
         lines.append(f"{i}. {p['name'][:70]}")
         lines.append(f"   Price  : ₹{p['price']}")
-        lines.append(
-            f"   Rating : {p['rating']} ⭐ "
-            f"({p['rating_count']:,} reviews)"
-        )
+        lines.append(f"   Rating : {p['rating']} ⭐ " f"({p['rating_count']:,} reviews)")
         lines.append(f"   Brand  : {p['brand']}")
 
         features = p.get("features", [])
@@ -560,14 +567,12 @@ def format_recommendations(
 
     if len(products) > 3:
         extra = len(products) - 3
-        lines.append(
-            f"...and {extra} more product{'s' if extra > 1 else ''} available."
-        )
+        lines.append(f"...and {extra} more product{'s' if extra > 1 else ''} available.")
 
     state["response"] = "\n".join(lines)
     ctx_update = {
-        "topic":             "product_query",
-        "products_shown":    [p["name"][:50] for p in products[:3]],
+        "topic": "product_query",
+        "products_shown": [p["name"][:50] for p in products[:3]],
     }
     if original_filters.get("product_type"):
         ctx_update["last_product_type"] = original_filters["product_type"]
@@ -584,24 +589,26 @@ def format_recommendations(
 # ==========================================
 # NODE 7 — no_results_response (pure code)
 # ==========================================
-def no_results_response(
-    state: ProductAgentState
-) -> ProductAgentState:
+def no_results_response(state: ProductAgentState) -> ProductAgentState:
     logger.info("Product Agent node: no_results_response", extra={"node_name": "no_results_response"})
 
-    trace_id  = state.get("langfuse_trace_id")
+    trace_id = state.get("langfuse_trace_id")
     parent_id = state.get("langfuse_parent_span_id")
 
-    span = create_span(
-        trace_id              = trace_id,
-        name                  = "no_results_response",
-        parent_observation_id = parent_id,
-        input_data            = {"filters": state.get("filters", {})}
-    ) if trace_id else None
+    span = (
+        create_span(
+            trace_id=trace_id,
+            name="no_results_response",
+            parent_observation_id=parent_id,
+            input_data={"filters": state.get("filters", {})},
+        )
+        if trace_id
+        else None
+    )
 
     original_query = state.get("message", "your request")
     state["response"] = (
-        f"I couldn't find any products matching \"{original_query}\".\n\n"
+        f'I couldn\'t find any products matching "{original_query}".\n\n'
         f"Here's what we currently have available:\n\n"
         f"  -Computers & Accessories\n"
         f"    laptops, keyboards, mice, cables, chargers, USB hubs, webcams\n\n"
@@ -630,62 +637,66 @@ def build_product_agent():
 
     def product_tool_node_fn(state: ProductAgentState) -> dict:
         logger.info("Product Agent node: product_tool_node", extra={"node_name": "product_tool_node"})
-        trace_id  = state.get("langfuse_trace_id")
+        trace_id = state.get("langfuse_trace_id")
         parent_id = state.get("langfuse_parent_span_id")
-        msgs      = state.get("messages", [])
-        last_ai   = next((m for m in reversed(msgs) if hasattr(m, "tool_calls") and m.tool_calls), None)
+        msgs = state.get("messages", [])
+        last_ai = next((m for m in reversed(msgs) if hasattr(m, "tool_calls") and m.tool_calls), None)
         tool_name = last_ai.tool_calls[0].get("name", "unknown") if last_ai else "unknown"
         tool_args = last_ai.tool_calls[0].get("args", {}) if last_ai else {}
 
-        span = create_span(
-            trace_id              = trace_id,
-            name                  = "product_tool_node",
-            parent_observation_id = parent_id,
-            input_data            = {"tool": tool_name, "args": tool_args}
-        ) if trace_id else None
+        span = (
+            create_span(
+                trace_id=trace_id,
+                name="product_tool_node",
+                parent_observation_id=parent_id,
+                input_data={"tool": tool_name, "args": tool_args},
+            )
+            if trace_id
+            else None
+        )
 
         result = _tool_node.invoke(state)
 
         if span:
             tool_msgs = result.get("messages", [])
-            output    = tool_msgs[0].content[:200] if tool_msgs else None
+            output = tool_msgs[0].content[:200] if tool_msgs else None
             end_span(span, {"tool_output": output, "tool": tool_name})
 
         return result
 
     graph = StateGraph(ProductAgentState)
 
-    graph.add_node("extract_preferences",     extract_preferences)
-    graph.add_node("search_products_node",    search_products_node)
-    graph.add_node("product_tool_node",       product_tool_node_fn)
-    graph.add_node("process_search_result",   process_search_result)
-    graph.add_node("broaden_search",          broaden_search)
-    graph.add_node("rank_and_filter",         rank_and_filter)
+    graph.add_node("extract_preferences", extract_preferences)
+    graph.add_node("search_products_node", search_products_node)
+    graph.add_node("product_tool_node", product_tool_node_fn)
+    graph.add_node("process_search_result", process_search_result)
+    graph.add_node("broaden_search", broaden_search)
+    graph.add_node("rank_and_filter", rank_and_filter)
     graph.add_node("product_enrichment_node", product_enrichment_node)
-    graph.add_node("format_recommendations",  format_recommendations)
-    graph.add_node("no_results_response",     no_results_response)
+    graph.add_node("format_recommendations", format_recommendations)
+    graph.add_node("no_results_response", no_results_response)
 
     graph.set_entry_point("extract_preferences")
 
-    graph.add_edge("extract_preferences",   "search_products_node")
-    graph.add_edge("search_products_node",  "product_tool_node")
-    graph.add_edge("product_tool_node",     "process_search_result")
+    graph.add_edge("extract_preferences", "search_products_node")
+    graph.add_edge("search_products_node", "product_tool_node")
+    graph.add_edge("product_tool_node", "process_search_result")
 
     graph.add_conditional_edges(
         "process_search_result",
         route_results_found,
         {
-            "rank_and_filter":     "rank_and_filter",
-            "broaden_search":      "broaden_search",
-            "no_results_response": "no_results_response"
-        }
+            "rank_and_filter": "rank_and_filter",
+            "broaden_search": "broaden_search",
+            "no_results_response": "no_results_response",
+        },
     )
 
-    graph.add_edge("broaden_search",          "search_products_node")
-    graph.add_edge("rank_and_filter",         "product_enrichment_node")
+    graph.add_edge("broaden_search", "search_products_node")
+    graph.add_edge("rank_and_filter", "product_enrichment_node")
     graph.add_edge("product_enrichment_node", "format_recommendations")
-    graph.add_edge("format_recommendations",  END)
-    graph.add_edge("no_results_response",     END)
+    graph.add_edge("format_recommendations", END)
+    graph.add_edge("no_results_response", END)
 
     return graph.compile()
 

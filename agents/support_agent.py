@@ -14,10 +14,12 @@ from tools.support_tools import lookup_policy_tool
 from database.connection import SessionLocal
 from database.models import Order
 from langfuse_helpers.tracing import (
-    create_span, end_span,
+    create_span,
+    end_span,
     create_generation,
-    get_prompt, compile_prompt,
-    extract_token_usage
+    get_prompt,
+    compile_prompt,
+    extract_token_usage,
 )
 from utils.memory import format_context, format_recent_messages, merge_context
 
@@ -28,26 +30,26 @@ logger = logging.getLogger(__name__)
 # STATE
 # ==========================================
 class SupportAgentState(TypedDict):
-    message:                 str
-    user_id:                 str
-    session_id:              str
-    history:                 list
-    issue_type:              Optional[str]
-    order_id:                Optional[str]
-    issue_details:           Optional[str]
-    severity:                Optional[str]
-    order_status:            Optional[str]
-    policy_text:             Optional[str]
-    ticket_id:               Optional[str]
-    ticket_created:          Optional[bool]
-    is_duplicate:            Optional[bool]
-    days_open:               Optional[int]
-    resolution:              Optional[str]
-    response:                Optional[str]
-    session_context:         Optional[dict]
-    langfuse_trace_id:       Optional[str]
+    message: str
+    user_id: str
+    session_id: str
+    history: list
+    issue_type: Optional[str]
+    order_id: Optional[str]
+    issue_details: Optional[str]
+    severity: Optional[str]
+    order_status: Optional[str]
+    policy_text: Optional[str]
+    ticket_id: Optional[str]
+    ticket_created: Optional[bool]
+    is_duplicate: Optional[bool]
+    days_open: Optional[int]
+    resolution: Optional[str]
+    response: Optional[str]
+    session_context: Optional[dict]
+    langfuse_trace_id: Optional[str]
     langfuse_parent_span_id: Optional[str]
-    messages:                Optional[List[Any]]
+    messages: Optional[List[Any]]
 
 
 # ==========================================
@@ -56,12 +58,12 @@ class SupportAgentState(TypedDict):
 def classify_issue(state: SupportAgentState) -> SupportAgentState:
     logger.info("Support Agent node: classify_issue", extra={"node_name": "classify_issue"})
 
-    trace_id  = state.get("langfuse_trace_id")
+    trace_id = state.get("langfuse_trace_id")
     parent_id = state.get("langfuse_parent_span_id")
-    message   = state.get("message", "")
-    history   = state.get("history", [])
+    message = state.get("message", "")
+    history = state.get("history", [])
 
-    ctx         = state.get("session_context") or {}
+    ctx = state.get("session_context") or {}
     # Exclude stale order_id — classify_issue must resolve it fresh from the current message
     context_str = format_context({k: v for k, v in ctx.items() if k != "order_id"})
     recent_msgs = format_recent_messages(history, n=2)
@@ -70,7 +72,11 @@ def classify_issue(state: SupportAgentState) -> SupportAgentState:
     order_hint = ""
     if order_statuses:
         lines = [f"  {status}: {', '.join(ids)}" for status, ids in order_statuses.items()]
-        order_hint = "Known orders by status (use to resolve references like 'my delivered order'):\n" + "\n".join(lines) + "\n\n"
+        order_hint = (
+            "Known orders by status (use to resolve references like 'my delivered order'):\n"
+            + "\n".join(lines)
+            + "\n\n"
+        )
 
     fallback_prompt = f"""You are a customer support classifier.
 Classify the customer complaint and extract key details.
@@ -111,68 +117,55 @@ Respond ONLY with a JSON object. No explanation.
 }}"""
 
     prompt_text, prompt_version = get_prompt(
-        "classify_issue",
-        label    = settings.intent_router_prompt_label,
-        fallback = fallback_prompt
+        "classify_issue", label=settings.intent_router_prompt_label, fallback=fallback_prompt
     )
-    
 
     if "{{message}}" in prompt_text:
-        prompt_text = compile_prompt(
-            prompt_text,
-            message = message,
-            history = recent_msgs
-        )
+        prompt_text = compile_prompt(prompt_text, message=message, history=recent_msgs)
 
-    llm      = ChatGroq(api_key=settings.groq_api_key, model=settings.llm_model_name)
+    llm = ChatGroq(api_key=settings.groq_api_key, model=settings.llm_model_name)
     response = llm.invoke(prompt_text)
-    usage    = extract_token_usage(response)
+    usage = extract_token_usage(response)
 
     if trace_id:
         create_generation(
-            trace_id              = trace_id,
-            name                  = "classify_issue",
-            model                 = settings.llm_model_name,
-            prompt                = prompt_text,
-            response              = response.content,
-            usage                 = usage,
-            parent_observation_id = parent_id,
-            prompt_name           = "classify_issue",
-            prompt_version        = prompt_version,
-            agent_used            = "support_agent"
+            trace_id=trace_id,
+            name="classify_issue",
+            model=settings.llm_model_name,
+            prompt=prompt_text,
+            response=response.content,
+            usage=usage,
+            parent_observation_id=parent_id,
+            prompt_name="classify_issue",
+            prompt_version=prompt_version,
+            agent_used="support_agent",
         )
 
     try:
-        text  = response.content.strip()
-        match = re.search(r'\{.*\}', text, re.DOTALL)
-        result = json.loads(match.group()) if match else {
-            "issue_type": "general_query",
-            "order_id":   None,
-            "details":    message
-        }
+        text = response.content.strip()
+        match = re.search(r"\{.*\}", text, re.DOTALL)
+        result = (
+            json.loads(match.group())
+            if match
+            else {"issue_type": "general_query", "order_id": None, "details": message}
+        )
     except Exception:
-        result = {
-            "issue_type": "general_query",
-            "order_id":   None,
-            "details":    message
-        }
+        result = {"issue_type": "general_query", "order_id": None, "details": message}
 
     # Explicit order ID in the message always wins over LLM (history can confuse it)
-    explicit_match = re.search(r'\bORD-[A-Z0-9]+-\d+\b', message, re.IGNORECASE)
+    explicit_match = re.search(r"\bORD-[A-Z0-9]+-\d+\b", message, re.IGNORECASE)
     explicit_order_id = explicit_match.group().upper() if explicit_match else None
 
-    state["issue_type"]    = result.get("issue_type", "general_query")
-    state["order_id"]      = explicit_order_id or result.get("order_id")
+    state["issue_type"] = result.get("issue_type", "general_query")
+    state["order_id"] = explicit_order_id or result.get("order_id")
     state["issue_details"] = result.get("details", message)
-    state["ticket_id"]      = None
+    state["ticket_id"] = None
     state["ticket_created"] = False
-    state["is_duplicate"]   = False
-    state["days_open"]      = 0
-    state["session_context"] = merge_context(ctx, {
-        "topic":      "support_query",
-        "issue_type": state["issue_type"],
-        "order_id":   state["order_id"]
-    })
+    state["is_duplicate"] = False
+    state["days_open"] = 0
+    state["session_context"] = merge_context(
+        ctx, {"topic": "support_query", "issue_type": state["issue_type"], "order_id": state["order_id"]}
+    )
 
     return state
 
@@ -181,6 +174,7 @@ Respond ONLY with a JSON object. No explanation.
 # EDGE — needs order id?
 # ==========================================
 ORDER_REQUIRED_ISSUES = {"damaged_product", "wrong_item", "refund", "cancellation"}
+
 
 def route_after_classify(state: SupportAgentState) -> str:
     if state.get("issue_type") in ORDER_REQUIRED_ISSUES and not state.get("order_id"):
@@ -194,15 +188,19 @@ def route_after_classify(state: SupportAgentState) -> str:
 def request_order_id(state: SupportAgentState) -> SupportAgentState:
     logger.info("Support Agent node: request_order_id", extra={"node_name": "request_order_id"})
 
-    trace_id  = state.get("langfuse_trace_id")
+    trace_id = state.get("langfuse_trace_id")
     parent_id = state.get("langfuse_parent_span_id")
 
-    span = create_span(
-        trace_id              = trace_id,
-        name                  = "request_order_id",
-        parent_observation_id = parent_id,
-        input_data            = {"issue_type": state.get("issue_type")}
-    ) if trace_id else None
+    span = (
+        create_span(
+            trace_id=trace_id,
+            name="request_order_id",
+            parent_observation_id=parent_id,
+            input_data={"issue_type": state.get("issue_type")},
+        )
+        if trace_id
+        else None
+    )
 
     state["response"] = (
         "I'm sorry to hear that. To look into this for you, I'll need your order ID.\n\n"
@@ -222,17 +220,21 @@ def request_order_id(state: SupportAgentState) -> SupportAgentState:
 def assess_severity(state: SupportAgentState) -> SupportAgentState:
     logger.info("Support Agent node: assess_severity", extra={"node_name": "assess_severity"})
 
-    trace_id   = state.get("langfuse_trace_id")
-    parent_id  = state.get("langfuse_parent_span_id")
+    trace_id = state.get("langfuse_trace_id")
+    parent_id = state.get("langfuse_parent_span_id")
     issue_type = state.get("issue_type", "general_query")
-    order_id   = state.get("order_id")
+    order_id = state.get("order_id")
 
-    span = create_span(
-        trace_id              = trace_id,
-        name                  = "assess_severity",
-        parent_observation_id = parent_id,
-        input_data            = {"issue_type": issue_type, "order_id": order_id}
-    ) if trace_id else None
+    span = (
+        create_span(
+            trace_id=trace_id,
+            name="assess_severity",
+            parent_observation_id=parent_id,
+            input_data={"issue_type": issue_type, "order_id": order_id},
+        )
+        if trace_id
+        else None
+    )
 
     # Fetch order value, status, and validate ownership
     order_value = 0
@@ -241,10 +243,7 @@ def assess_severity(state: SupportAgentState) -> SupportAgentState:
     if order_id:
         try:
             db = SessionLocal()
-            order = db.query(Order).filter(
-                Order.order_id == order_id,
-                Order.user_id  == user_id
-            ).first()
+            order = db.query(Order).filter(Order.order_id == order_id, Order.user_id == user_id).first()
             if order:
                 order_value = float(order.order_value or 0)
                 state["order_status"] = str(order.status or "unknown").lower()
@@ -268,11 +267,7 @@ def assess_severity(state: SupportAgentState) -> SupportAgentState:
     state["severity"] = severity
 
     if span:
-        end_span(span, {
-            "severity":    severity,
-            "order_value": order_value,
-            "issue_type":  issue_type
-        })
+        end_span(span, {"severity": severity, "order_value": order_value, "issue_type": issue_type})
 
     return state
 
@@ -283,21 +278,25 @@ def assess_severity(state: SupportAgentState) -> SupportAgentState:
 def lookup_policy_node(state: SupportAgentState) -> SupportAgentState:
     logger.info("Support Agent node: lookup_policy_node", extra={"node_name": "lookup_policy_node"})
 
-    trace_id   = state.get("langfuse_trace_id")
-    parent_id  = state.get("langfuse_parent_span_id")
+    trace_id = state.get("langfuse_trace_id")
+    parent_id = state.get("langfuse_parent_span_id")
     issue_type = state.get("issue_type", "general_query")
 
-    span = create_span(
-        trace_id              = trace_id,
-        name                  = "lookup_policy_node",
-        parent_observation_id = parent_id,
-        input_data            = {"issue_type": issue_type}
-    ) if trace_id else None
+    span = (
+        create_span(
+            trace_id=trace_id,
+            name="lookup_policy_node",
+            parent_observation_id=parent_id,
+            input_data={"issue_type": issue_type},
+        )
+        if trace_id
+        else None
+    )
 
     tool_call = {
         "name": "lookup_policy_tool",
         "args": {"issue_type": issue_type},
-        "id":   "policy_fetch_1",
+        "id": "policy_fetch_1",
         "type": "tool_call",
     }
     state["messages"] = [AIMessage(content="", tool_calls=[tool_call])]
@@ -314,10 +313,10 @@ def lookup_policy_node(state: SupportAgentState) -> SupportAgentState:
 def process_policy_result(state: SupportAgentState) -> SupportAgentState:
     logger.info("Support Agent node: process_policy_result", extra={"node_name": "process_policy_result"})
 
-    trace_id   = state.get("langfuse_trace_id")
-    parent_id  = state.get("langfuse_parent_span_id")
+    trace_id = state.get("langfuse_trace_id")
+    parent_id = state.get("langfuse_parent_span_id")
     issue_type = state.get("issue_type", "general_query")
-    messages   = state.get("messages") or []
+    messages = state.get("messages") or []
 
     tool_msg = next((m for m in messages if isinstance(m, ToolMessage)), None)
     policy_text = "Please contact our support team for assistance."
@@ -330,12 +329,16 @@ def process_policy_result(state: SupportAgentState) -> SupportAgentState:
 
     state["policy_text"] = policy_text
 
-    span = create_span(
-        trace_id              = trace_id,
-        name                  = "lookup_policy",
-        parent_observation_id = parent_id,
-        input_data            = {"issue_type": issue_type}
-    ) if trace_id else None
+    span = (
+        create_span(
+            trace_id=trace_id,
+            name="lookup_policy",
+            parent_observation_id=parent_id,
+            input_data={"issue_type": issue_type},
+        )
+        if trace_id
+        else None
+    )
     if span:
         end_span(span, {"policy_found": bool(policy_text), "issue_type": issue_type})
 
@@ -357,46 +360,53 @@ def route_severity(state: SupportAgentState) -> str:
 # ==========================================
 # NODE 4 — escalation_handler_node (subgraph)
 # ==========================================
-def escalation_handler_node(
-    state: SupportAgentState
-) -> SupportAgentState:
+def escalation_handler_node(state: SupportAgentState) -> SupportAgentState:
     logger.info("Support Agent node: escalation_handler_node", extra={"node_name": "escalation_handler_node"})
 
-    trace_id  = state.get("langfuse_trace_id")
+    trace_id = state.get("langfuse_trace_id")
     parent_id = state.get("langfuse_parent_span_id")
 
-    span = create_span(
-        trace_id              = trace_id,
-        name                  = "escalation_handler_subgraph",
-        parent_observation_id = parent_id,
-        input_data            = {
-            "user_id":    state.get("user_id"),
+    span = (
+        create_span(
+            trace_id=trace_id,
+            name="escalation_handler_subgraph",
+            parent_observation_id=parent_id,
+            input_data={
+                "user_id": state.get("user_id"),
+                "issue_type": state.get("issue_type"),
+                "severity": state.get("severity"),
+            },
+        )
+        if trace_id
+        else None
+    )
+
+    result = escalation_handler_subgraph.invoke(
+        {
+            "user_id": state.get("user_id"),
             "issue_type": state.get("issue_type"),
-            "severity":   state.get("severity")
+            "order_id": state.get("order_id"),
+            "severity": state.get("severity"),
+            "langfuse_trace_id": trace_id,
+            "langfuse_parent_span_id": span.id if span else parent_id,
         }
-    ) if trace_id else None
+    )
 
-    result = escalation_handler_subgraph.invoke({
-        "user_id":                 state.get("user_id"),
-        "issue_type":              state.get("issue_type"),
-        "order_id":                state.get("order_id"),
-        "severity":                state.get("severity"),
-        "langfuse_trace_id":       trace_id,
-        "langfuse_parent_span_id": span.id if span else parent_id
-    })
-
-    state["ticket_id"]      = result.get("ticket_id")
+    state["ticket_id"] = result.get("ticket_id")
     state["ticket_created"] = result.get("ticket_created", False)
-    state["is_duplicate"]   = result.get("is_duplicate", False)
-    state["days_open"]      = result.get("days_open", 0)
+    state["is_duplicate"] = result.get("is_duplicate", False)
+    state["days_open"] = result.get("days_open", 0)
 
     if span:
-        end_span(span, {
-            "ticket_id":      state["ticket_id"],
-            "ticket_created": state["ticket_created"],
-            "is_duplicate":   state["is_duplicate"],
-            "days_open":      state["days_open"]
-        })
+        end_span(
+            span,
+            {
+                "ticket_id": state["ticket_id"],
+                "ticket_created": state["ticket_created"],
+                "is_duplicate": state["is_duplicate"],
+                "days_open": state["days_open"],
+            },
+        )
 
     return state
 
@@ -404,25 +414,23 @@ def escalation_handler_node(
 # ==========================================
 # NODE 5 — draft_resolution (LLM)
 # ==========================================
-def draft_resolution(
-    state: SupportAgentState
-) -> SupportAgentState:
+def draft_resolution(state: SupportAgentState) -> SupportAgentState:
     logger.info("Support Agent node: draft_resolution", extra={"node_name": "draft_resolution"})
 
-    trace_id       = state.get("langfuse_trace_id")
-    parent_id      = state.get("langfuse_parent_span_id")
-    policy_text    = state.get("policy_text", "")
-    issue_type     = state.get("issue_type", "")
-    issue_details  = state.get("issue_details", "")
-    order_id       = state.get("order_id")
-    order_status   = state.get("order_status") or "unknown"
-    ticket_id      = state.get("ticket_id")
+    trace_id = state.get("langfuse_trace_id")
+    parent_id = state.get("langfuse_parent_span_id")
+    policy_text = state.get("policy_text", "")
+    issue_type = state.get("issue_type", "")
+    issue_details = state.get("issue_details", "")
+    order_id = state.get("order_id")
+    order_status = state.get("order_status") or "unknown"
+    ticket_id = state.get("ticket_id")
     ticket_created = state.get("ticket_created", False)
-    is_duplicate   = state.get("is_duplicate", False)
-    days_open      = state.get("days_open", 0)
-    history        = state.get("history", [])
+    is_duplicate = state.get("is_duplicate", False)
+    days_open = state.get("days_open", 0)
+    history = state.get("history", [])
 
-    ctx         = state.get("session_context") or {}
+    ctx = state.get("session_context") or {}
     context_str = format_context(ctx)
     recent_msgs = format_recent_messages(history, n=2)
 
@@ -461,28 +469,27 @@ def draft_resolution(
             duplicate_instruction = (
                 f"This is a duplicate complaint — the user already has an open ticket.\n"
                 f"Use EXACTLY this response (do not add or change anything):\n"
-                f"\"Your ticket {ticket_id} was recently created. Our team will contact you "
-                f"within 48 hours. Please allow us time to resolve this.\""
+                f'"Your ticket {ticket_id} was recently created. Our team will contact you '
+                f'within 48 hours. Please allow us time to resolve this."'
             )
         elif 1 <= days_open <= 3:
             duplicate_instruction = (
                 f"This is a duplicate complaint — ticket has been open for {days_open} day(s).\n"
                 f"Use EXACTLY this response (do not add or change anything):\n"
-                f"\"Your ticket {ticket_id} is being actively reviewed. We understand your "
-                f"concern and will update you within 24 hours.\""
+                f'"Your ticket {ticket_id} is being actively reviewed. We understand your '
+                f'concern and will update you within 24 hours."'
             )
         else:
             duplicate_instruction = (
                 f"This is a duplicate complaint — ticket has been open for {days_open} days (OVERDUE).\n"
                 f"Use EXACTLY this response (do not add or change anything):\n"
-                f"\"We sincerely apologise for the delay. Your ticket {ticket_id} has been open "
+                f'"We sincerely apologise for the delay. Your ticket {ticket_id} has been open '
                 f"for {days_open} days and is past our resolution deadline. This has been "
-                f"escalated to our senior team.\""
+                f'escalated to our senior team."'
             )
     else:
         duplicate_instruction = (
-            "This is a new complaint. Provide a standard empathetic response referencing "
-            "the policy and ticket ID."
+            "This is a new complaint. Provide a standard empathetic response referencing " "the policy and ticket ID."
         )
 
     fallback_prompt = f"""You are a helpful and empathetic customer support agent for an e-commerce store.
@@ -519,9 +526,7 @@ Instructions:
 - Do not address the user by name — messages in the history may look like names but are product searches or typos."""
 
     prompt_text, prompt_version = get_prompt(
-        "draft_resolution",
-        label    = settings.order_response_prompt_label,
-        fallback = fallback_prompt
+        "draft_resolution", label=settings.order_response_prompt_label, fallback=fallback_prompt
     )
 
     # Always enforce this regardless of whether prompt came from LangFuse or fallback
@@ -531,67 +536,69 @@ Instructions:
     if "{{issue_type}}" in prompt_text:
         prompt_text = compile_prompt(
             prompt_text,
-            history       = recent_msgs,
-            issue_type    = issue_type,
-            issue_details = issue_details,
-            order_id      = order_id or "Not provided",
-            policy_text   = policy_text,
-            ticket_info   = ticket_info
+            history=recent_msgs,
+            issue_type=issue_type,
+            issue_details=issue_details,
+            order_id=order_id or "Not provided",
+            policy_text=policy_text,
+            ticket_info=ticket_info,
         )
 
-    llm      = ChatGroq(api_key=settings.groq_api_key, model=settings.llm_model_name)
+    llm = ChatGroq(api_key=settings.groq_api_key, model=settings.llm_model_name)
     response = llm.invoke(prompt_text)
-    usage    = extract_token_usage(response)
+    usage = extract_token_usage(response)
 
     if trace_id:
         create_generation(
-            trace_id              = trace_id,
-            name                  = "draft_resolution",
-            model                 = settings.llm_model_name,
-            prompt                = prompt_text,
-            response              = response.content,
-            usage                 = usage,
-            parent_observation_id = parent_id,
-            prompt_name           = "draft_resolution",
-            prompt_version        = prompt_version,
-            agent_used            = "support_agent"
+            trace_id=trace_id,
+            name="draft_resolution",
+            model=settings.llm_model_name,
+            prompt=prompt_text,
+            response=response.content,
+            usage=usage,
+            parent_observation_id=parent_id,
+            prompt_name="draft_resolution",
+            prompt_version=prompt_version,
+            agent_used="support_agent",
         )
 
-    state["resolution"]    = response.content
-    state["session_context"] = merge_context(ctx, {
-        "topic":      "support_query",
-        "issue_type": issue_type,
-        "order_id":   order_id,
-        "ticket_id":  ticket_id if ticket_created else None
-    })
+    state["resolution"] = response.content
+    state["session_context"] = merge_context(
+        ctx,
+        {
+            "topic": "support_query",
+            "issue_type": issue_type,
+            "order_id": order_id,
+            "ticket_id": ticket_id if ticket_created else None,
+        },
+    )
     return state
 
 
 # ==========================================
 # NODE 6 — format_response (pure code)
 # ==========================================
-def format_response(
-    state: SupportAgentState
-) -> SupportAgentState:
+def format_response(state: SupportAgentState) -> SupportAgentState:
     logger.info("Support Agent node: format_response", extra={"node_name": "format_response"})
 
-    trace_id  = state.get("langfuse_trace_id")
+    trace_id = state.get("langfuse_trace_id")
     parent_id = state.get("langfuse_parent_span_id")
     resolution = state.get("resolution", "")
-    ticket_id  = state.get("ticket_id")
+    ticket_id = state.get("ticket_id")
 
-    span = create_span(
-        trace_id              = trace_id,
-        name                  = "format_response",
-        parent_observation_id = parent_id,
-        input_data            = {"has_ticket": bool(ticket_id)}
-    ) if trace_id else None
+    span = (
+        create_span(
+            trace_id=trace_id,
+            name="format_response",
+            parent_observation_id=parent_id,
+            input_data={"has_ticket": bool(ticket_id)},
+        )
+        if trace_id
+        else None
+    )
 
     if ticket_id and ticket_id not in resolution:
-        response = (
-            f"{resolution}\n\n"
-            f"Your complaint reference: Ticket ID {ticket_id}"
-        )
+        response = f"{resolution}\n\n" f"Your complaint reference: Ticket ID {ticket_id}"
     else:
         response = resolution
 
@@ -611,68 +618,66 @@ def build_support_agent():
 
     def support_tool_node_fn(state: SupportAgentState) -> dict:
         logger.info("Support Agent node: support_tool_node", extra={"node_name": "support_tool_node"})
-        trace_id  = state.get("langfuse_trace_id")
+        trace_id = state.get("langfuse_trace_id")
         parent_id = state.get("langfuse_parent_span_id")
-        msgs      = state.get("messages", [])
-        last_ai   = next((m for m in reversed(msgs) if hasattr(m, "tool_calls") and m.tool_calls), None)
+        msgs = state.get("messages", [])
+        last_ai = next((m for m in reversed(msgs) if hasattr(m, "tool_calls") and m.tool_calls), None)
         tool_name = last_ai.tool_calls[0].get("name", "unknown") if last_ai else "unknown"
         tool_args = last_ai.tool_calls[0].get("args", {}) if last_ai else {}
 
-        span = create_span(
-            trace_id              = trace_id,
-            name                  = "support_tool_node",
-            parent_observation_id = parent_id,
-            input_data            = {"tool": tool_name, "args": tool_args}
-        ) if trace_id else None
+        span = (
+            create_span(
+                trace_id=trace_id,
+                name="support_tool_node",
+                parent_observation_id=parent_id,
+                input_data={"tool": tool_name, "args": tool_args},
+            )
+            if trace_id
+            else None
+        )
 
         result = _tool_node.invoke(state)
 
         if span:
             tool_msgs = result.get("messages", [])
-            output    = tool_msgs[0].content[:200] if tool_msgs else None
+            output = tool_msgs[0].content[:200] if tool_msgs else None
             end_span(span, {"tool_output": output, "tool": tool_name})
 
         return result
 
     graph = StateGraph(SupportAgentState)
 
-    graph.add_node("classify_issue",          classify_issue)
-    graph.add_node("request_order_id",        request_order_id)
-    graph.add_node("assess_severity",         assess_severity)
-    graph.add_node("lookup_policy_node",      lookup_policy_node)
-    graph.add_node("support_tool_node",       support_tool_node_fn)
-    graph.add_node("process_policy_result",   process_policy_result)
+    graph.add_node("classify_issue", classify_issue)
+    graph.add_node("request_order_id", request_order_id)
+    graph.add_node("assess_severity", assess_severity)
+    graph.add_node("lookup_policy_node", lookup_policy_node)
+    graph.add_node("support_tool_node", support_tool_node_fn)
+    graph.add_node("process_policy_result", process_policy_result)
     graph.add_node("escalation_handler_node", escalation_handler_node)
-    graph.add_node("draft_resolution",        draft_resolution)
-    graph.add_node("format_response",         format_response)
+    graph.add_node("draft_resolution", draft_resolution)
+    graph.add_node("format_response", format_response)
 
     graph.set_entry_point("classify_issue")
 
     graph.add_conditional_edges(
         "classify_issue",
         route_after_classify,
-        {
-            "request_order_id": "request_order_id",
-            "assess_severity":  "assess_severity"
-        }
+        {"request_order_id": "request_order_id", "assess_severity": "assess_severity"},
     )
-    graph.add_edge("request_order_id",    END)
-    graph.add_edge("assess_severity",     "lookup_policy_node")
-    graph.add_edge("lookup_policy_node",  "support_tool_node")
-    graph.add_edge("support_tool_node",   "process_policy_result")
+    graph.add_edge("request_order_id", END)
+    graph.add_edge("assess_severity", "lookup_policy_node")
+    graph.add_edge("lookup_policy_node", "support_tool_node")
+    graph.add_edge("support_tool_node", "process_policy_result")
 
     graph.add_conditional_edges(
         "process_policy_result",
         route_severity,
-        {
-            "escalation_handler_node": "escalation_handler_node",
-            "draft_resolution":        "draft_resolution"
-        }
+        {"escalation_handler_node": "escalation_handler_node", "draft_resolution": "draft_resolution"},
     )
 
     graph.add_edge("escalation_handler_node", "draft_resolution")
-    graph.add_edge("draft_resolution",        "format_response")
-    graph.add_edge("format_response",         END)
+    graph.add_edge("draft_resolution", "format_response")
+    graph.add_edge("format_response", END)
 
     return graph.compile()
 

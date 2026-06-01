@@ -6,12 +6,7 @@ from langfuse_helpers.tracing import langfuse_client
 logger = logging.getLogger(__name__)
 
 
-def score_response(
-    trace_id:   str,
-    agent_used: str,
-    message:    str,
-    response:   str
-):
+def score_response(trace_id: str, agent_used: str, message: str, response: str):
     """
     Auto-scores every agent response on 4 metrics.
     Called after every agent run in api/routes.py.
@@ -28,25 +23,16 @@ def score_response(
 
         for metric_name, score_value in scores.items():
             langfuse_client.create_score(
-                trace_id = trace_id,
-                name     = metric_name,
-                value    = score_value,
-                comment  = f"Auto-scored for {agent_used}"
+                trace_id=trace_id, name=metric_name, value=score_value, comment=f"Auto-scored for {agent_used}"
             )
 
-        logger.info(
-            f"Scores submitted for trace {trace_id}: {scores}"
-        )
+        logger.info(f"Scores submitted for trace {trace_id}: {scores}")
 
     except Exception as e:
         logger.error(f"Error scoring response: {e}")
 
 
-def _calculate_scores(
-    agent_used: str,
-    message:    str,
-    response:   str
-) -> dict:
+def _calculate_scores(agent_used: str, message: str, response: str) -> dict:
     """
     Calculates scores using heuristics per agent type.
     Scores are between 0.0 and 1.0.
@@ -59,20 +45,44 @@ def _calculate_scores(
     """
     scores = {}
 
-    message_lower  = message.lower()
+    message_lower = message.lower()
     response_lower = response.lower()
 
     # ── 1. Answer Relevancy ──
     # Check if key topic words from message appear in response
     # Filter out stop words first for meaningful overlap
-    stop_words = {"the", "is", "a", "an", "my", "i", "me",
-                  "for", "to", "of", "in", "it", "do", "can",
-                  "you", "we", "and", "or", "with", "this",
-                  "that", "what", "how", "why", "when", "where"}
+    stop_words = {
+        "the",
+        "is",
+        "a",
+        "an",
+        "my",
+        "i",
+        "me",
+        "for",
+        "to",
+        "of",
+        "in",
+        "it",
+        "do",
+        "can",
+        "you",
+        "we",
+        "and",
+        "or",
+        "with",
+        "this",
+        "that",
+        "what",
+        "how",
+        "why",
+        "when",
+        "where",
+    }
 
-    message_words  = set(message_lower.split()) - stop_words
+    message_words = set(message_lower.split()) - stop_words
     response_words = set(response_lower.split()) - stop_words
-    common_words   = message_words & response_words
+    common_words = message_words & response_words
 
     if message_words:
         relevancy = min(len(common_words) / len(message_words), 1.0)
@@ -85,13 +95,9 @@ def _calculate_scores(
     # Check for concrete data references — not just length
     if agent_used == "order_agent":
         # faithful if response mentions actual order ID or status
-        has_order_id = bool(
-            re.search(r"ORD-[A-Z0-9-]+", response)
-        )
+        has_order_id = bool(re.search(r"ORD-[A-Z0-9-]+", response))
         has_status = any(
-            s in response_lower
-            for s in ["delivered", "shipped", "delayed",
-                      "cancelled", "processing", "transit"]
+            s in response_lower for s in ["delivered", "shipped", "delayed", "cancelled", "processing", "transit"]
         )
         if has_order_id and has_status:
             scores["faithfulness"] = 1.0
@@ -102,7 +108,7 @@ def _calculate_scores(
 
     elif agent_used == "product_agent":
         # faithful if response mentions actual prices and ratings
-        has_price  = "₹" in response
+        has_price = "₹" in response
         has_rating = "⭐" in response
         if has_price and has_rating:
             scores["faithfulness"] = 1.0
@@ -113,10 +119,8 @@ def _calculate_scores(
 
     elif agent_used == "support_agent":
         # faithful if response references policy or ticket ID
-        has_policy    = "policy" in response_lower
-        has_ticket_id = bool(
-            re.search(r"[A-Z0-9]{8}", response)
-        )
+        has_policy = "policy" in response_lower
+        has_ticket_id = bool(re.search(r"[A-Z0-9]{8}", response))
         if has_policy and has_ticket_id:
             scores["faithfulness"] = 1.0
         elif has_policy or has_ticket_id:
@@ -130,8 +134,7 @@ def _calculate_scores(
     # ── 3. Completeness ──
     # Does the response actually answer what was asked?
     # Check for question-answer alignment not just length
-    question_words = ["what", "where", "when", "how", "why",
-                      "which", "who", "show", "list", "find"]
+    question_words = ["what", "where", "when", "how", "why", "which", "who", "show", "list", "find"]
     is_question = any(w in message_lower for w in question_words)
 
     if is_question:
@@ -152,47 +155,41 @@ def _calculate_scores(
     # ── 4. Task Completion ──
     # Did the agent complete its specific task?
     if agent_used == "order_agent":
-        has_order_ref  = bool(
-            re.search(r"ORD-[A-Z0-9-]+", response)
-        )
+        has_order_ref = bool(re.search(r"ORD-[A-Z0-9-]+", response))
         has_status_info = any(
             s in response_lower
-            for s in ["delivered", "shipped", "delayed",
-                      "processing", "transit", "expected",
-                      "arrival", "delivery"]
+            for s in ["delivered", "shipped", "delayed", "processing", "transit", "expected", "arrival", "delivery"]
         )
         score = 0.4
-        if has_order_ref:   score += 0.3
-        if has_status_info: score += 0.3
+        if has_order_ref:
+            score += 0.3
+        if has_status_info:
+            score += 0.3
         scores["task_completion"] = round(score, 2)
 
     elif agent_used == "product_agent":
-        has_recommendations = any(
-            w in response_lower
-            for w in ["recommend", "here are", "top", "best"]
-        )
-        has_price  = "₹" in response
+        has_recommendations = any(w in response_lower for w in ["recommend", "here are", "top", "best"])
+        has_price = "₹" in response
         has_rating = "⭐" in response
         score = 0.3
-        if has_recommendations: score += 0.2
-        if has_price:           score += 0.25
-        if has_rating:          score += 0.25
+        if has_recommendations:
+            score += 0.2
+        if has_price:
+            score += 0.25
+        if has_rating:
+            score += 0.25
         scores["task_completion"] = round(score, 2)
 
     elif agent_used == "support_agent":
         has_acknowledgement = any(
-            w in response_lower
-            for w in ["sorry", "apolog", "understand",
-                      "assist", "help", "resolve"]
+            w in response_lower for w in ["sorry", "apolog", "understand", "assist", "help", "resolve"]
         )
-        has_action = any(
-            w in response_lower
-            for w in ["ticket", "refund", "replacement",
-                      "cancel", "policy", "team"]
-        )
+        has_action = any(w in response_lower for w in ["ticket", "refund", "replacement", "cancel", "policy", "team"])
         score = 0.3
-        if has_acknowledgement: score += 0.3
-        if has_action:          score += 0.4
+        if has_acknowledgement:
+            score += 0.3
+        if has_action:
+            score += 0.4
         scores["task_completion"] = round(score, 2)
 
     else:
@@ -204,12 +201,8 @@ def _calculate_scores(
     if agent_used == "order_agent":
         # hallucination if response invents order details
         # good sign: mentions real order ID from message
-        order_id_in_message = re.search(
-            r"ORD-[A-Z0-9-]+", message
-        )
-        order_id_in_response = re.search(
-            r"ORD-[A-Z0-9-]+", response
-        )
+        order_id_in_message = re.search(r"ORD-[A-Z0-9-]+", message)
+        order_id_in_response = re.search(r"ORD-[A-Z0-9-]+", response)
         if order_id_in_message and order_id_in_response:
             # both have order ID — check they match
             if order_id_in_message.group() == order_id_in_response.group():
@@ -225,7 +218,7 @@ def _calculate_scores(
     elif agent_used == "product_agent":
         # hallucination if response mentions prices without ₹ symbol
         # or invents ratings not in standard format
-        has_proper_price  = "₹" in response
+        has_proper_price = "₹" in response
         has_proper_rating = "⭐" in response
         if has_proper_price and has_proper_rating:
             scores["hallucination"] = 0.0
@@ -237,9 +230,7 @@ def _calculate_scores(
     elif agent_used == "support_agent":
         # hallucination if response invents a ticket ID
         # that doesn't match expected format
-        ticket_match = re.search(
-            r"\b[A-Z0-9]{8}\b", response
-        )
+        ticket_match = re.search(r"\b[A-Z0-9]{8}\b", response)
         if ticket_match:
             # ticket ID present — likely grounded (created by system)
             scores["hallucination"] = 0.0

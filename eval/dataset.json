@@ -2,56 +2,56 @@
   {
     "input": {
       "message": "show me laptops under 50000",
-      "user_id": "google_105309025092043620678"
+      "user_id": "eval_guest_001"
     },
     "expected_output": {
       "intent": "product_query",
       "should_contain": ["laptop", "price", "rating"]
     },
-    "mocked_response": "Here are my top 3 recommendations for laptops under ₹50000:\n\n1. HP 15s Laptop\n   Price  : ₹42999.0\n   Rating : 4.3 ⭐ (1,234 reviews)\n   Brand  : HP\n   Features:\n   • Intel Core i5 processor\n   • 8GB RAM, 512GB SSD\n   • 15.6 inch FHD display\n   Score  : 0.92\n\n2. Lenovo IdeaPad Slim 3\n   Price  : ₹38999.0\n   Rating : 4.2 ⭐ (987 reviews)\n   Brand  : Lenovo\n   Features:\n   • AMD Ryzen 5 processor\n   • 8GB RAM, 256GB SSD\n   • Windows 11 Home\n   Score  : 0.88\n\n3. ASUS VivoBook 15\n   Price  : ₹45499.0\n   Rating : 4.4 ⭐ (756 reviews)\n   Brand  : ASUS\n   Features:\n   • Intel Core i5 11th Gen\n   • 8GB RAM, 512GB SSD\n   • Thin and light design\n   Score  : 0.85"
+    "mocked_response": "Here are my top recommendations for laptops under ₹50,000:\n\n1. HP 15s Laptop\n   Price  : ₹42,999\n   Rating : 4.3 ⭐ (1,234 reviews)\n   Brand  : HP\n   Features:\n   • Intel Core i5 processor\n   • 8GB RAM, 512GB SSD\n\n2. Lenovo IdeaPad Slim 3\n   Price  : ₹38,999\n   Rating : 4.2 ⭐ (987 reviews)\n   Brand  : Lenovo\n\n3. ASUS VivoBook 15\n   Price  : ₹45,499\n   Rating : 4.4 ⭐ (756 reviews)\n   Brand  : ASUS\n\n...and 3 more products available."
   },
   {
     "input": {
       "message": "I need a wireless mouse with good reviews",
-      "user_id": "google_105309025092043620678"
+      "user_id": "eval_guest_001"
     },
     "expected_output": {
       "intent": "product_query",
-      "should_contain": ["wireless", "mouse", "rating"]
+      "should_contain": ["mouse", "rating", "brand"]
     },
-    "mocked_response": "Here are my top 3 recommendations for wireless mouse with good reviews:\n\n1. Logitech M331 Silent Plus Wireless Mouse\n   Price  : ₹1295.0\n   Rating : 4.6 ⭐ (12,375 reviews)\n   Brand  : Logitech\n   Features:\n   • Silent click technology reduces noise by 90%\n   • 24-month battery life\n   • USB nano receiver, plug and play\n   Score  : 0.95\n\n2. Logitech Pebble M350 Wireless Mouse\n   Price  : ₹1490.0\n   Rating : 4.6 ⭐ (10,652 reviews)\n   Brand  : Logitech\n   Features:\n   • Bluetooth and USB dual connectivity\n   • Silent and slim modern design\n   • High-precision optical tracking\n   Score  : 0.95\n\n3. Amazon Basics Wireless Mouse\n   Price  : ₹499.0\n   Rating : 4.2 ⭐ (3,456 reviews)\n   Brand  : Amazon\n   Features:\n   • 2.4 GHz wireless connection up to 10m\n   • 1600 DPI optical sensor\n   • Plug and play, no driver needed\n   Score  : 0.82"
+    "mocked_response": "Here are my top recommendations for wireless mouse:\n\n1. Logitech M331 Silent Plus Wireless Mouse\n   Price  : ₹1,295\n   Rating : 4.6 ⭐ (12,375 reviews)\n   Brand  : Logitech\n   Features:\n   • Silent click technology\n   • 24-month battery life\n\n2. Logitech Pebble M350\n   Price  : ₹1,490\n   Rating : 4.6 ⭐ (10,652 reviews)\n   Brand  : Logitech\n\n3. Amazon Basics Wireless Mouse\n   Price  : ₹499\n   Rating : 4.2 ⭐ (3,456 reviews)\n   Brand  : Amazon\n\n...and 2 more products available."
   },
   {
     "input": {
-      "message": "where is my order ORD-620678-001",
-      "user_id": "google_105309025092043620678"
+      "message": "show me headphones under 2000",
+      "user_id": "eval_guest_001"
     },
     "expected_output": {
-      "intent": "order_query",
-      "should_contain": ["order", "status", "tracking"]
+      "intent": "product_query",
+      "should_contain": ["headphones", "price", "rating"]
     },
-    "mocked_response": "Here is the status of your order ORD-620678-001:\n\nOrder ID  : ORD-620678-001\nItem      : Wireless Headphones\nStatus    : Delivered\nCarrier   : DTDC\nTracking  : DT251092059\nOrder Value: ₹1299.0\n\nTracking Details:\n• Order placed and confirmed on May 1, 2026\n• Package picked up by DTDC carrier\n• In transit to your delivery address\n• Out for delivery\n• Successfully delivered on May 10, 2026\n\nYour order has been delivered. If you have any issues with the product, our support team is here to help."
+    "mocked_response": "Here are my top recommendations for headphones under ₹2,000:\n\n1. boAt Rockerz 450\n   Price  : ₹1,299\n   Rating : 4.1 ⭐ (45,230 reviews)\n   Brand  : boAt\n   Features:\n   • 15 hours playback\n   • Bluetooth 5.0\n\n2. Sony WH-CH510\n   Price  : ₹1,799\n   Rating : 4.3 ⭐ (12,456 reviews)\n   Brand  : Sony\n\n3. JBL Tune 500BT\n   Price  : ₹1,649\n   Rating : 4.2 ⭐ (8,932 reviews)\n   Brand  : JBL\n\n...and 4 more products available."
   },
   {
     "input": {
-      "message": "show me all my orders",
-      "user_id": "google_105309025092043620678"
+      "message": "best smartwatch under 10000",
+      "user_id": "eval_guest_001"
     },
     "expected_output": {
-      "intent": "order_query",
-      "should_contain": ["order", "delivered", "shipped"]
+      "intent": "product_query",
+      "should_contain": ["smartwatch", "price", "brand"]
     },
-    "mocked_response": "Here are all your orders:\n\n1. ORD-620678-001 — Wireless Headphones\n   Status : Delivered\n   Value  : ₹1299.0\n   Date   : May 1, 2026\n\n2. ORD-620678-002 — Laptop Stand\n   Status : Shipped\n   Value  : ₹2500.0\n   Date   : May 22, 2026\n\n3. ORD-620678-003 — USB Hub\n   Status : Processing\n   Value  : ₹499.0\n   Date   : May 23, 2026\n\n4. ORD-620678-004 — Mechanical Keyboard\n   Status : Delayed\n   Value  : ₹899.0\n   Date   : May 15, 2026\n\n5. ORD-620678-005 — Phone Case\n   Status : Delivered\n   Value  : ₹350.0\n   Date   : May 1, 2026\n\nYou have 5 orders in total. Would you like details on any specific order?"
+    "mocked_response": "Here are my top recommendations for smartwatch under ₹10,000:\n\n1. Noise ColorFit Pro 4\n   Price  : ₹3,499\n   Rating : 4.2 ⭐ (28,450 reviews)\n   Brand  : Noise\n   Features:\n   • 1.72 inch display\n   • SpO2 and heart rate monitor\n\n2. boAt Wave Call 2\n   Price  : ₹2,299\n   Rating : 4.0 ⭐ (15,670 reviews)\n   Brand  : boAt\n\n3. Samsung Galaxy Watch4\n   Price  : ₹8,999\n   Rating : 4.4 ⭐ (9,230 reviews)\n   Brand  : Samsung\n\n...and 3 more products available."
   },
   {
     "input": {
-      "message": "I received a damaged product and want to return it",
-      "user_id": "google_105309025092043620678"
+      "message": "I need a good mixer grinder for home use",
+      "user_id": "eval_guest_001"
     },
     "expected_output": {
-      "intent": "support_query",
-      "should_contain": ["return", "policy", "ticket"]
+      "intent": "product_query",
+      "should_contain": ["mixer", "price", "brand"]
     },
-    "mocked_response": "I'm sorry to hear about your damaged product. Here's how we can help:\n\nReturn Policy:\nYou can return damaged or defective items within 30 days of delivery. We offer a full refund or free replacement for damaged products at no extra cost.\n\nResolution Steps:\n1. Take clear photos of the damaged product\n2. Keep the original packaging if possible\n3. Our team will arrange a free pickup from your address\n4. Refund or replacement processed within 5-7 business days\n\nI have raised a support ticket for your issue:\nTicket ID : TKT-20260523-001\nPriority  : HIGH\nStatus    : Open\n\nOur support team will contact you within 24 hours. You can track your ticket status by quoting the Ticket ID above."
+    "mocked_response": "Here are my top recommendations for mixer grinder:\n\n1. Bajaj GX8 1000W Mixer Grinder\n   Price  : ₹2,699\n   Rating : 4.3 ⭐ (34,120 reviews)\n   Brand  : Bajaj\n   Features:\n   • 1000W motor\n   • 3 stainless steel jars\n\n2. Preethi Blue Leaf Diamond\n   Price  : ₹3,299\n   Rating : 4.4 ⭐ (21,450 reviews)\n   Brand  : Preethi\n\n3. Philips HL7756\n   Price  : ₹3,799\n   Rating : 4.2 ⭐ (18,230 reviews)\n   Brand  : Philips\n\n...and 2 more products available."
   }
 ]

@@ -10,44 +10,42 @@ logger = logging.getLogger(__name__)
 
 
 class ProductEnrichmentState(TypedDict):
-    ranked_products:         list
-    max_price:               Optional[float]
-    reviews_data:            Optional[dict]
-    specs_data:              Optional[dict]
-    final_recommendations:   Optional[list]
-    langfuse_trace_id:       Optional[str]
+    ranked_products: list
+    max_price: Optional[float]
+    reviews_data: Optional[dict]
+    specs_data: Optional[dict]
+    final_recommendations: Optional[list]
+    langfuse_trace_id: Optional[str]
     langfuse_parent_span_id: Optional[str]
 
 
-def fetch_reviews_node(
-    state: ProductEnrichmentState
-) -> ProductEnrichmentState:
+def fetch_reviews_node(state: ProductEnrichmentState) -> ProductEnrichmentState:
     logger.info("Subgraph node: fetch_reviews")
 
-    trace_id  = state.get("langfuse_trace_id")
+    trace_id = state.get("langfuse_trace_id")
     parent_id = state.get("langfuse_parent_span_id")
-    products  = state.get("ranked_products", [])
+    products = state.get("ranked_products", [])
 
     if not products:
         state["reviews_data"] = {}
         return state
 
-    span = create_span(
-        trace_id              = trace_id,
-        name                  = "fetch_reviews",
-        parent_observation_id = parent_id,
-        input_data            = {"products_count": len(products)}
-    ) if trace_id else None
+    span = (
+        create_span(
+            trace_id=trace_id,
+            name="fetch_reviews",
+            parent_observation_id=parent_id,
+            input_data={"products_count": len(products)},
+        )
+        if trace_id
+        else None
+    )
 
     # rating and rating_count are already in search_results
     # from the earlier search_products query
     # no need to hit the database again for the same data
     reviews = {
-        p["product_id"]: {
-            "rating":       p.get("rating", 0),
-            "rating_count": p.get("rating_count", 0)
-        }
-        for p in products
+        p["product_id"]: {"rating": p.get("rating", 0), "rating_count": p.get("rating_count", 0)} for p in products
     }
     state["reviews_data"] = reviews
 
@@ -57,14 +55,12 @@ def fetch_reviews_node(
     return state
 
 
-def fetch_specs_node(
-    state: ProductEnrichmentState
-) -> ProductEnrichmentState:
+def fetch_specs_node(state: ProductEnrichmentState) -> ProductEnrichmentState:
     logger.info("Subgraph node: fetch_specs")
 
-    trace_id  = state.get("langfuse_trace_id")
+    trace_id = state.get("langfuse_trace_id")
     parent_id = state.get("langfuse_parent_span_id")
-    products  = state.get("ranked_products", [])
+    products = state.get("ranked_products", [])
 
     if not products:
         state["specs_data"] = {}
@@ -72,12 +68,16 @@ def fetch_specs_node(
 
     product_ids = [p["product_id"] for p in products]
 
-    span = create_span(
-        trace_id              = trace_id,
-        name                  = "fetch_specs",
-        parent_observation_id = parent_id,
-        input_data            = {"product_ids_count": len(product_ids)}
-    ) if trace_id else None
+    span = (
+        create_span(
+            trace_id=trace_id,
+            name="fetch_specs",
+            parent_observation_id=parent_id,
+            input_data={"product_ids_count": len(product_ids)},
+        )
+        if trace_id
+        else None
+    )
 
     specs = fetch_specs_tool.invoke({"product_ids": product_ids})
     state["specs_data"] = specs or {}
@@ -88,35 +88,37 @@ def fetch_specs_node(
     return state
 
 
-def compute_score(
-    state: ProductEnrichmentState
-) -> ProductEnrichmentState:
+def compute_score(state: ProductEnrichmentState) -> ProductEnrichmentState:
     logger.info("Subgraph node: compute_score")
 
-    trace_id  = state.get("langfuse_trace_id")
+    trace_id = state.get("langfuse_trace_id")
     parent_id = state.get("langfuse_parent_span_id")
-    products  = state.get("ranked_products", [])
-    reviews   = state.get("reviews_data", {})
-    specs     = state.get("specs_data", {})
+    products = state.get("ranked_products", [])
+    reviews = state.get("reviews_data", {})
+    specs = state.get("specs_data", {})
     max_price = state.get("max_price")
 
-    span = create_span(
-        trace_id              = trace_id,
-        name                  = "compute_score",
-        parent_observation_id = parent_id,
-        input_data            = {"products_count": len(products)}
-    ) if trace_id else None
+    span = (
+        create_span(
+            trace_id=trace_id,
+            name="compute_score",
+            parent_observation_id=parent_id,
+            input_data={"products_count": len(products)},
+        )
+        if trace_id
+        else None
+    )
 
-    total    = len(products)
+    total = len(products)
     enriched = []
 
     for position, product in enumerate(products):
-        pid          = product["product_id"]
-        review       = reviews.get(pid, {})
-        spec         = specs.get(pid, {})
-        rating       = review.get("rating", 0)
+        pid = product["product_id"]
+        review = reviews.get(pid, {})
+        spec = specs.get(pid, {})
+        rating = review.get("rating", 0)
         rating_count = review.get("rating_count", 0)
-        price        = float(product.get("price", 0))
+        price = float(product.get("price", 0))
 
         # Rating quality (40%)
         rating_score = (rating / 5) * 0.40
@@ -130,15 +132,15 @@ def compute_score(
         if max_price and max_price > 0 and price > 0:
             price_ratio = price / max_price
             if price_ratio <= 0.7:
-                price_fit = 1.0      # well under budget
+                price_fit = 1.0  # well under budget
             elif price_ratio <= 0.9:
-                price_fit = 0.75     # comfortable fit
+                price_fit = 0.75  # comfortable fit
             elif price_ratio <= 1.0:
-                price_fit = 0.50     # right at the limit
+                price_fit = 0.50  # right at the limit
             else:
-                price_fit = 0.0      # over budget
+                price_fit = 0.0  # over budget
         else:
-            price_fit = 1.0          # no budget = neutral
+            price_fit = 1.0  # no budget = neutral
 
         price_score = price_fit * 0.30
 
@@ -152,17 +154,19 @@ def compute_score(
 
         final_score = rating_score + trust_score + price_score + position_bonus
 
-        enriched.append({
-            **product,
-            "features":    spec.get("features", []),
-            "description": spec.get("description", ""),
-            "score":       round(final_score, 4)
-        })
+        enriched.append(
+            {
+                **product,
+                "features": spec.get("features", []),
+                "description": spec.get("description", ""),
+                "score": round(final_score, 4),
+            }
+        )
 
     # Sort by final score — LLM ranking preserved via position_bonus
     # Return however many in-stock products exist (up to 3), not a fixed 3
     in_stock = [p for p in enriched if p.get("in_stock", True)]
-    top_n    = sorted(in_stock, key=lambda x: x["score"], reverse=True)[:9]
+    top_n = sorted(in_stock, key=lambda x: x["score"], reverse=True)[:9]
     state["final_recommendations"] = top_n
 
     if span:
@@ -175,12 +179,12 @@ def build_product_enrichment_subgraph():
     graph = StateGraph(ProductEnrichmentState)
 
     graph.add_node("fetch_reviews", fetch_reviews_node)
-    graph.add_node("fetch_specs",   fetch_specs_node)
+    graph.add_node("fetch_specs", fetch_specs_node)
     graph.add_node("compute_score", compute_score)
 
     graph.set_entry_point("fetch_reviews")
     graph.add_edge("fetch_reviews", "fetch_specs")
-    graph.add_edge("fetch_specs",   "compute_score")
+    graph.add_edge("fetch_specs", "compute_score")
     graph.add_edge("compute_score", END)
 
     return graph.compile()

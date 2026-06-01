@@ -39,6 +39,12 @@ jobs:
                  --extend-ignore=E501,W503,E203,E221,E251,E302,E303,W291,W293,E712,E701 \
                  --exclude=venv,__pycache__,.git,data,database/import_kaggle_data.py,database/classify_products.py
 
+      - name: Run black --check
+        run: |
+          black --check --line-length=120 \
+            agents/ api/ services/ tools/ subgraphs/ langfuse_helpers/ \
+            database/ monitoring/ utils/ main.py
+
 
 # ─────────────────────────────────────────────────────────────
 # Stage 2 — Unit Tests + Coverage
