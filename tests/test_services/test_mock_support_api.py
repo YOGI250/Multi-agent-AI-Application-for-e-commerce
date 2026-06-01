@@ -85,52 +85,6 @@ class TestGetUserComplaintHistory:
 
         assert isinstance(result, dict)
 
-
-    def test_get_policy_exception_returns_none(self):
-        mock_db = MagicMock()
-        mock_db.query.side_effect = Exception("DB error")
-        with patch("services.mock_support_api.SessionLocal", return_value=mock_db):
-            from services.mock_support_api import get_policy
-            result = get_policy("damaged_product")
-        assert result is None
-
-
-class TestGetUserComplaintHistory:
-
-    def test_returns_history_dict(self):
-        mock_db    = MagicMock()
-        mock_query = MagicMock()
-        mock_db.query.return_value           = mock_query
-        mock_query.filter.return_value       = mock_query
-        mock_query.order_by.return_value     = mock_query
-        mock_query.limit.return_value        = mock_query
-        mock_query.count.return_value        = 2
-        mock_query.all.return_value          = []
-
-        with patch("services.mock_support_api.SessionLocal",
-                   return_value=mock_db):
-            from services.mock_support_api import get_user_complaint_history
-            result = get_user_complaint_history("test_user_123")
-
-        assert isinstance(result, dict)
-
-    def test_returns_zero_complaints_for_new_user(self):
-        mock_db    = MagicMock()
-        mock_query = MagicMock()
-        mock_db.query.return_value       = mock_query
-        mock_query.filter.return_value   = mock_query
-        mock_query.order_by.return_value = mock_query
-        mock_query.limit.return_value    = mock_query
-        mock_query.count.return_value    = 0
-        mock_query.all.return_value      = []
-
-        with patch("services.mock_support_api.SessionLocal",
-                   return_value=mock_db):
-            from services.mock_support_api import get_user_complaint_history
-            result = get_user_complaint_history("new_user_123")
-
-        assert isinstance(result, dict)
-
     def test_filters_by_order_id_when_provided(self):
         mock_db    = MagicMock()
         mock_query = MagicMock()

@@ -138,7 +138,7 @@ def create_ticket(user_id: str, issue_type: str, priority: str, order_id: Option
     except Exception as e:
         logger.error(f"Error creating ticket for {user_id}: {e}")
         record_error(error_type=type(e).__name__, agent_used="support_agent")
-        db.rollback()
         return {}
     finally:
+        db.rollback()
         db.close()

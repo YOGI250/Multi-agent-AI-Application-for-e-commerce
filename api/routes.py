@@ -314,6 +314,7 @@ async def chat(
     start_time = time.time()
     db = SessionLocal()
     session_id = "unknown"  # pre-init so except block can always reference it
+    agent_used = "unknown"  # pre-init so except block uses the resolved value if available
 
     try:
         # 1. resolve user
@@ -409,10 +410,10 @@ async def chat(
     except Exception as e:
         latency_seconds = time.time() - start_time
         logger.error(
-            f"Chat endpoint error: {e}", extra={"session_id": session_id, "agent_used": "unknown", "request_id": ""}
+            f"Chat endpoint error: {e}", extra={"session_id": session_id, "agent_used": agent_used, "request_id": ""}
         )
-        record_request_metrics(agent_used="unknown", status="error", latency_seconds=latency_seconds)
-        record_error(error_type=type(e).__name__, agent_used="unknown")
+        record_request_metrics(agent_used=agent_used, status="error", latency_seconds=latency_seconds)
+        record_error(error_type=type(e).__name__, agent_used=agent_used)
         raise HTTPException(status_code=500, detail=str(e))
 
     finally:

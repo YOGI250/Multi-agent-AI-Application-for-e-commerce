@@ -92,8 +92,9 @@ def _score_answer_relevancy(message: str, response: str) -> float:
     msg_words = set(message.lower().split()) - _STOP
     if not msg_words:
         return 0.8
-    # strip commas from numbers so "50000" matches "50,000"
-    resp_lower = response.lower().replace(",", "")
+    # strip commas only between digits so "50000" matches "50,000" without
+    # corrupting non-numeric text like "fast, reliable"
+    resp_lower = re.sub(r'(\d),(\d)', r'\1\2', response.lower())
     hits = sum(1 for w in msg_words if w in resp_lower)
     return round(min(hits / len(msg_words), 1.0), 4)
 
@@ -260,7 +261,7 @@ def run_evaluation() -> tuple[list[dict], dict[str, float], bool]:
             actual_output = call_live_api(message, user_id)
             if not actual_output:
                 logger.warning(f"    Empty response from live API — skipping sample")
-                actual_output = reference  # fall back to mocked to avoid zero scores
+                continue
         else:
             actual_output = reference  # deterministic — uses stored fixture
 
