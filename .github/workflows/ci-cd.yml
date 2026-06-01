@@ -241,9 +241,12 @@ jobs:
             --dry-run=client -o yaml | kubectl apply -f -
 
       - name: Load image into minikube
+        timeout-minutes: 5
         run: |
+          echo "${{ secrets.DOCKER_PASSWORD }}" | docker login -u "${{ secrets.DOCKER_USERNAME }}" --password-stdin
           eval $(minikube docker-env)
-          docker build -t ecommerce-agent:${{ github.sha }} .
+          docker pull ${{ env.IMAGE_NAME }}:${{ github.sha }}
+          docker tag ${{ env.IMAGE_NAME }}:${{ github.sha }} ecommerce-agent:${{ github.sha }}
 
       - name: Scale down FastAPI before deploy
         run: |
