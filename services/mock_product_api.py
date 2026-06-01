@@ -4,6 +4,7 @@ import logging
 from sqlalchemy import or_
 from database.connection import SessionLocal
 from database.models import Product
+from monitoring.metrics import record_error
 
 logger = logging.getLogger(__name__)
 
@@ -97,6 +98,7 @@ def search_products(filters: dict) -> list:
 
     except Exception as e:
         logger.error(f"Error searching products: {e}")
+        record_error(error_type=type(e).__name__, agent_used="product_agent")
         return []
     finally:
         db.close()
@@ -119,6 +121,7 @@ def get_specs(product_ids: list) -> dict:
 
     except Exception as e:
         logger.error(f"Error fetching specs: {e}")
+        record_error(error_type=type(e).__name__, agent_used="product_agent")
         return {}
     finally:
         db.close()

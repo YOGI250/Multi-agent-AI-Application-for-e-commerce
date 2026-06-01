@@ -4,6 +4,7 @@ import logging
 from typing import Optional
 from database.connection import SessionLocal
 from database.models import Order, CarrierTracking
+from monitoring.metrics import record_error
 
 logger = logging.getLogger(__name__)
 
@@ -36,6 +37,7 @@ def get_order(order_id: str) -> Optional[dict]:
 
     except Exception as e:
         logger.error(f"Error fetching order {order_id}: {e}")
+        record_error(error_type=type(e).__name__, agent_used="order_agent")
         return None
     finally:
         db.close()
@@ -68,6 +70,7 @@ def get_tracking(tracking_number: str) -> Optional[dict]:
 
     except Exception as e:
         logger.error(f"Error fetching tracking {tracking_number}: {e}")
+        record_error(error_type=type(e).__name__, agent_used="order_agent")
         return None
     finally:
         db.close()

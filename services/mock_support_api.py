@@ -6,6 +6,7 @@ from typing import Optional
 from datetime import datetime, timezone
 from database.connection import SessionLocal
 from database.models import Policy, SupportTicket
+from monitoring.metrics import record_error
 
 logger = logging.getLogger(__name__)
 
@@ -38,6 +39,7 @@ def get_policy(issue_type: str) -> Optional[dict]:
 
     except Exception as e:
         logger.error(f"Error fetching policy for {issue_type}: {e}")
+        record_error(error_type=type(e).__name__, agent_used="support_agent")
         return None
     finally:
         db.close()
@@ -70,6 +72,7 @@ def get_user_complaint_history(user_id: str, order_id: Optional[str] = None) -> 
 
     except Exception as e:
         logger.error(f"Error fetching complaint history for {user_id}: {e}")
+        record_error(error_type=type(e).__name__, agent_used="support_agent")
         return {"existing_ticket_id": None, "is_duplicate": False, "days_open": 0}
     finally:
         db.close()
@@ -134,6 +137,7 @@ def create_ticket(user_id: str, issue_type: str, priority: str, order_id: Option
 
     except Exception as e:
         logger.error(f"Error creating ticket for {user_id}: {e}")
+        record_error(error_type=type(e).__name__, agent_used="support_agent")
         db.rollback()
         return {}
     finally:

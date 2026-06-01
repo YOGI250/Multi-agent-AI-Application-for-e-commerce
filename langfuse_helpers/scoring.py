@@ -2,6 +2,7 @@
 import re
 import logging
 from langfuse_helpers.tracing import langfuse_client
+from monitoring.metrics import record_error
 
 logger = logging.getLogger(__name__)
 
@@ -30,6 +31,7 @@ def score_response(trace_id: str, agent_used: str, message: str, response: str):
 
     except Exception as e:
         logger.error(f"Error scoring response: {e}")
+        record_error(error_type=type(e).__name__, agent_used=agent_used)
 
 
 def _calculate_scores(agent_used: str, message: str, response: str) -> dict:
