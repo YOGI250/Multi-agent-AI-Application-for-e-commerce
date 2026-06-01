@@ -53,6 +53,11 @@ spec:
                 secretKeyRef:
                   name: {{ .Values.secretName }}
                   key: google-client-id
+            - name: GOOGLE_CLIENT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.secretName }}
+                  key: google-client-secret
             - name: POSTGRES_PASSWORD
               valueFrom:
                 secretKeyRef:

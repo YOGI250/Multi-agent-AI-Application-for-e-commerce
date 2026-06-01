@@ -236,6 +236,7 @@ jobs:
             --from-literal=langfuse-nextauth-secret="${{ secrets.LANGFUSE_NEXTAUTH_SECRET }}" \
             --from-literal=langfuse-salt="${{ secrets.LANGFUSE_SALT }}" \
             --from-literal=google-client-id="${{ secrets.GOOGLE_CLIENT_ID }}" \
+            --from-literal=google-client-secret="${{ secrets.GOOGLE_CLIENT_SECRET }}" \
             --from-literal=postgres-password="${{ secrets.POSTGRES_PASSWORD }}" \
             --dry-run=client -o yaml | kubectl apply -f -
 
