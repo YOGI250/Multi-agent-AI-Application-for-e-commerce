@@ -16,7 +16,7 @@ scrape_configs:
       - targets:
           - localhost
         labels:
-          job: fastapi
+          job: ecommerce-app
           __path__: /logs/*.log
     pipeline_stages:
       - json:

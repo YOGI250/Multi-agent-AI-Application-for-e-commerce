@@ -101,7 +101,7 @@
       "type": "logs",
       "datasource": {
         "type": "loki",
-        "uid": "loki"
+        "uid": "P8E80F9AEF21F6940"
       },
       "gridPos": {
         "h": 10,
@@ -123,7 +123,7 @@
         {
           "datasource": {
             "type": "loki",
-            "uid": "loki"
+            "uid": "P8E80F9AEF21F6940"
           },
           "expr": "{job=\"ecommerce-app\"}",
           "legendFormat": "",
