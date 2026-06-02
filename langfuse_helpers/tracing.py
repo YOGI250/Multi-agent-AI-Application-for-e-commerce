@@ -1,7 +1,7 @@
 # langfuse_helpers/tracing.py
 import logging
 from typing import Optional
-from langfuse import Langfuse
+from langfuse import Langfuse, propagate_attributes
 from langfuse.types import TraceContext
 from config.settings import settings
 from monitoring.metrics import TOKEN_COUNTER
@@ -67,22 +67,20 @@ def create_trace(session_id: str, user_id: str, is_authenticated: bool, message:
     """Creates a top-level trace for one request."""
     trace_id = langfuse_client.create_trace_id()
 
-    span = langfuse_client.start_observation(
-        trace_context=TraceContext(trace_id=trace_id, parent_span_id=None),
-        name="chat_request",
-        as_type="span",
-        input={"message": message},
-        metadata={
-            "is_authenticated": is_authenticated,
-            "message_preview": message[:100],
-        },
-    )
-
-    # set native session_id and user_id so they appear in LangFuse
-    # Sessions tab and User filters (LangFuse v4 OTEL attribute keys)
-    span.set_trace_io(input={"message": message, "session_id": session_id, "user_id": user_id})
-    span._otel_span.set_attribute("langfuse.session.id", session_id or "")
-    span._otel_span.set_attribute("langfuse.user.id", user_id or "")
+    with propagate_attributes(
+        session_id=session_id or "",
+        user_id=user_id or "",
+    ):
+        span = langfuse_client.start_observation(
+            trace_context=TraceContext(trace_id=trace_id, parent_span_id=None),
+            name="chat_request",
+            as_type="span",
+            input={"message": message},
+            metadata={
+                "is_authenticated": is_authenticated,
+                "message_preview": message[:100],
+            },
+        )
 
     logger.info(f"LangFuse trace created: {trace_id}")
     return TraceHandle(span, trace_id)

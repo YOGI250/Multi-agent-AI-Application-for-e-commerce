@@ -31,7 +31,6 @@ logger = logging.getLogger(__name__)
 # ==========================================
 _SUPPORT_NEEDS_ORDER_PHRASES = [
     "i'll need your order id",
-    "order id looks like ord-",
     "typing 'show my orders'",
 ]
 
