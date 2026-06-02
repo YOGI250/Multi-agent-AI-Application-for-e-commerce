@@ -532,6 +532,12 @@ async def get_history(
         if not session:
             return HistoryResponse(session_id=x_session_id, messages=[])
 
+        # Don't return messages for expired or closed sessions — the frontend
+        # should start fresh rather than show stale history.
+        cutoff = datetime.utcnow() - timedelta(minutes=settings.session_expiry_minutes)
+        if not session.is_active or session.last_active_at < cutoff:
+            return HistoryResponse(session_id="", messages=[])
+
         rows = db.query(Message).filter(Message.session_id == x_session_id).order_by(Message.created_at.asc()).all()
 
         return HistoryResponse(

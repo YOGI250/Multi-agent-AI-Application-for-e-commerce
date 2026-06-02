@@ -1251,6 +1251,16 @@ async function loadChatHistory() {
         const res = await fetch(url, { headers });
         if (!res.ok) return;
         const data = await res.json();
+
+        // Backend returns session_id="" when the session is expired or closed.
+        // Clear the stale session from state and localStorage so the next message
+        // starts a fresh session rather than re-using the expired one.
+        if (!data.session_id) {
+            state.sessionId = null;
+            clearSession(state.isAuthenticated ? state.googleUserId : state.userId);
+            return;
+        }
+
         if (!data.messages || data.messages.length === 0) return;
 
         document.getElementById("messages").innerHTML = "";
