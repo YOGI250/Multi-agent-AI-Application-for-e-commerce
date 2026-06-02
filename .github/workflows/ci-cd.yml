@@ -228,10 +228,12 @@ jobs:
           git fetch origin
           git checkout ${{ github.sha }}
 
-      - name: Configure kubectl
+      - name: Start minikube if not running
         run: |
-          mkdir -p ~/.kube
-          echo "${{ secrets.KUBECONFIG_DATA }}" | base64 -d > ~/.kube/config
+          if ! minikube status --format='{{.Host}}' 2>/dev/null | grep -q Running; then
+            minikube start --driver=docker
+          fi
+          minikube update-context
 
       - name: Verify cluster access
         run: kubectl get nodes
