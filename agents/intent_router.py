@@ -45,19 +45,6 @@ _HELP_PREFIXES = (
     "who are you",
     "what is this",
 )
-_PRODUCT_PREFIXES = (
-    "show me",
-    "find me",
-    "search for",
-    "i want",
-    "i need",
-    "looking for",
-    "do you have",
-    "give me",
-    "can you show",
-    "can you find",
-    "get me",
-)
 
 
 def _has_pending_support_context(history: list) -> bool:
@@ -105,16 +92,6 @@ def intent_router(state: RouterState) -> RouterState:
     # ── Pre-check 1: greetings and generic help — always unknown, never context-biased ──
     msg_lower = message.strip().lower()
 
-    if any(msg_lower.startswith(p) for p in _PRODUCT_PREFIXES):
-        logger.info(
-            "Intent Router: product-search phrase detected — bypassing LLM, routing to product_query",
-            extra={"node_name": "intent_router"},
-        )
-        state["intent"] = "product_query"
-        state["confidence"] = "1.0"
-        state["reason"] = "Message starts with explicit product-search phrase"
-        return state
-
     if msg_lower in _GREETINGS or any(msg_lower.startswith(p) for p in _HELP_PREFIXES):
         logger.info(
             "Intent Router: greeting/help detected — bypassing LLM, routing to unknown",
@@ -151,6 +128,11 @@ Intents:
 - order_query: questions about orders, delivery, tracking, shipment status
 - product_query: searching for products, recommendations, product comparisons
 - support_query: complaints, refunds, damaged items, wrong items, cancellations
+
+ALWAYS classify as product_query when the message:
+- Asks to show, find, search, or browse products (e.g. "show me laptops", "find me a fan", "search for keyboards")
+- Names any product category or item (e.g. "office products", "headphones", "mixers under 2000")
+- Uses phrases like "I want", "I need", "looking for", "do you have", "give me" with a product
 
 ALWAYS classify as unknown (never map to another intent based on session context):
 - Greetings: "hi", "hello", "hey", "good morning", "how are you"
