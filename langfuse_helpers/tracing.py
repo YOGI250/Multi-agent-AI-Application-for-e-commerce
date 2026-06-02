@@ -78,10 +78,11 @@ def create_trace(session_id: str, user_id: str, is_authenticated: bool, message:
         },
     )
 
-    # set native session_id and user_id on the trace so they appear
-    # in LangFuse UI Sessions tab and User filters
+    # set native session_id and user_id so they appear in LangFuse
+    # Sessions tab and User filters (LangFuse v4 OTEL attribute keys)
     span.set_trace_io(input={"message": message, "session_id": session_id, "user_id": user_id})
-    span.update_trace(session_id=session_id, user_id=user_id)
+    span._otel_span.set_attribute("langfuse.session.id", session_id or "")
+    span._otel_span.set_attribute("langfuse.user.id", user_id or "")
 
     logger.info(f"LangFuse trace created: {trace_id}")
     return TraceHandle(span, trace_id)
