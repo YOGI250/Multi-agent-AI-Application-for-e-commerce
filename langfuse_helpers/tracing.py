@@ -73,15 +73,15 @@ def create_trace(session_id: str, user_id: str, is_authenticated: bool, message:
         as_type="span",
         input={"message": message},
         metadata={
-            "session_id": session_id,
-            "user_id": user_id,
             "is_authenticated": is_authenticated,
             "message_preview": message[:100],
         },
     )
 
-    # set trace-level I/O so it shows at the top of the trace in LangFuse UI
+    # set native session_id and user_id on the trace so they appear
+    # in LangFuse UI Sessions tab and User filters
     span.set_trace_io(input={"message": message, "session_id": session_id, "user_id": user_id})
+    span.update_trace(session_id=session_id, user_id=user_id)
 
     logger.info(f"LangFuse trace created: {trace_id}")
     return TraceHandle(span, trace_id)
