@@ -177,11 +177,6 @@ Respond ONLY with JSON:
             "fans": "fan",
             "mixers": "mixer",
             "irons": "iron",
-            "geyser": "water_heater",
-            "geysers": "water_heater",
-            "vacuum_cleaner": "vacuum",
-            "vacuum cleaner": "vacuum",
-            "vaccum": "vacuum",
         }
         filters["product_type"] = normalization.get(ptype, ptype)
 
@@ -198,8 +193,6 @@ Respond ONLY with JSON:
         ("room heater", "room_heater"),
         ("water heater", "water_heater"),
         ("vacuum cleaner", "vacuum"),  # multi-word before single-word matches
-        ("geyser", "water_heater"),    # Indian term for water heater
-        ("vaccum", "vacuum"),          # common misspelling
         ("usb cable", "cable"),
         ("hdmi cable", "cable"),
         ("hdmi", "cable"),

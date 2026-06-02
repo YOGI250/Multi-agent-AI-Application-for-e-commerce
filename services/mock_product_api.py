@@ -75,8 +75,34 @@ def search_products(filters: dict) -> list:
                     for p in type_results
                 ]
 
-            # No exact product_type matches — return empty so broaden_search
-            # can widen the filters (e.g. remove max_price) and retry
+            # No exact product_type match — user may have used a colloquial or
+            # regional term (e.g. "geyser" for water_heater, "vacuum cleaner"
+            # for vacuum). Fall back to searching product names so these queries
+            # find results without needing a hardcoded synonym map.
+            name_results = (
+                query.filter(Product.name.ilike(f"%{singular}%"))
+                .order_by(Product.rating.desc().nullslast())
+                .limit(20)
+                .all()
+            )
+            if name_results:
+                return [
+                    {
+                        "product_id": p.product_id,
+                        "name": p.name,
+                        "category": p.category,
+                        "price": float(p.price),
+                        "actual_price": float(p.actual_price) if p.actual_price else None,
+                        "discount_percent": float(p.discount_percent) if p.discount_percent else 0,
+                        "brand": p.brand,
+                        "rating": float(p.rating) if p.rating else 0,
+                        "rating_count": p.rating_count or 0,
+                        "in_stock": p.in_stock,
+                        "product_type": p.product_type,
+                    }
+                    for p in name_results
+                ]
+
             return []
 
         elif filters.get("keyword"):
