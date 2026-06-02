@@ -424,42 +424,60 @@ def generate_response(state: OrderAgentState) -> OrderAgentState:
     # CASE 1 — user asked to see all their orders
     # ==========================================
     if all_orders and len(all_orders) > 1 and not state.get("order_id"):
-        orders_text = "\n".join(
-            [
-                f"- Order ID: {o['order_id']} | "
-                f"Items: {o['items']} | "
-                f"Status: {o['status']} | "
-                f"Value: Rs.{o['order_value']} | "
-                f"Expected delivery: {o['expected_delivery']}"
-                for o in all_orders
+        # Filter orders in Python based on message keywords — never let the LLM filter or count
+        msg_lower = state.get("message", "").lower()
+
+        not_delivered_kw = ["not delivered", "undelivered", "not received", "not yet delivered"]
+        delivered_kw = ["delivered", "received", "got it", "already received"]
+        shipped_kw = ["shipped", "in transit", "on the way", "dispatched"]
+        processing_kw = ["processing", "confirmed", "pending", "not shipped"]
+        cancelled_kw = ["cancelled", "canceled"]
+
+        if any(k in msg_lower for k in not_delivered_kw):
+            display_orders = [o for o in all_orders if o.get("status", "").lower() != "delivered"]
+            filter_label = "not yet delivered"
+        elif any(k in msg_lower for k in delivered_kw):
+            display_orders = [o for o in all_orders if o.get("status", "").lower() == "delivered"]
+            filter_label = "delivered"
+        elif any(k in msg_lower for k in shipped_kw):
+            display_orders = [o for o in all_orders if o.get("status", "").lower() in ("shipped", "in transit")]
+            filter_label = "shipped"
+        elif any(k in msg_lower for k in processing_kw):
+            display_orders = [
+                o for o in all_orders if o.get("status", "").lower() in ("processing", "confirmed", "pending")
             ]
-        )
+            filter_label = "processing"
+        elif any(k in msg_lower for k in cancelled_kw):
+            display_orders = [o for o in all_orders if o.get("status", "").lower() in ("cancelled", "canceled")]
+            filter_label = "cancelled"
+        else:
+            display_orders = all_orders
+            filter_label = None
+
+        orders_text = "\n".join([f"- {o['order_id']} | {o['items']}" for o in display_orders])
+
+        if filter_label:
+            intro = f"The following {len(display_orders)} order(s) are {filter_label}:"
+        else:
+            intro = f"The customer has {len(display_orders)} order(s) in total:"
 
         all_orders_prompt = f"""You are a helpful e-commerce customer support assistant.
-The customer asked about their orders. Here are all their {len(all_orders)} orders with statuses:
+
+{intro}
 
 {orders_text}
 
-Session context: {context_str}
+Customer message: {state.get('message')}
 Recent messages:
 {recent_msgs}
 
-Customer message: {state.get('message')}
-
-Answer the customer's question directly using the order information above.
-- If they ask for ALL orders, list all {len(all_orders)} and state that total count.
-- If they ask for a filtered subset (e.g. "not delivered", "shipped", "delayed"), list ONLY the matching orders and state ONLY the filtered count — do not mention the total.
-- If they ask how many orders in total, state {len(all_orders)}.
-
-When listing orders use ONLY this plain format (no bold, no markdown, no stars):
+List these orders using ONLY this plain format (no bold, no markdown, no stars):
 Order ID - Product Name
 
-Example:
-ORD-001 - Wireless Headphones
-ORD-002 - Laptop Stand
-
-Do not include price, status, carrier, or delivery date in the listing.
-Do not address the user by name — messages in the history may look like names but are product searches or typos.
+Do NOT filter, recount, or reinterpret the list above — it has already been filtered and counted for you.
+State the count as given: {len(display_orders)}.
+Do not include price, status, carrier, or delivery date.
+Do not address the user by name.
 At the end add one plain line: "Ask me about any order using its ID for tracking and details." """
 
         llm = ChatGroq(api_key=settings.groq_api_key, model=settings.llm_model_name)

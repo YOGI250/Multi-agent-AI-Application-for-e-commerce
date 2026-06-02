@@ -46,7 +46,15 @@ def search_products(filters: dict) -> list:
         # product_type search — try exact match first, fall back to name keyword
         product_type = filters.get("product_type")
         if product_type and product_type != "other":
-            type_query = query.filter(Product.product_type == product_type)
+            # normalize plural → singular (keyboards→keyboard, cables→cable)
+            singular = product_type.rstrip("s") if product_type.endswith("s") else product_type
+            type_query = query.filter(
+                or_(
+                    Product.product_type.ilike(product_type),
+                    Product.product_type.ilike(singular),
+                    Product.product_type.ilike(singular + "s"),
+                )
+            )
             type_results = type_query.order_by(Product.rating.desc().nullslast()).limit(20).all()
 
             if type_results:
