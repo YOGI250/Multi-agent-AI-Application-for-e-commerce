@@ -197,6 +197,8 @@ Respond ONLY with JSON:
     KEYWORD_MAP = [
         ("smart watch", "smartwatch"),
         ("smartwatch", "smartwatch"),
+        ("mouse pad", "mousepad"),
+        ("mouse mat", "mousepad"),
         ("laptop stand", "stand"),
         ("phone stand", "stand"),
         ("desk stand", "stand"),
@@ -243,6 +245,7 @@ Respond ONLY with JSON:
         ("camera", "camera"),
         ("printer", "printer"),
         ("laptop", "laptop"),
+        ("mousepad", "mousepad"),
         ("mouse", "mouse"),
         ("cable", "cable"),
         ("stand", "stand"),
@@ -609,15 +612,20 @@ def format_recommendations(state: ProductAgentState) -> ProductAgentState:
             f'I couldn\'t find any products matching "{message}".\n\n'
             f"Here's what we currently have available:\n\n"
             f"  -Computers & Accessories\n"
-            f"    laptops, keyboards, mice, cables, chargers, USB hubs, webcams\n\n"
+            f"    laptops, keyboards, mice, mousepads, monitors, webcams,\n"
+            f"    cables, chargers, USB hubs, pendrives, SSDs, RAM,\n"
+            f"    hard disks, memory cards, routers, printers\n\n"
             f"  -Electronics\n"
-            f"    headphones, speakers, smartwatches, cameras\n\n"
+            f"    headphones, speakers, smartwatches, cameras, tablets\n\n"
             f"  -Home & Kitchen\n"
-            f"    fans, mixers, kettles, irons, geysers, vacuum cleaners, air purifiers\n\n"
+            f"    fans, mixers, kettles, irons, geysers, vacuum cleaners,\n"
+            f"    room heaters, air purifiers, water purifiers, microwaves, trimmers\n\n"
+            f"  -Mobile Accessories\n"
+            f"    phone cases, chargers\n\n"
             f"  -Office Products\n"
-            f"    pens, notebooks, desk organizers\n\n"
-            f"  -Car & Motorbike\n"
-            f"    car accessories\n\n"
+            f"    pens, notebooks\n\n"
+            f"  -Other\n"
+            f"    stands, laptop bags, LED lights\n\n"
             f"Try searching within one of these categories."
         )
         if span:
@@ -694,15 +702,20 @@ def no_results_response(state: ProductAgentState) -> ProductAgentState:
         f'I couldn\'t find any products matching "{original_query}".\n\n'
         f"Here's what we currently have available:\n\n"
         f"  -Computers & Accessories\n"
-        f"    laptops, keyboards, mice, cables, chargers, USB hubs, webcams\n\n"
+        f"    laptops, keyboards, mice, mousepads, monitors, webcams,\n"
+        f"    cables, chargers, USB hubs, pendrives, SSDs, RAM,\n"
+        f"    hard disks, memory cards, routers, printers\n\n"
         f"  -Electronics\n"
-        f"    headphones, speakers, smartwatches, cameras\n\n"
+        f"    headphones, speakers, smartwatches, cameras, tablets\n\n"
         f"  -Home & Kitchen\n"
-        f"    fans, mixers, kettles, irons, geysers, vacuum cleaners, air purifiers\n\n"
+        f"    fans, mixers, kettles, irons, geysers, vacuum cleaners,\n"
+        f"    room heaters, air purifiers, water purifiers, microwaves, trimmers\n\n"
+        f"  -Mobile Accessories\n"
+        f"    phone cases, chargers\n\n"
         f"  -Office Products\n"
-        f"    pens, notebooks, desk organizers\n\n"
-        f"  -Car & Motorbike\n"
-        f"    car accessories\n\n"
+        f"    pens, notebooks\n\n"
+        f"  -Other\n"
+        f"    stands, laptop bags, LED lights\n\n"
         f"Try searching within one of these categories."
     )
 
