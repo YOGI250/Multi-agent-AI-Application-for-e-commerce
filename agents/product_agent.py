@@ -197,8 +197,12 @@ Respond ONLY with JSON:
     # Multi-word entries come first so "laptop stand" matches "stand" before
     # the single-word "laptop" entry can fire.
     KEYWORD_MAP = [
+        ("smart watches", "smartwatch"),
         ("smart watch", "smartwatch"),
+        ("smartwatches", "smartwatch"),
         ("smartwatch", "smartwatch"),
+        ("ro water purifier", "water_purifier"),
+        ("ro purifier", "water_purifier"),
         ("mouse pad", "mousepad"),
         ("mouse mat", "mousepad"),
         ("laptop stand", "stand"),
@@ -248,6 +252,7 @@ Respond ONLY with JSON:
         ("camera", "camera"),
         ("printer", "printer"),
         ("laptop", "laptop"),
+        ("mice", "mouse"),
         ("mousepad", "mousepad"),
         ("mouse", "mouse"),
         ("cable", "cable"),
@@ -476,10 +481,16 @@ Products:
 {product_list}
 
 Rules:
-- Include any product that is a direct or close match.
-- Include partial matches (e.g. a regular laptop when asked for a gaming laptop).
-- Return [] ONLY if the products are entirely unrelated to the request
-  (e.g. user wants furniture but the list contains only electronics).
+- Include products that are a direct match for what the user asked for.
+- Include partial matches ONLY when it is the same product category with slightly
+  different specs. Example: regular laptop for gaming laptop request is fine.
+  Example: basic iron for steam iron request is fine.
+- STRICT: Do NOT include a product just because it is vaguely related.
+  If the user asked for an air conditioner, do not return fans or air purifiers.
+  If the user asked for a refrigerator, do not return water purifiers or coolers.
+  If the user asked for furniture, do not return any electronics.
+- Return [] if none of the listed products are genuinely what the user asked for.
+  When in doubt, return [].
 
 Return ONLY a JSON array of product indices, most relevant first.
 Indices are 1-based. Example: [3, 1, 7, 2, 5]
