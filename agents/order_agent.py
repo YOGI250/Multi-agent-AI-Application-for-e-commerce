@@ -125,7 +125,10 @@ def validate_input(state: OrderAgentState) -> OrderAgentState:
                 "ORDERS I",
                 "MANY ORDER",
             ]
-            wants_all_orders = any(k in message for k in show_all_keywords)
+            wants_all_orders = any(k in message for k in show_all_keywords) or bool(
+                re.search(r'\b(show|list|see|view|display|check|track)\b', msg_lower)
+                and re.search(r'\borders?\b', msg_lower)
+            )
 
             # ── Step 4: session-context fallback ──
             # If no keyword matched but we know we're in an order conversation,
