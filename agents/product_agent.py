@@ -99,11 +99,12 @@ PRODUCT TYPES (use exact values):
 mouse, keyboard, headphones, speaker, laptop, tablet, smartwatch, monitor,
 webcam, router, cable, charger, usb_hub, pendrive, ssd, hard_disk, ram,
 memory_card, printer, stand, mousepad, laptop_bag, phone_case, extension,
-fan, mixer, iron, kettle, water_heater, room_heater, vacuum, air_purifier,
-water_purifier, camera, pen, notebook, light, trimmer, microwave, other
+fan, mixer, iron, kettle, water_heater, room_heater, vacuum, washing_machine,
+air_purifier, water_purifier, camera, pen, notebook, light, trimmer, microwave, other
 
 NORMALISE: smartwatches→smartwatch | mice→mouse | earphones/earbuds→headphones
 air purifier→air_purifier | laptops→laptop | fans→fan | irons→iron
+washers/washing machines→washing_machine | stands→stand | rams→ram
 
 CATEGORIES: Electronics | Home and Kitchen | Computers and Accessories |
 OfficeProducts | HomeImprovement | MusicalInstruments | Car and Motorbike |
@@ -177,6 +178,13 @@ Respond ONLY with JSON:
             "fans": "fan",
             "mixers": "mixer",
             "irons": "iron",
+            "rams": "ram",
+            "stands": "stand",
+            "lights": "light",
+            "washer": "washing_machine",
+            "washers": "washing_machine",
+            "washing machines": "washing_machine",
+            "washing_machines": "washing_machine",
         }
         filters["product_type"] = normalization.get(ptype, ptype)
 
@@ -184,15 +192,21 @@ Respond ONLY with JSON:
     # Checked AFTER LLM but takes priority over LLM result to prevent
     # session-context contamination (e.g. "fans" returning webcam because
     # last search was "webcams").
+    # Multi-word entries come first so "laptop stand" matches "stand" before
+    # the single-word "laptop" entry can fire.
     KEYWORD_MAP = [
         ("smart watch", "smartwatch"),
         ("smartwatch", "smartwatch"),
+        ("laptop stand", "stand"),
+        ("phone stand", "stand"),
+        ("desk stand", "stand"),
         ("laptop bag", "laptop_bag"),
         ("air purifier", "air_purifier"),
         ("water purifier", "water_purifier"),
         ("room heater", "room_heater"),
         ("water heater", "water_heater"),
-        ("vacuum cleaner", "vacuum"),  # multi-word before single-word matches
+        ("washing machine", "washing_machine"),
+        ("vacuum cleaner", "vacuum"),
         ("usb cable", "cable"),
         ("hdmi cable", "cable"),
         ("hdmi", "cable"),
@@ -201,6 +215,13 @@ Respond ONLY with JSON:
         ("memory card", "memory_card"),
         ("usb hub", "usb_hub"),
         ("pen drive", "pendrive"),
+        ("led light", "light"),
+        ("led bulb", "light"),
+        ("desk lamp", "light"),
+        ("table lamp", "light"),
+        ("extension board", "extension"),
+        ("extension cord", "extension"),
+        ("power strip", "extension"),
         ("headphone", "headphones"),
         ("earphone", "headphones"),
         ("earbud", "headphones"),
@@ -214,6 +235,7 @@ Respond ONLY with JSON:
         ("pendrive", "pendrive"),
         ("grinder", "mixer"),
         ("mixer", "mixer"),
+        ("washer", "washing_machine"),
         ("vacuum", "vacuum"),
         ("kettle", "kettle"),
         ("microwave", "microwave"),
@@ -223,14 +245,27 @@ Respond ONLY with JSON:
         ("laptop", "laptop"),
         ("mouse", "mouse"),
         ("cable", "cable"),
+        ("stand", "stand"),
+        ("light", "light"),
         ("iron", "iron"),
         ("fan", "fan"),
+        ("ram", "ram"),
         ("ssd", "ssd"),
         ("pen", "pen"),
         ("notebook", "notebook"),
     ]
+
+    def _kw_match(msg: str, kw: str) -> bool:
+        # Multi-word phrases: plain substring (no word-boundary needed)
+        # Single words: word boundaries + optional trailing 's' so "fan" matches
+        # "fans", "ram" matches "rams", but "pen" won't match "spend" and
+        # "fan" won't match "fantastic", "ram" won't match "program", etc.
+        if " " in kw:
+            return kw in msg
+        return bool(re.search(r"\b" + re.escape(kw) + r"s?\b", msg))
+
     msg_lower = message.lower()
-    keyword_ptype = next((ptype for kw, ptype in KEYWORD_MAP if kw in msg_lower), None)
+    keyword_ptype = next((ptype for kw, ptype in KEYWORD_MAP if _kw_match(msg_lower, kw)), None)
 
     if keyword_ptype:
         # Explicit product keyword in message — always override LLM to prevent
