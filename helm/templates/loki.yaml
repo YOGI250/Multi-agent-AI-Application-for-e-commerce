@@ -1,0 +1,92 @@
+# Loki — log aggregation backend
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Release.Name }}-loki-config
+  namespace: {{ .Release.Namespace }}
+data:
+  loki.yaml: |
+    auth_enabled: false
+    server:
+      http_listen_port: 3100
+    common:
+      path_prefix: /loki
+      storage:
+        filesystem:
+          chunks_directory: /loki/chunks
+          rules_directory: /loki/rules
+      replication_factor: 1
+      ring:
+        instance_addr: 127.0.0.1
+        kvstore:
+          store: inmemory
+    schema_config:
+      configs:
+        - from: 2020-10-24
+          store: boltdb-shipper
+          object_store: filesystem
+          schema: v11
+          index:
+            prefix: index_
+            period: 24h
+    limits_config:
+      enforce_metric_name: false
+      reject_old_samples: true
+      reject_old_samples_max_age: 168h
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}-loki
+  namespace: {{ .Release.Namespace }}
+  labels:
+    component: loki
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      component: loki
+  template:
+    metadata:
+      labels:
+        component: loki
+    spec:
+      containers:
+        - name: loki
+          image: grafana/loki:2.9.0
+          args:
+            - -config.file=/etc/loki/loki.yaml
+          ports:
+            - containerPort: 3100
+          volumeMounts:
+            - name: loki-config
+              mountPath: /etc/loki
+            - name: loki-data
+              mountPath: /loki
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 200m
+              memory: 256Mi
+      volumes:
+        - name: loki-config
+          configMap:
+            name: {{ .Release.Name }}-loki-config
+        - name: loki-data
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: loki
+  namespace: {{ .Release.Namespace }}
+  labels:
+    component: loki
+spec:
+  selector:
+    component: loki
+  ports:
+    - port: 3100
+      targetPort: 3100
