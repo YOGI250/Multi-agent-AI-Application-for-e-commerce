@@ -104,7 +104,7 @@ air_purifier, water_purifier, camera, pen, notebook, light, trimmer, microwave, 
 
 NORMALISE: smartwatches→smartwatch | mice→mouse | earphones/earbuds→headphones
 air purifier→air_purifier | laptops→laptop | fans→fan | irons→iron
-washers/washing machines→washing_machine | stands→stand | rams→ram
+washers/washing machines→washing_machine | stands→stand | rams→ram | geysers→water_heater
 
 CATEGORIES: Electronics | Home and Kitchen | Computers and Accessories |
 OfficeProducts | HomeImprovement | MusicalInstruments | Car and Motorbike |
@@ -185,6 +185,8 @@ Respond ONLY with JSON:
             "washers": "washing_machine",
             "washing machines": "washing_machine",
             "washing_machines": "washing_machine",
+            "geyser": "water_heater",
+            "geysers": "water_heater",
         }
         filters["product_type"] = normalization.get(ptype, ptype)
 
@@ -207,6 +209,7 @@ Respond ONLY with JSON:
         ("water purifier", "water_purifier"),
         ("room heater", "room_heater"),
         ("water heater", "water_heater"),
+        ("geyser", "water_heater"),
         ("washing machine", "washing_machine"),
         ("vacuum cleaner", "vacuum"),
         ("usb cable", "cable"),
