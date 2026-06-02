@@ -227,6 +227,11 @@ jobs:
           git fetch origin
           git checkout ${{ github.sha }}
 
+      - name: Configure kubectl
+        run: |
+          mkdir -p ~/.kube
+          echo "${{ secrets.KUBECONFIG_DATA }}" | base64 -d > ~/.kube/config
+
       - name: Verify cluster access
         run: kubectl get nodes
 
