@@ -177,6 +177,11 @@ Respond ONLY with JSON:
             "fans": "fan",
             "mixers": "mixer",
             "irons": "iron",
+            "geyser": "water_heater",
+            "geysers": "water_heater",
+            "vacuum_cleaner": "vacuum",
+            "vacuum cleaner": "vacuum",
+            "vaccum": "vacuum",
         }
         filters["product_type"] = normalization.get(ptype, ptype)
 
@@ -192,6 +197,9 @@ Respond ONLY with JSON:
         ("water purifier", "water_purifier"),
         ("room heater", "room_heater"),
         ("water heater", "water_heater"),
+        ("vacuum cleaner", "vacuum"),  # multi-word before single-word matches
+        ("geyser", "water_heater"),    # Indian term for water heater
+        ("vaccum", "vacuum"),          # common misspelling
         ("usb cable", "cable"),
         ("hdmi cable", "cable"),
         ("hdmi", "cable"),
@@ -362,7 +370,11 @@ def broaden_search(state: ProductAgentState) -> ProductAgentState:
     original_filters = state.get("original_filters", {})
 
     if attempts == 0:
-        # Drop specific constraints first
+        # Drop loose constraints first (brand → price → rating).
+        # If none, drop category — session-context category contamination
+        # (e.g. "fans" after a "cable" search inheriting ComputersAndAccessories)
+        # is far more common than a wrong product_type, since KEYWORD_MAP
+        # already resolves most type errors before we get here.
         if filters.get("brand"):
             filters["brand"] = None
         elif filters.get("max_price"):
@@ -370,20 +382,20 @@ def broaden_search(state: ProductAgentState) -> ProductAgentState:
         elif filters.get("min_rating"):
             filters["min_rating"] = None
         else:
-            # No loose constraints to relax — drop product_type (may be wrong/invalid)
-            # and keep category. Fixes queries like "office products" where LLM sets
-            # product_type='office' (not a real type) but category is correct.
-            filters["product_type"] = None
+            filters["category"] = None
     elif attempts == 1:
-        # Second retry: restore original product_type, drop category.
-        # Fixes session contamination where previous search (e.g. notebooks) left
-        # wrong category in context (e.g. OfficeProducts) for a new product (e.g. laptops).
-        filters["product_type"] = original_filters.get("product_type")
-        filters["category"] = None
+        # Second retry: drop product_type, restore original category.
+        # Handles LLM generating an invalid type (e.g. 'office' for 'office products')
+        # while the category was correct.
+        filters["product_type"] = None
+        filters["category"] = original_filters.get("category")
     else:
-        # Last resort: drop both — search by remaining filters only
+        # Last resort: drop everything, pure keyword/text search
         filters["product_type"] = None
         filters["category"] = None
+        filters["brand"] = None
+        filters["max_price"] = None
+        filters["min_rating"] = None
 
     state["filters"] = filters
     state["broaden_attempts"] = attempts + 1
@@ -484,10 +496,9 @@ Maximum {settings.product_recommendation_count} products. No explanation."""
                 for idx in indices:
                     if 1 <= idx <= len(products):
                         ranked.append(products[idx - 1])
-                ranked_ids = {p["product_id"] for p in ranked}
-                for p in products:
-                    if p["product_id"] not in ranked_ids:
-                        ranked.append(p)
+                # Only keep LLM-selected products — do NOT append unranked ones.
+                # Appending all unranked products surfaces wrong results when the
+                # search base is contaminated (e.g. geysers returning mousepads).
                 state["ranked_products"] = ranked
         else:
             state["ranked_products"] = products
