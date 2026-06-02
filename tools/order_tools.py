@@ -19,8 +19,13 @@ def fetch_order_data(order_id: str) -> dict:
     """
     logger.info(f"Tool called: fetch_order_data with order_id={order_id}")
     trace_id, parent_span_id = get_trace_context()
-    span = create_span(trace_id, "tool:fetch_order_data", parent_observation_id=parent_span_id,
-                       input_data={"order_id": order_id}) if trace_id else None
+    span = (
+        create_span(
+            trace_id, "tool:fetch_order_data", parent_observation_id=parent_span_id, input_data={"order_id": order_id}
+        )
+        if trace_id
+        else None
+    )
 
     result = get_order(order_id)
 
@@ -47,8 +52,16 @@ def fetch_tracking_data(tracking_number: str) -> dict:
     """
     logger.info(f"Tool called: fetch_tracking_data with tracking_number={tracking_number}")
     trace_id, parent_span_id = get_trace_context()
-    span = create_span(trace_id, "tool:fetch_tracking_data", parent_observation_id=parent_span_id,
-                       input_data={"tracking_number": tracking_number}) if trace_id else None
+    span = (
+        create_span(
+            trace_id,
+            "tool:fetch_tracking_data",
+            parent_observation_id=parent_span_id,
+            input_data={"tracking_number": tracking_number},
+        )
+        if trace_id
+        else None
+    )
 
     result = get_tracking(tracking_number)
 
@@ -74,8 +87,16 @@ def fetch_all_orders_for_user(user_id: str) -> list:
     """
     logger.info(f"Tool called: fetch_all_orders_for_user with user_id={user_id}")
     trace_id, parent_span_id = get_trace_context()
-    span = create_span(trace_id, "tool:fetch_all_orders_for_user", parent_observation_id=parent_span_id,
-                       input_data={"user_id": user_id}) if trace_id else None
+    span = (
+        create_span(
+            trace_id,
+            "tool:fetch_all_orders_for_user",
+            parent_observation_id=parent_span_id,
+            input_data={"user_id": user_id},
+        )
+        if trace_id
+        else None
+    )
     try:
         from database.connection import SessionLocal
         from database.models import Order

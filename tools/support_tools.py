@@ -20,8 +20,13 @@ def lookup_policy_tool(issue_type: str) -> dict:
     """
     logger.info(f"Tool called: lookup_policy_tool for issue_type={issue_type}")
     trace_id, parent_span_id = get_trace_context()
-    span = create_span(trace_id, "tool:lookup_policy", parent_observation_id=parent_span_id,
-                       input_data={"issue_type": issue_type}) if trace_id else None
+    span = (
+        create_span(
+            trace_id, "tool:lookup_policy", parent_observation_id=parent_span_id, input_data={"issue_type": issue_type}
+        )
+        if trace_id
+        else None
+    )
 
     result = get_policy(issue_type)
 
@@ -47,8 +52,16 @@ def check_user_history_tool(user_id: str, order_id: Optional[str] = None) -> dic
     """
     logger.info(f"Tool called: check_user_history_tool for user_id={user_id} order_id={order_id}")
     trace_id, parent_span_id = get_trace_context()
-    span = create_span(trace_id, "tool:check_user_history", parent_observation_id=parent_span_id,
-                       input_data={"user_id": user_id, "order_id": order_id}) if trace_id else None
+    span = (
+        create_span(
+            trace_id,
+            "tool:check_user_history",
+            parent_observation_id=parent_span_id,
+            input_data={"user_id": user_id, "order_id": order_id},
+        )
+        if trace_id
+        else None
+    )
 
     result = get_user_complaint_history(user_id, order_id=order_id)
 
@@ -69,9 +82,16 @@ def create_ticket_tool(user_id: str, issue_type: str, priority: str, order_id: O
     """
     logger.info(f"Tool called: create_ticket_tool for user={user_id} issue={issue_type} priority={priority}")
     trace_id, parent_span_id = get_trace_context()
-    span = create_span(trace_id, "tool:create_ticket", parent_observation_id=parent_span_id,
-                       input_data={"user_id": user_id, "issue_type": issue_type,
-                                   "priority": priority, "order_id": order_id}) if trace_id else None
+    span = (
+        create_span(
+            trace_id,
+            "tool:create_ticket",
+            parent_observation_id=parent_span_id,
+            input_data={"user_id": user_id, "issue_type": issue_type, "priority": priority, "order_id": order_id},
+        )
+        if trace_id
+        else None
+    )
 
     result = create_ticket(user_id=user_id, issue_type=issue_type, priority=priority, order_id=order_id)
 

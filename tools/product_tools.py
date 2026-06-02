@@ -20,8 +20,13 @@ def search_products_tool(filters: dict) -> list:
     """
     logger.info(f"Tool called: search_products_tool with filters={filters}")
     trace_id, parent_span_id = get_trace_context()
-    span = create_span(trace_id, "tool:search_products", parent_observation_id=parent_span_id,
-                       input_data={"filters": filters}) if trace_id else None
+    span = (
+        create_span(
+            trace_id, "tool:search_products", parent_observation_id=parent_span_id, input_data={"filters": filters}
+        )
+        if trace_id
+        else None
+    )
 
     results = search_products(filters)
 
@@ -41,8 +46,13 @@ def fetch_specs_tool(product_ids: list) -> dict:
     """
     logger.info(f"Tool called: fetch_specs_tool for {len(product_ids)} products")
     trace_id, parent_span_id = get_trace_context()
-    span = create_span(trace_id, "tool:fetch_specs", parent_observation_id=parent_span_id,
-                       input_data={"product_ids": product_ids}) if trace_id else None
+    span = (
+        create_span(
+            trace_id, "tool:fetch_specs", parent_observation_id=parent_span_id, input_data={"product_ids": product_ids}
+        )
+        if trace_id
+        else None
+    )
 
     results = get_specs(product_ids)
 
