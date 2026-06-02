@@ -24,8 +24,8 @@ class User(Base):
     email = Column(String, nullable=True)
     name = Column(String, nullable=True)
     auth_provider = Column(String, default="anonymous", nullable=False)
-    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
-    last_login_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
+    created_at = Column(DateTime, default=lambda: datetime.utcnow(), nullable=False)
+    last_login_at = Column(DateTime, default=lambda: datetime.utcnow(), nullable=False)
     metadata_ = Column("metadata", JSONB, nullable=True, default=dict)
 
     sessions = relationship("Session", back_populates="user")
@@ -42,8 +42,8 @@ class Session(Base):
 
     session_id = Column(String, primary_key=True, default=generate_uuid)
     user_id = Column(String, ForeignKey("users.user_id"), nullable=False)
-    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
-    last_active_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
+    created_at = Column(DateTime, default=lambda: datetime.utcnow(), nullable=False)
+    last_active_at = Column(DateTime, default=lambda: datetime.utcnow(), nullable=False)
     is_active = Column(Boolean, default=True, nullable=False)
     agent_last_used = Column(String, nullable=True)
     message_count = Column(Integer, default=0, nullable=False)
@@ -75,7 +75,7 @@ class Message(Base):
     agent_name = Column(String, nullable=True)
     intent = Column(String, nullable=True)
     intent_confidence = Column(String, nullable=True)
-    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
+    created_at = Column(DateTime, default=lambda: datetime.utcnow(), nullable=False)
     token_usage = Column(JSONB, nullable=True, default={})
     latency_ms = Column(Integer, nullable=True)
     langfuse_trace_id = Column(String, nullable=True)
@@ -142,7 +142,7 @@ class Policy(Base):
     policy_id = Column(String, primary_key=True, default=generate_uuid)
     issue_type = Column(String, nullable=False, unique=True)
     policy_text = Column(Text, nullable=False)
-    updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
+    updated_at = Column(DateTime, default=lambda: datetime.utcnow(), nullable=False)
 
     def __repr__(self):
         return f"<Policy issue_type={self.issue_type}>"
@@ -161,7 +161,7 @@ class CarrierTracking(Base):
     current_location = Column(String, nullable=True)
     events = Column(JSONB, nullable=False, default=list)
     estimated_delivery = Column(Date, nullable=True)
-    last_updated = Column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
+    last_updated = Column(DateTime, default=lambda: datetime.utcnow(), nullable=False)
 
     def __repr__(self):
         return f"<CarrierTracking tracking_number={self.tracking_number}>"
@@ -179,7 +179,7 @@ class SupportTicket(Base):
     issue_type = Column(String, nullable=False)
     priority = Column(String, nullable=False)
     status = Column(String, default="open", nullable=False)
-    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
+    created_at = Column(DateTime, default=lambda: datetime.utcnow(), nullable=False)
 
     __table_args__ = (Index("idx_tickets_user_id", "user_id"),)
 
@@ -202,7 +202,7 @@ class AgentRun(Base):
     success = Column(Boolean, default=True, nullable=False)
     total_tokens = Column(Integer, nullable=True)
     cost_usd = Column(Numeric(10, 6), nullable=True)
-    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
+    created_at = Column(DateTime, default=lambda: datetime.utcnow(), nullable=False)
 
     def __repr__(self):
         return f"<AgentRun agent={self.agent_name} duration={self.duration_ms}ms>"
