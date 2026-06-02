@@ -390,7 +390,9 @@ async def chat(
         # 6. score response
         score_response(trace_id=trace.id, agent_used=agent_used, message=body.message, response=response)
 
-        # 7. update trace output + aggregated token/cost totals
+        # 7. update trace output + aggregated token/cost totals, then end the span
+        # trace.end() is required by LangFuse v4 (OTEL-based): root span must be
+        # explicitly ended before flush() can export it with session.id/user.id.
         total_input = result.get("total_input_tokens", 0)
         total_output = result.get("total_output_tokens", 0)
         trace.update(
@@ -398,6 +400,7 @@ async def chat(
             usage_details={"input": total_input, "output": total_output, "total": total_input + total_output},
             cost_details={"total": calculate_cost(total_input, total_output)},
         )
+        trace.end()
 
         # 8. flush LangFuse
         flush()
