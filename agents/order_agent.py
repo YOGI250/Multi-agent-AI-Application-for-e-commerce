@@ -424,14 +424,46 @@ def generate_response(state: OrderAgentState) -> OrderAgentState:
     # CASE 1 — user asked to see all their orders
     # ==========================================
     if all_orders and len(all_orders) > 1 and not state.get("order_id"):
-        # Filter orders in Python based on message keywords — never let the LLM filter or count
+        import ast as _ast
+
         msg_lower = state.get("message", "").lower()
 
+        # ── Step 1: product name lookup (e.g. "status of laptop stand") ──
+        product_match = None
+        for o in all_orders:
+            items_raw = o.get("items", "")
+            try:
+                items_list = _ast.literal_eval(str(items_raw)) if isinstance(items_raw, str) else items_raw
+                items_str = " ".join(items_list).lower() if isinstance(items_list, list) else str(items_raw).lower()
+            except Exception:
+                items_str = str(items_raw).lower()
+            words = [w for w in items_str.split() if len(w) > 3]
+            if words and any(w in msg_lower for w in words):
+                product_match = o
+                break
+
+        if product_match:
+            state["response"] = (
+                f"Here are the details for your order:\n\n"
+                f"Order ID  : {product_match['order_id']}\n"
+                f"Item      : {product_match['items']}\n"
+                f"Status    : {product_match['status']}\n"
+                f"Delivery  : {product_match['expected_delivery']}\n"
+                f"Carrier   : {product_match['carrier']}\n\n"
+                f"Ask me about any order using its ID for tracking and details."
+            )
+            state["session_context"] = merge_context(
+                ctx, {"topic": "order_query", "order_id": product_match.get("order_id")}
+            )
+            return state
+
+        # ── Step 2: status filter ──
         not_delivered_kw = ["not delivered", "undelivered", "not received", "not yet delivered"]
         delivered_kw = ["delivered", "received", "got it", "already received"]
         shipped_kw = ["shipped", "in transit", "on the way", "dispatched"]
-        processing_kw = ["processing", "confirmed", "pending", "not shipped"]
+        processing_kw = ["processing", "confirmed", "pending", "not shipped", "placed"]
         cancelled_kw = ["cancelled", "canceled"]
+        delayed_kw = ["delayed", "late", "overdue"]
 
         if any(k in msg_lower for k in not_delivered_kw):
             display_orders = [o for o in all_orders if o.get("status", "").lower() != "delivered"]
@@ -444,70 +476,37 @@ def generate_response(state: OrderAgentState) -> OrderAgentState:
             filter_label = "shipped"
         elif any(k in msg_lower for k in processing_kw):
             display_orders = [
-                o for o in all_orders if o.get("status", "").lower() in ("processing", "confirmed", "pending")
+                o for o in all_orders if o.get("status", "").lower() in ("processing", "confirmed", "pending", "placed")
             ]
-            filter_label = "processing"
+            filter_label = "in processing / pending"
         elif any(k in msg_lower for k in cancelled_kw):
             display_orders = [o for o in all_orders if o.get("status", "").lower() in ("cancelled", "canceled")]
             filter_label = "cancelled"
+        elif any(k in msg_lower for k in delayed_kw):
+            display_orders = [o for o in all_orders if o.get("status", "").lower() in ("delayed", "late")]
+            filter_label = "delayed"
         else:
             display_orders = all_orders
             filter_label = None
 
-        orders_text = "\n".join([f"- {o['order_id']} | {o['items']}" for o in display_orders])
-
+        # ── Step 3: build response in Python — no LLM needed for structured data ──
+        count = len(display_orders)
         if filter_label:
-            intro = f"The following {len(display_orders)} order(s) are {filter_label}:"
+            header = f"You have {count} order(s) with status '{filter_label}'.\n"
         else:
-            intro = f"The customer has {len(display_orders)} order(s) in total:"
+            header = f"You have {count} order(s).\n"
 
-        all_orders_prompt = f"""You are a helpful e-commerce customer support assistant.
+        lines = [header]
+        for o in display_orders:
+            lines.append(f"{o['order_id']} - {o['items']}")
+        lines.append("\nAsk me about any order using its ID for tracking and details.")
 
-{intro}
-
-{orders_text}
-
-Customer message: {state.get('message')}
-Recent messages:
-{recent_msgs}
-
-List these orders using ONLY this plain format (no bold, no markdown, no stars):
-Order ID - Product Name
-
-Do NOT filter, recount, or reinterpret the list above — it has already been filtered and counted for you.
-State the count as given: {len(display_orders)}.
-Do not include price, status, carrier, or delivery date.
-Do not address the user by name.
-At the end add one plain line: "Ask me about any order using its ID for tracking and details." """
-
-        llm = ChatGroq(api_key=settings.groq_api_key, model=settings.llm_model_name)
-        try:
-            response = llm.invoke(all_orders_prompt)
-        except Exception as e:
-            logger.error(f"LLM invoke failed in generate_response (all orders): {e}")
-            state["response"] = "I'm having trouble reaching the AI service right now. Please try again in a moment."
-            return state
-        usage = extract_token_usage(response)
-
-        if trace_id:
-            create_generation(
-                trace_id=trace_id,
-                name="generate_response",
-                model=settings.llm_model_name,
-                prompt=all_orders_prompt,
-                response=response.content,
-                usage=usage,
-                parent_observation_id=parent_id,
-                agent_used="order_agent",
-            )
-
-        # Build status → [order_ids] map for contextual follow-up resolution
         status_map = {}
         for o in all_orders:
             s = str(o.get("status", "")).lower()
             status_map.setdefault(s, []).append(o["order_id"])
 
-        state["response"] = response.content
+        state["response"] = "\n".join(lines)
         state["session_context"] = merge_context(
             ctx,
             {
