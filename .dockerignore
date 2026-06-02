@@ -1,0 +1,40 @@
+# Python
+venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+dist/
+build/
+
+# Git
+.git/
+.gitignore
+
+# Logs & coverage
+logs/
+*.log
+.coverage
+htmlcov/
+
+# Tests & eval (not needed in container)
+tests/
+eval/
+.pytest_cache/
+.deepeval/
+
+# Data (one-time import scripts only)
+data/
+
+# Helm / infra
+helm/
+
+# IDE
+.vscode/
+.idea/
+
+# Env files (secrets should be injected at runtime)
+.env
+.env.*
