@@ -199,7 +199,7 @@ def resolve_session(session_id: Optional[str], user_id: str, db: Session) -> dic
         )
 
         if session:
-            cutoff = datetime.now(timezone.utc) - timedelta(minutes=expiry_minutes)
+            cutoff = (datetime.now(timezone.utc) - timedelta(minutes=expiry_minutes)).replace(tzinfo=None)
             if session.last_active_at < cutoff:
                 session.is_active = False
                 session.ended_reason = "expired"
