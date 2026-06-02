@@ -112,14 +112,20 @@ def validate_input(state: OrderAgentState) -> OrderAgentState:
             )
 
             # ── Step 4: session-context fallback ──
-            # If no keyword matched but we know we're in an order conversation,
-            # fetch all orders so the LLM can answer follow-up questions.
-            if not wants_all_orders and ctx.get("topic") == "order_query":
+            # If no keyword matched but there is a specific order_id in context
+            # (from any prior agent — order or support), use it directly.
+            # e.g. "when will I get the refund" after a support cancellation flow.
+            if not wants_all_orders and ctx.get("order_id"):
+                state["order_id"] = ctx["order_id"]
+                state["order_id_found"] = True
+                state["show_all_orders"] = False
+            elif not wants_all_orders and ctx.get("topic") in ("order_query", "support_query"):
                 wants_all_orders = True
 
-            state["order_id"] = None
-            state["order_id_found"] = wants_all_orders
-            state["show_all_orders"] = wants_all_orders
+            if not state.get("order_id_found"):
+                state["order_id"] = None
+                state["order_id_found"] = wants_all_orders
+                state["show_all_orders"] = wants_all_orders
 
     if span:
         end_span(
@@ -474,6 +480,10 @@ def generate_response(state: OrderAgentState) -> OrderAgentState:
             filter_label = None
 
         # ── Step 3: build response in Python — no LLM needed for structured data ──
+        # If user asked for "detailed" / "full" / "more" info, guide them to
+        # pick one order rather than dumping a flat list again.
+        wants_detail = any(w in msg_lower for w in ("detail", "detailed", "full", "more info", "information", "elaborate"))
+
         count = len(display_orders)
         if filter_label:
             header = f"You have {count} order(s) with status '{filter_label}'.\n"
@@ -482,8 +492,15 @@ def generate_response(state: OrderAgentState) -> OrderAgentState:
 
         lines = [header]
         for o in display_orders:
-            lines.append(f"{o['order_id']} - {o['items']}")
-        lines.append("\nAsk me about any order using its ID for tracking and details.")
+            lines.append(f"{o['order_id']} - {o['items']} ({o.get('status', 'unknown')})")
+
+        if wants_detail and count > 1:
+            lines.append(
+                f"\nI can show full tracking and delivery details for one order at a time. "
+                f"Which order would you like to check?"
+            )
+        else:
+            lines.append("\nShare an order ID to get full tracking and delivery details.")
 
         status_map = {}
         for o in all_orders:
