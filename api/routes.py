@@ -12,8 +12,9 @@ from slowapi.util import get_remote_address
 from google.oauth2 import id_token
 from google.auth.transport import requests as google_requests
 
-from langfuse_helpers.tracing import create_trace, flush
+from langfuse_helpers.tracing import create_trace, flush, calculate_cost
 from langfuse_helpers.scoring import score_response
+from utils.langfuse_context import set_trace_context
 from monitoring.metrics import record_request_metrics, record_error
 from utils.memory import merge_context
 from api.schemas import ChatRequest, ChatResponse, HealthResponse, HistoryResponse
@@ -344,6 +345,7 @@ async def chat(
         trace = create_trace(
             session_id=session_id, user_id=user_id, is_authenticated=is_authenticated, message=body.message
         )
+        set_trace_context(trace.id)
 
         # 4. run intent router
         result = intent_router_graph.invoke(
@@ -372,8 +374,14 @@ async def chat(
         # 6. score response
         score_response(trace_id=trace.id, agent_used=agent_used, message=body.message, response=response)
 
-        # 7. update trace output
-        trace.update(output={"response": response, "agent_used": agent_used})
+        # 7. update trace output + aggregated token/cost totals
+        total_input = result.get("total_input_tokens", 0)
+        total_output = result.get("total_output_tokens", 0)
+        trace.update(
+            output={"response": response, "agent_used": agent_used},
+            usage_details={"input": total_input, "output": total_output, "total": total_input + total_output},
+            cost_details={"total": calculate_cost(total_input, total_output)},
+        )
 
         # 8. flush LangFuse
         flush()
