@@ -180,56 +180,68 @@ Respond ONLY with JSON:
         }
         filters["product_type"] = normalization.get(ptype, ptype)
 
-    # If LLM returned no product_type, apply fallbacks in priority order:
-    # 1. keyword match — for explicit product messages the LLM missed
-    # 2. session context — for genuinely vague follow-ups ("under 2000", "what about X")
-    if not filters.get("product_type"):
-        KEYWORD_MAP = [
-            ("smart watch", "smartwatch"),
-            ("smartwatch", "smartwatch"),
-            ("laptop bag", "laptop_bag"),
-            ("air purifier", "air_purifier"),
-            ("water purifier", "water_purifier"),
-            ("room heater", "room_heater"),
-            ("water heater", "water_heater"),
-            ("phone case", "phone_case"),
-            ("hard disk", "hard_disk"),
-            ("memory card", "memory_card"),
-            ("usb hub", "usb_hub"),
-            ("pen drive", "pendrive"),
-            ("headphone", "headphones"),
-            ("earphone", "headphones"),
-            ("earbud", "headphones"),
-            ("speaker", "speaker"),
-            ("keyboard", "keyboard"),
-            ("monitor", "monitor"),
-            ("tablet", "tablet"),
-            ("webcam", "webcam"),
-            ("router", "router"),
-            ("charger", "charger"),
-            ("pendrive", "pendrive"),
-            ("grinder", "mixer"),
-            ("mixer", "mixer"),
-            ("vacuum", "vacuum"),
-            ("kettle", "kettle"),
-            ("microwave", "microwave"),
-            ("trimmer", "trimmer"),
-            ("camera", "camera"),
-            ("printer", "printer"),
-            ("laptop", "laptop"),
-            ("mouse", "mouse"),
-            ("iron", "iron"),
-            ("fan", "fan"),
-            ("ssd", "ssd"),
-        ]
-        msg_lower = message.lower()
-        keyword_ptype = next((ptype for kw, ptype in KEYWORD_MAP if kw in msg_lower), None)
-        if keyword_ptype:
-            filters["product_type"] = keyword_ptype
-        else:
-            last_ptype = (state.get("session_context") or {}).get("last_product_type")
-            if last_ptype:
-                filters["product_type"] = last_ptype
+    # Keyword map — explicit product mentions in the message.
+    # Checked AFTER LLM but takes priority over LLM result to prevent
+    # session-context contamination (e.g. "fans" returning webcam because
+    # last search was "webcams").
+    KEYWORD_MAP = [
+        ("smart watch", "smartwatch"),
+        ("smartwatch", "smartwatch"),
+        ("laptop bag", "laptop_bag"),
+        ("air purifier", "air_purifier"),
+        ("water purifier", "water_purifier"),
+        ("room heater", "room_heater"),
+        ("water heater", "water_heater"),
+        ("usb cable", "cable"),
+        ("hdmi cable", "cable"),
+        ("hdmi", "cable"),
+        ("phone case", "phone_case"),
+        ("hard disk", "hard_disk"),
+        ("memory card", "memory_card"),
+        ("usb hub", "usb_hub"),
+        ("pen drive", "pendrive"),
+        ("headphone", "headphones"),
+        ("earphone", "headphones"),
+        ("earbud", "headphones"),
+        ("speaker", "speaker"),
+        ("keyboard", "keyboard"),
+        ("monitor", "monitor"),
+        ("tablet", "tablet"),
+        ("webcam", "webcam"),
+        ("router", "router"),
+        ("charger", "charger"),
+        ("pendrive", "pendrive"),
+        ("grinder", "mixer"),
+        ("mixer", "mixer"),
+        ("vacuum", "vacuum"),
+        ("kettle", "kettle"),
+        ("microwave", "microwave"),
+        ("trimmer", "trimmer"),
+        ("camera", "camera"),
+        ("printer", "printer"),
+        ("laptop", "laptop"),
+        ("mouse", "mouse"),
+        ("cable", "cable"),
+        ("iron", "iron"),
+        ("fan", "fan"),
+        ("ssd", "ssd"),
+        ("pen", "pen"),
+        ("notebook", "notebook"),
+    ]
+    msg_lower = message.lower()
+    keyword_ptype = next((ptype for kw, ptype in KEYWORD_MAP if kw in msg_lower), None)
+
+    if keyword_ptype:
+        # Explicit product keyword in message — always override LLM to prevent
+        # session context bleed (e.g. LLM seeing "webcam" in recent history
+        # and returning webcam for "fans")
+        filters["product_type"] = keyword_ptype
+    elif not filters.get("product_type"):
+        # No keyword match and LLM returned nothing — use session context
+        # only for genuinely vague follow-ups ("under 2000", "what about X")
+        last_ptype = (state.get("session_context") or {}).get("last_product_type")
+        if last_ptype:
+            filters["product_type"] = last_ptype
 
     state["filters"] = filters
     state["original_filters"] = filters.copy() if filters else {}
@@ -320,7 +332,7 @@ def route_results_found(state: ProductAgentState) -> str:
 
     if results:
         return "rank_and_filter"
-    if attempts >= 1:
+    if attempts >= 3:
         return "no_results_response"
     return "broaden_search"
 
@@ -347,13 +359,31 @@ def broaden_search(state: ProductAgentState) -> ProductAgentState:
         else None
     )
 
-    if filters.get("brand"):
-        filters["brand"] = None
-    elif filters.get("max_price"):
-        filters["max_price"] = filters["max_price"] * settings.product_price_broaden_factor
-    elif filters.get("min_rating"):
-        filters["min_rating"] = None
-    # product_type is never removed — it defines what the user is looking for
+    original_filters = state.get("original_filters", {})
+
+    if attempts == 0:
+        # Drop specific constraints first
+        if filters.get("brand"):
+            filters["brand"] = None
+        elif filters.get("max_price"):
+            filters["max_price"] = filters["max_price"] * settings.product_price_broaden_factor
+        elif filters.get("min_rating"):
+            filters["min_rating"] = None
+        else:
+            # No loose constraints to relax — drop product_type (may be wrong/invalid)
+            # and keep category. Fixes queries like "office products" where LLM sets
+            # product_type='office' (not a real type) but category is correct.
+            filters["product_type"] = None
+    elif attempts == 1:
+        # Second retry: restore original product_type, drop category.
+        # Fixes session contamination where previous search (e.g. notebooks) left
+        # wrong category in context (e.g. OfficeProducts) for a new product (e.g. laptops).
+        filters["product_type"] = original_filters.get("product_type")
+        filters["category"] = None
+    else:
+        # Last resort: drop both — search by remaining filters only
+        filters["product_type"] = None
+        filters["category"] = None
 
     state["filters"] = filters
     state["broaden_attempts"] = attempts + 1

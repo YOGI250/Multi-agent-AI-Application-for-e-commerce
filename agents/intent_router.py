@@ -45,6 +45,19 @@ _HELP_PREFIXES = (
     "who are you",
     "what is this",
 )
+_PRODUCT_PREFIXES = (
+    "show me",
+    "find me",
+    "search for",
+    "i want",
+    "i need",
+    "looking for",
+    "do you have",
+    "give me",
+    "can you show",
+    "can you find",
+    "get me",
+)
 
 
 def _has_pending_support_context(history: list) -> bool:
@@ -91,6 +104,17 @@ def intent_router(state: RouterState) -> RouterState:
 
     # ── Pre-check 1: greetings and generic help — always unknown, never context-biased ──
     msg_lower = message.strip().lower()
+
+    if any(msg_lower.startswith(p) for p in _PRODUCT_PREFIXES):
+        logger.info(
+            "Intent Router: product-search phrase detected — bypassing LLM, routing to product_query",
+            extra={"node_name": "intent_router"},
+        )
+        state["intent"] = "product_query"
+        state["confidence"] = "1.0"
+        state["reason"] = "Message starts with explicit product-search phrase"
+        return state
+
     if msg_lower in _GREETINGS or any(msg_lower.startswith(p) for p in _HELP_PREFIXES):
         logger.info(
             "Intent Router: greeting/help detected — bypassing LLM, routing to unknown",
