@@ -496,8 +496,8 @@ def generate_response(state: OrderAgentState) -> OrderAgentState:
 
         if wants_detail and count > 1:
             lines.append(
-                f"\nI can show full tracking and delivery details for one order at a time. "
-                f"Which order would you like to check?"
+                "\nI can show full tracking and delivery details for one order at a time. "
+                "Which order would you like to check?"
             )
         else:
             lines.append("\nShare an order ID to get full tracking and delivery details.")
