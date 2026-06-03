@@ -3,7 +3,7 @@
 import uuid
 import time
 import logging
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
 from typing import Optional
 from fastapi import APIRouter, BackgroundTasks, Header, HTTPException, Request
 from sqlalchemy.orm import Session
@@ -127,7 +127,8 @@ def resolve_user(authorization: Optional[str], guest_id: Optional[str], db: Sess
                     or "connection" in str(net_err).lower()
                     or "retries" in str(net_err).lower()
                 ):
-                    import base64, json as _json
+                    import base64
+                    import json as _json
 
                     padding = 4 - len(token.split(".")[1]) % 4
                     payload = token.split(".")[1] + "=" * padding

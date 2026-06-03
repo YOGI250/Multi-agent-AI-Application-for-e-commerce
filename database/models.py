@@ -1,7 +1,7 @@
 # database/models.py
 
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime
 from sqlalchemy import Column, String, Boolean, DateTime, Text, Numeric, Date, ForeignKey, Integer, Index
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import relationship
