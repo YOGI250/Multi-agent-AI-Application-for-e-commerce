@@ -100,15 +100,15 @@ def validate_input(state: OrderAgentState) -> OrderAgentState:
             # ── Step 3: pattern-based "show all orders" detection ──
             wants_all_orders = bool(
                 # "show me orders", "list the orders", "track my order"
-                re.search(r'\b(show|list|see|view|display|check|track|get)\b.*\borders?\b', msg_lower)
+                re.search(r"\b(show|list|see|view|display|check|track|get)\b.*\borders?\b", msg_lower)
                 # "my orders", "all orders", "the order", "any orders"
-                or re.search(r'\b(my|all|the|any)\s+orders?\b', msg_lower)
+                or re.search(r"\b(my|all|the|any)\s+orders?\b", msg_lower)
                 # "order status", "order history", "order list"
-                or re.search(r'\border\s+(status|list|count|history)\b', msg_lower)
+                or re.search(r"\border\s+(status|list|count|history)\b", msg_lower)
                 # "how many orders", "total orders", "number of orders"
-                or re.search(r'\b(how\s+many|total|number\s+of|count\s+of)\b.*\borders?\b', msg_lower)
+                or re.search(r"\b(how\s+many|total|number\s+of|count\s+of)\b.*\borders?\b", msg_lower)
                 # "orders I placed", "orders I have"
-                or re.search(r'\borders?\s+i\b', msg_lower)
+                or re.search(r"\borders?\s+i\b", msg_lower)
             )
 
             # ── Step 4: session-context fallback ──
@@ -482,7 +482,9 @@ def generate_response(state: OrderAgentState) -> OrderAgentState:
         # ── Step 3: build response in Python — no LLM needed for structured data ──
         # If user asked for "detailed" / "full" / "more" info, guide them to
         # pick one order rather than dumping a flat list again.
-        wants_detail = any(w in msg_lower for w in ("detail", "detailed", "full", "more info", "information", "elaborate"))
+        wants_detail = any(
+            w in msg_lower for w in ("detail", "detailed", "full", "more info", "information", "elaborate")
+        )
 
         count = len(display_orders)
         if filter_label:
