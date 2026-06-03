@@ -111,7 +111,7 @@ class TestRouteSearchResults:
     def test_routes_to_no_results_after_attempts(self, base_state):
         from agents.product_agent import route_results_found
         base_state["search_results"]   = []
-        base_state["broaden_attempts"] = 1
+        base_state["broaden_attempts"] = 3
         result = route_results_found(base_state)
         assert result == "no_results_response"
 

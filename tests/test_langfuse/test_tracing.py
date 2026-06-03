@@ -95,7 +95,7 @@ class TestCreateTrace:
         assert result.id == "abcdef123"
         assert result._span is mock_span
 
-    def test_calls_set_trace_io(self):
+    def test_sets_session_and_user_attributes(self):
         from langfuse_helpers import tracing
 
         mock_client = MagicMock()
@@ -106,7 +106,9 @@ class TestCreateTrace:
         with patch.object(tracing, "langfuse_client", mock_client):
             tracing.create_trace("s1", "u1", False, "test message")
 
-        mock_span.set_trace_io.assert_called_once()
+        calls = [str(c) for c in mock_span._otel_span.set_attribute.call_args_list]
+        assert any("session.id" in c for c in calls)
+        assert any("user.id" in c for c in calls)
 
     def test_passes_message_to_start_observation(self):
         from langfuse_helpers import tracing
