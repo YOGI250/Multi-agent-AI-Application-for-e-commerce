@@ -6,6 +6,10 @@ Modes:
   default (mocked): uses mocked_response from dataset.json — no real LLM or API calls.
   RUN_LIVE_EVAL=true: calls the live FastAPI endpoint for actual responses.
 
+Scoring:
+  Uses Groq llama-3.1-8b-instant as LLM judge (GROQ_API_KEY env var required).
+  Falls back to heuristic scoring if Groq is unavailable.
+
 Outputs:
   eval/reports/eval_report.json  — JSON report (CI artifact + pushed to LangFuse)
   eval/reports/eval_report.html  — self-contained HTML report (CI artifact)
@@ -71,154 +75,67 @@ GIT_BRANCH = _git(["git", "rev-parse", "--abbrev-ref", "HEAD"])
 
 # ── Scoring heuristics ──────────────────────────────────────────────────────────
 
-_STOP = {
-    # common English stop words
-    "the", "is", "a", "an", "my", "i", "me", "for", "to", "of",
-    "in", "it", "do", "can", "you", "we", "and", "or", "with",
-    "this", "that", "what", "how", "why", "when", "where", "all",
-    # request/action words — appear in question but not in answer
-    "show", "give", "find", "list", "need", "want", "received",
-    "get", "please", "tell", "look", "check", "see", "have",
-    # quality/context modifiers — appear in query intent but not in product listings
-    "best", "good", "home", "use",
-}
-
-
-def _score_answer_relevancy(message: str, response: str) -> float:
+def _llm_judge_eval(message: str, response: str,
+                    reference: str, expected: dict) -> dict[str, float]:
     """
-    Fraction of content-bearing message tokens that appear in the response.
-    Numbers are comma-normalized so '50000' matches '₹50,000'.
+    Groq LLM-as-judge for eval pipeline.
+    Uses llama-3.1-8b-instant — fast, cheap, already available via GROQ_API_KEY.
+    Falls back to heuristics if Groq is unavailable.
     """
-    msg_words = set(message.lower().split()) - _STOP
-    if not msg_words:
-        return 0.8
-    # strip commas only between digits so "50000" matches "50,000" without
-    # corrupting non-numeric text like "fast, reliable"
-    resp_lower = re.sub(r'(\d),(\d)', r'\1\2', response.lower())
-    hits = sum(1 for w in msg_words if w in resp_lower)
-    return round(min(hits / len(msg_words), 1.0), 4)
+    groq_api_key = os.getenv("GROQ_API_KEY", "")
+    if not groq_api_key or groq_api_key.startswith("test_"):
+        raise ValueError("No real GROQ_API_KEY available — using heuristics")
 
+    try:
+        from langchain_groq import ChatGroq
+    except ImportError:
+        raise ImportError("langchain_groq not installed")
 
-def _score_faithfulness(response: str, reference: str, expected: dict = None) -> float:
-    """
-    Mocked mode: word overlap between actual and reference response.
-    Live mode: keyword coverage from should_contain (reference is a stored fixture,
-    not a ground truth for real responses).
-    """
-    if LIVE_EVAL and expected:
-        return _score_task_completion(response, expected)
-    resp_words = set(response.lower().split()) - _STOP
-    ref_words  = set(reference.lower().split()) - _STOP
-    if not ref_words:
-        return 1.0
-    overlap = resp_words & ref_words
-    return round(min(len(overlap) / len(ref_words), 1.0), 4)
+    intent          = expected.get("intent", "unknown")
+    should_contain  = expected.get("should_contain", [])
 
+    keywords_str = ", ".join(should_contain)
+    prompt = f"""\
+You are an AI evaluation judge. Score the assistant response on 5 metrics.
 
-def _score_task_completion(response: str, expected: dict) -> float:
-    """Fraction of should_contain keywords present in the response."""
-    keywords = expected.get("should_contain", [])
-    if not keywords:
-        return 1.0
-    hits = sum(1 for kw in keywords if kw.lower() in response.lower())
-    return round(hits / len(keywords), 4)
+USER MESSAGE: {message}
+EXPECTED INTENT: {intent}
+EXPECTED KEYWORDS that should appear in the response: {keywords_str}
+REFERENCE RESPONSE (ground truth): {reference[:800]}
+ACTUAL RESPONSE TO EVALUATE: {response[:800]}
 
+Score each metric from 0.0 to 1.0 based on the actual response quality:
 
-def _score_correctness(response: str, expected: dict) -> float:
-    """
-    Correct intent: 1.0 if the response text aligns with expected intent keywords.
-    Uses same keyword check as task_completion but checks intent markers separately.
-    """
-    intent = expected.get("intent", "")
-    intent_markers = {
-        "product_query": ["recommend", "price", "rating", "₹", "brand", "product"],
-        "order_query":   ["order", "status", "delivered", "shipped", "ORD-", "tracking"],
-        "support_query": ["ticket", "policy", "refund", "sorry", "support", "apolog"],
-    }
-    markers = intent_markers.get(intent, [])
-    if not markers:
-        return 0.8
-    hits = sum(1 for m in markers if m.lower() in response.lower())
-    return round(hits / len(markers), 4)
+- answer_relevancy: Does the actual response directly address what the user asked? (high = relevant)
+- faithfulness: Is the actual response grounded in facts such as prices, ratings, order IDs, ticket IDs?
+- task_completion: Does the actual response contain the expected keywords ({keywords_str})?
+- correctness: Does the actual response match the expected intent ({intent}) and align with the reference?
+- hallucination_free: Did the agent avoid inventing facts? (1.0 = no hallucination, 0.0 = invented facts)
 
+Respond with ONLY a JSON object. Example format (fill in real scores, not these placeholder values):
+{{"answer_relevancy": <score>, "faithfulness": <score>, "task_completion": <score>, "correctness": <score>, "hallucination_free": <score>}}"""
 
-def _score_hallucination_free(
-    message: str, response: str, reference: str
-) -> float:
-    """
-    Detects whether the response invents specific facts not present in the
-    user's message or the reference (ground-truth) response.
+    llm    = ChatGroq(api_key=groq_api_key, model="llama-3.1-8b-instant", temperature=0)
+    result = llm.invoke(prompt)
+    raw    = result.content.strip()
 
-    Convention: 1.0 = no hallucination detected (good), 0.0 = hallucination (bad).
-    Same direction as all other metrics — higher is better.
+    if raw.startswith("```"):
+        raw = re.sub(r"^```[a-z]*\n?", "", raw)
+        raw = re.sub(r"\n?```$", "", raw)
 
-    Approach (rule-based, no LLM required):
-    ┌─────────────────────────────────────────────────────────────────┐
-    │  1. Extract specific factual entities from the actual response: │
-    │     • Order IDs  (ORD-XXXXXX-NNN)                              │
-    │     • Prices     (₹NNNN)                                       │
-    │     • Ticket IDs (8-char uppercase alphanumeric)               │
-    │     • Tracking numbers (carrier + digits)                      │
-    │                                                                 │
-    │  2. For each entity, check if it is "grounded" — i.e. it       │
-    │     appears in EITHER the user message OR the reference.       │
-    │     If it appears in neither, the agent invented it.           │
-    │                                                                 │
-    │  3. score = grounded_claims / total_claims                     │
-    │     (no specific claims → score = 1.0)                         │
-    └─────────────────────────────────────────────────────────────────┘
+    scores = json.loads(raw)
+    expected_keys = {"answer_relevancy", "faithfulness", "task_completion", "correctness", "hallucination_free"}
+    if not expected_keys.issubset(scores.keys()):
+        raise ValueError(f"Incomplete keys from LLM judge: {scores.keys()}")
 
-    In mocked mode, actual_output == reference, so every claim is
-    grounded and the score is always 1.0 (correct — the reference IS
-    the ground truth). In live mode, invented facts will drop the score.
-    """
-    grounding_pool = (message + " " + reference).upper()
-    claims: list[bool] = []
-
-    # ── 1. Order IDs (ORD-XXXXXX-NNN) ────────────────────────────────
-    # Example: ORD-620678-001
-    # Hallucination: responding with ORD-620678-002 when user asked about 001
-    for oid in re.findall(r"\bORD-[A-Z0-9]+-\d+\b", response, re.IGNORECASE):
-        claims.append(oid.upper() in grounding_pool)
-
-    # ── 2. Prices (₹NNNN) ────────────────────────────────────────────
-    # In live mode, prices come from the real database so they're always grounded.
-    # Only check prices against reference in mocked mode.
-    if not LIVE_EVAL:
-        for price in re.findall(r"₹[\d,]+(?:\.\d+)?", response):
-            claims.append(price in grounding_pool)
-
-    # ── 3. Ticket IDs (8 uppercase alphanumeric chars) ────────────────
-    # Only check ticket IDs when the response explicitly mentions "ticket"
-    # to avoid false positives from brand names and product codes in live mode
-    if "ticket" in response.lower():
-        for tid in re.findall(r"\b[A-Z0-9]{8}\b", response):
-            claims.append(tid in grounding_pool)
-
-    # ── 4. Format sanity (no LLM data without proper formatting) ─────
-    # If response mentions "price" but uses plain numbers instead of ₹,
-    # that's a sign of ungrounded/hallucinated price data.
-    if "price" in response.lower() and "₹" not in response:
-        # Penalty: response claims to give prices but uses no ₹ formatting
-        claims.append(False)
-
-    if not claims:
-        # No specific factual assertions found → nothing to hallucinate
-        return 1.0
-
-    grounded = sum(1 for c in claims if c)
-    return round(grounded / len(claims), 4)
+    return {k: round(max(0.0, min(1.0, float(scores[k]))), 4) for k in expected_keys}
 
 
 def score_case(message: str, response: str,
                reference: str, expected: dict) -> dict[str, float]:
-    return {
-        "answer_relevancy":   _score_answer_relevancy(message, response),
-        "faithfulness":       _score_faithfulness(response, reference, expected),
-        "task_completion":    _score_task_completion(response, expected),
-        "correctness":        _score_correctness(response, expected),
-        "hallucination_free": _score_hallucination_free(message, response, reference),
-    }
+    scores = _llm_judge_eval(message, response, reference, expected)
+    logger.info("    [scorer] Groq LLM judge")
+    return scores
 
 
 # ── Live API call ────────────────────────────────────────────────────────────────

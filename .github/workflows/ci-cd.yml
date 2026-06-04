@@ -228,12 +228,24 @@ jobs:
           git fetch origin
           git checkout ${{ github.sha }}
 
-      - name: Start minikube if not running
+      - name: Install k3d if missing
         run: |
-          if ! minikube status --format='{{.Host}}' 2>/dev/null | grep -q Running; then
-            minikube start --driver=docker
+          if ! command -v k3d &>/dev/null; then
+            curl -s https://raw.githubusercontent.com/k3d-io/k3d/main/install.sh | bash
           fi
-          minikube update-context
+          k3d version
+
+      - name: Start k3d cluster if not running
+        run: |
+          if ! k3d cluster list 2>/dev/null | grep -q "^ecommerce "; then
+            k3d cluster create ecommerce \
+              --servers 1 \
+              --agents 1 \
+              --wait
+          else
+            echo "Cluster already running — reusing"
+          fi
+          k3d kubeconfig merge ecommerce --kubeconfig-switch-context
 
       - name: Verify cluster access
         run: kubectl get nodes
@@ -257,13 +269,12 @@ jobs:
             --from-literal=postgres-password="${{ secrets.POSTGRES_PASSWORD }}" \
             --dry-run=client -o yaml | kubectl apply -f -
 
-      - name: Load image into minikube
+      - name: Pull and import image into k3d
         timeout-minutes: 5
         run: |
           echo "${{ secrets.DOCKER_PASSWORD }}" | docker login -u "${{ secrets.DOCKER_USERNAME }}" --password-stdin
-          eval $(minikube docker-env)
           docker pull ${{ env.IMAGE_NAME }}:${{ github.sha }}
-          docker tag ${{ env.IMAGE_NAME }}:${{ github.sha }} ecommerce-agent:${{ github.sha }}
+          k3d image import ${{ env.IMAGE_NAME }}:${{ github.sha }} --cluster ecommerce
 
       - name: Sync PostgreSQL password
         run: |
@@ -282,9 +293,9 @@ jobs:
             --namespace ecommerce \
             --values helm/values.yaml \
             --values helm/values-prod.yaml \
-            --set image.repository=ecommerce-agent \
+            --set image.repository=${{ env.IMAGE_NAME }} \
             --set image.tag=${{ github.sha }} \
-            --set image.pullPolicy=Never \
+            --set image.pullPolicy=IfNotPresent \
             --set replicaCount=1 \
             --timeout=300s
 
