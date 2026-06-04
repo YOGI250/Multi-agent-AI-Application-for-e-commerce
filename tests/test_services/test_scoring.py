@@ -4,10 +4,20 @@ import pytest
 from unittest.mock import patch, MagicMock
 
 
+_DUMMY_SCORES = {
+    "answer_relevancy": 0.8,
+    "faithfulness": 0.9,
+    "completeness": 0.7,
+    "task_completion": 0.8,
+    "hallucination": 0.1,
+}
+
+
 class TestScoreResponse:
 
     def test_score_product_agent(self):
-        with patch("langfuse_helpers.scoring.langfuse_client") as mock_lf:
+        with patch("langfuse_helpers.scoring.langfuse_client") as mock_lf, \
+             patch("langfuse_helpers.scoring._llm_judge", return_value=_DUMMY_SCORES):
             from langfuse_helpers.scoring import score_response
             score_response(
                 trace_id   = "trace_123",
@@ -18,7 +28,8 @@ class TestScoreResponse:
         assert mock_lf.create_score.called
 
     def test_score_order_agent(self):
-        with patch("langfuse_helpers.scoring.langfuse_client") as mock_lf:
+        with patch("langfuse_helpers.scoring.langfuse_client") as mock_lf, \
+             patch("langfuse_helpers.scoring._llm_judge", return_value=_DUMMY_SCORES):
             from langfuse_helpers.scoring import score_response
             score_response(
                 trace_id   = "trace_123",
@@ -29,7 +40,8 @@ class TestScoreResponse:
         assert mock_lf.create_score.called
 
     def test_score_support_agent(self):
-        with patch("langfuse_helpers.scoring.langfuse_client") as mock_lf:
+        with patch("langfuse_helpers.scoring.langfuse_client") as mock_lf, \
+             patch("langfuse_helpers.scoring._llm_judge", return_value=_DUMMY_SCORES):
             from langfuse_helpers.scoring import score_response
             score_response(
                 trace_id   = "trace_123",
@@ -40,7 +52,8 @@ class TestScoreResponse:
         assert mock_lf.create_score.called
 
     def test_score_access_control(self):
-        with patch("langfuse_helpers.scoring.langfuse_client") as mock_lf:
+        with patch("langfuse_helpers.scoring.langfuse_client") as mock_lf, \
+             patch("langfuse_helpers.scoring._llm_judge", return_value=_DUMMY_SCORES):
             from langfuse_helpers.scoring import score_response
             score_response(
                 trace_id   = "trace_123",
