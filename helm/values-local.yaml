@@ -12,6 +12,7 @@ postgres:
 
 langfuse:
   enabled: false
+  host: "https://cloud.langfuse.com"
 
 prometheus:
   enabled: false

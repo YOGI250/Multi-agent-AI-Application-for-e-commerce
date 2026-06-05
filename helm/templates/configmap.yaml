@@ -14,7 +14,7 @@ data:
   LLM_MODEL_NAME:               {{ .Values.app.llmModel | quote }}
   APP_HOST:                     "0.0.0.0"
   APP_PORT:                     "8000"
-  LANGFUSE_HOST:                "http://{{ .Release.Name }}-langfuse:{{ .Values.langfuse.port }}"
+  LANGFUSE_HOST:                {{ if .Values.langfuse.enabled }}"http://{{ .Release.Name }}-langfuse:{{ .Values.langfuse.port }}"{{ else }}{{ .Values.langfuse.host | default "https://cloud.langfuse.com" | quote }}{{ end }}
 
 ---
 {{- if .Values.prometheus.enabled }}
