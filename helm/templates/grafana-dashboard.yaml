@@ -85,11 +85,11 @@ data:
         },
         {
           "id": 4,
-          "title": "Error Count (5m window)",
+          "title": "Error Rate (per second)",
           "type": "timeseries",
           "gridPos": { "x": 12, "y": 8, "w": 12, "h": 8 },
           "targets": [{
-            "expr": "increase(chat_errors_total[5m]) or vector(0)",
+            "expr": "rate(chat_errors_total[5m])",
             "legendFormat": "{{ `{{error_type}}` }} / {{ `{{agent_used}}` }}"
           }]
         },
@@ -111,7 +111,7 @@ data:
           "datasource": { "type": "loki", "uid": "P8E80F9AEF21F6940" },
           "targets": [{
             "datasource": { "type": "loki", "uid": "P8E80F9AEF21F6940" },
-            "expr": "{namespace=\"ecommerce\"}",
+            "expr": "{namespace=\"ecommerce\", container=\"fastapi\"}",
             "legendFormat": ""
           }],
           "options": {

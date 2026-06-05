@@ -67,7 +67,20 @@ data:
             target_label: __path__
             replacement: /var/log/pods/*$1/*.log
         pipeline_stages:
-          - docker: {}
+          - cri: {}
+          - json:
+              expressions:
+                level:      levelname
+                logger:     name
+                agent_used: agent_used
+                session_id: session_id
+                request_id: request_id
+          - labels:
+              level:
+              logger:
+              agent_used:
+              session_id:
+              request_id:
 ---
 apiVersion: apps/v1
 kind: DaemonSet
