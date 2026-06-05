@@ -131,10 +131,36 @@ Respond with ONLY a JSON object. Example format (fill in real scores, not these 
     return {k: round(max(0.0, min(1.0, float(scores[k]))), 4) for k in expected_keys}
 
 
+def _heuristic_score(response: str, reference: str, expected: dict) -> dict[str, float]:
+    """Keyword + overlap heuristics used when no Groq key is available."""
+    should_contain = [kw.lower() for kw in expected.get("should_contain", [])]
+    resp_lower = response.lower()
+    ref_lower  = reference.lower()
+
+    kw_hits = sum(1 for kw in should_contain if kw in resp_lower)
+    task_completion = kw_hits / len(should_contain) if should_contain else 0.8
+
+    ref_words = set(ref_lower.split())
+    resp_words = set(resp_lower.split())
+    overlap = len(ref_words & resp_words) / len(ref_words) if ref_words else 0.5
+
+    return {
+        "answer_relevancy": min(1.0, round(overlap * 1.1, 4)),
+        "faithfulness":     round(overlap, 4),
+        "task_completion":  round(task_completion, 4),
+        "correctness":      round((overlap + task_completion) / 2, 4),
+        "hallucination_free": 0.8,
+    }
+
+
 def score_case(message: str, response: str,
                reference: str, expected: dict) -> dict[str, float]:
-    scores = _llm_judge_eval(message, response, reference, expected)
-    logger.info("    [scorer] Groq LLM judge")
+    try:
+        scores = _llm_judge_eval(message, response, reference, expected)
+        logger.info("    [scorer] Groq LLM judge")
+    except (ValueError, ImportError):
+        scores = _heuristic_score(response, reference, expected)
+        logger.info("    [scorer] heuristics (no Groq key)")
     return scores
 
 
