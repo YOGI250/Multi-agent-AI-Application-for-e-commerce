@@ -20,6 +20,12 @@ data:
         url: http://{{ .Release.Name }}-prometheus:{{ .Values.prometheus.port }}
         isDefault: true
         editable: false
+      - name: Loki
+        type: loki
+        uid: P8E80F9AEF21F6940
+        access: proxy
+        url: http://loki:3100
+        editable: false
 
 ---
 # ─────────────────────────────────────────────────────────────
@@ -96,6 +102,24 @@ data:
             "expr": "rate(llm_tokens_total[5m])",
             "legendFormat": "{{ `{{agent_used}}` }} - {{ `{{token_type}}` }}"
           }]
+        },
+        {
+          "id": 6,
+          "title": "Application Logs",
+          "type": "logs",
+          "gridPos": { "x": 0, "y": 24, "w": 24, "h": 10 },
+          "datasource": { "type": "loki", "uid": "P8E80F9AEF21F6940" },
+          "targets": [{
+            "datasource": { "type": "loki", "uid": "P8E80F9AEF21F6940" },
+            "expr": "{namespace=\"ecommerce\"}",
+            "legendFormat": ""
+          }],
+          "options": {
+            "showTime": true,
+            "showLabels": true,
+            "wrapLogMessage": true,
+            "sortOrder": "Descending"
+          }
         }
       ]
     }

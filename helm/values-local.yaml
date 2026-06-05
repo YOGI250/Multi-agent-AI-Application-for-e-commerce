@@ -15,7 +15,7 @@ langfuse:
   host: "https://cloud.langfuse.com"
 
 prometheus:
-  enabled: false
+  enabled: true
 
 grafana:
-  enabled: false
+  enabled: true

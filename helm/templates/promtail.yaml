@@ -45,35 +45,29 @@ data:
       - job_name: kubernetes-pods
         kubernetes_sd_configs:
           - role: pod
-            namespaces:
-              names: [{{ .Release.Namespace }}]
-        pipeline_stages:
-          - json:
-              expressions:
-                level:      levelname
-                logger:     name
-                agent_used: agent_used
-                session_id: session_id
-                request_id: request_id
-          - labels:
-              level:
-              logger:
-              agent_used:
-              session_id:
-              request_id:
         relabel_configs:
-          - source_labels: [__meta_kubernetes_pod_label_component]
-            target_label: component
-          - source_labels: [__meta_kubernetes_pod_name]
-            target_label: pod
+          - source_labels: [__meta_kubernetes_pod_node_name]
+            target_label: __host__
+          - source_labels: [__meta_kubernetes_namespace]
+            action: keep
+            regex: {{ .Release.Namespace }}
+          - source_labels: [__meta_kubernetes_pod_phase]
+            action: drop
+            regex: (Pending|Succeeded|Failed|Completed)
           - source_labels: [__meta_kubernetes_namespace]
             target_label: namespace
+          - source_labels: [__meta_kubernetes_pod_name]
+            target_label: pod
           - source_labels: [__meta_kubernetes_pod_container_name]
             target_label: container
-          - replacement: /var/log/pods/*$1*/*/*.log
+          - action: labelmap
+            regex: __meta_kubernetes_pod_label_(.+)
+          - source_labels: [__meta_kubernetes_pod_uid, __meta_kubernetes_pod_container_name]
             separator: /
-            source_labels: [__meta_kubernetes_pod_uid, __meta_kubernetes_pod_container_name]
             target_label: __path__
+            replacement: /var/log/pods/*$1/*.log
+        pipeline_stages:
+          - docker: {}
 ---
 apiVersion: apps/v1
 kind: DaemonSet
@@ -94,9 +88,14 @@ spec:
       serviceAccountName: {{ .Release.Name }}-promtail
       containers:
         - name: promtail
-          image: grafana/promtail:2.9.0
+          image: grafana/promtail:3.0.0
           args:
             - -config.file=/etc/promtail/promtail.yaml
+          env:
+            - name: HOSTNAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: spec.nodeName
           ports:
             - containerPort: 9080
           volumeMounts:
