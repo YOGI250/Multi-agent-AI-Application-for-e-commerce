@@ -34,6 +34,10 @@ prometheus:
 grafana:
   storage: 5Gi
 
+langfuse:
+  enabled: false
+  host: "https://cloud.langfuse.com"
+
 app:
   environment: production
   logLevel: WARNING
