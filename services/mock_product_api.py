@@ -20,8 +20,9 @@ def search_products(filters: dict) -> list:
     try:
         query = db.query(Product)
 
-        if filters.get("category"):
-            query = query.filter(Product.category.ilike(f"%{filters['category']}%"))
+        # category filter intentionally removed — LLM often assigns wrong category
+        # (e.g. keyboards → Electronics instead of Computers and Accessories),
+        # causing correct products to be excluded. product_type is precise enough.
 
         if filters.get("max_price"):
             query = query.filter(Product.price <= float(filters["max_price"]))
