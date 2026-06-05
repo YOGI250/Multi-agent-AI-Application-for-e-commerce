@@ -258,6 +258,11 @@ jobs:
             --from-literal=google-client-secret="${{ secrets.GOOGLE_CLIENT_SECRET }}" \
             --from-literal=postgres-password="${{ secrets.POSTGRES_PASSWORD }}" \
             --dry-run=client -o yaml | kubectl apply -f -
+          kubectl label secret ecommerce-secrets -n ecommerce \
+            app.kubernetes.io/managed-by=Helm --overwrite
+          kubectl annotate secret ecommerce-secrets -n ecommerce \
+            meta.helm.sh/release-name=ecommerce \
+            meta.helm.sh/release-namespace=ecommerce --overwrite
 
       - name: Pull and import image into k3d
         timeout-minutes: 5
