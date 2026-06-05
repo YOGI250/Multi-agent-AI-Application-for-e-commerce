@@ -298,6 +298,15 @@ jobs:
         id: smoke_test
         timeout-minutes: 5
         run: |
+          # Debug: show pod state before waiting
+          echo "=== Pod status before wait ==="
+          kubectl get pods -n ecommerce
+          echo "=== FastAPI pod describe ==="
+          kubectl describe pod -l component=fastapi -n ecommerce || true
+          echo "=== FastAPI pod logs ==="
+          kubectl logs -l component=fastapi -n ecommerce --tail=40 --previous 2>/dev/null || \
+            kubectl logs -l component=fastapi -n ecommerce --tail=40 2>/dev/null || true
+
           # Wait for the fastapi pod to be Running before port-forwarding
           kubectl wait pod \
             -l component=fastapi \
