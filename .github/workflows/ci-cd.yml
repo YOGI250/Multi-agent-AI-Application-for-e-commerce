@@ -294,6 +294,13 @@ jobs:
             --set replicaCount=1 \
             --timeout=300s
 
+      - name: Wait for PostgreSQL to be Ready
+        run: |
+          kubectl wait pod -l component=postgres \
+            --namespace=ecommerce \
+            --for=condition=Ready \
+            --timeout=120s
+
       - name: Smoke test — health check endpoint
         id: smoke_test
         timeout-minutes: 5
