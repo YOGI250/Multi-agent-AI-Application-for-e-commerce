@@ -296,17 +296,26 @@ jobs:
 
       - name: Smoke test — health check endpoint
         id: smoke_test
-        timeout-minutes: 3
+        timeout-minutes: 5
         run: |
-          # Port-forward to running pod and poll /health
+          # Wait for the fastapi pod to be Running before port-forwarding
+          kubectl wait pod \
+            -l component=fastapi \
+            --namespace=ecommerce \
+            --for=condition=Ready \
+            --timeout=240s
+
+          # Port-forward and poll /health
           kubectl port-forward svc/ecommerce-fastapi 8080:80 \
             --namespace=ecommerce &
           PF_PID=$!
+          sleep 3
+          HTTP_STATUS="000"
           for i in $(seq 1 20); do
-            sleep 3
             HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
               http://localhost:8080/health 2>/dev/null || echo "000")
             [ "$HTTP_STATUS" = "200" ] && break
+            sleep 3
           done
 
           kill $PF_PID 2>/dev/null || true
@@ -322,5 +331,5 @@ jobs:
         if: failure() && steps.smoke_test.outcome == 'failure'
         run: |
           echo "Rolling back to previous Helm release..."
-          helm rollback ecommerce --namespace=ecommerce
-          echo "Rollback complete"
+          helm rollback ecommerce --namespace=ecommerce || echo "No previous release to roll back to"
+          echo "Rollback step complete"
