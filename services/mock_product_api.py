@@ -109,6 +109,11 @@ def search_products(filters: dict) -> list:
         elif filters.get("keyword"):
             query = query.filter(Product.name.ilike(f"%{filters['keyword']}%"))
 
+        # Exclude 'other' from generic searches — these are products we don't sell
+        # (phones, TVs, calculators, etc.) intentionally classified out of search.
+        if not filters.get("product_type"):
+            query = query.filter(Product.product_type != "other")
+
         # order by rating descending — best products first
         query = query.order_by(Product.rating.desc().nullslast())
 

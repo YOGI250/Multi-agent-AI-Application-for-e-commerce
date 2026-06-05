@@ -106,6 +106,17 @@ NORMALISE: smartwatches→smartwatch | mice→mouse | earphones/earbuds→headph
 air purifier→air_purifier | laptops→laptop | fans→fan | irons→iron
 washers/washing machines→washing_machine | stands→stand | rams→ram | geysers→water_heater
 
+STRICT RULE — DO NOT APPROXIMATE:
+Only return a product_type if it is a genuine match. Do NOT map similar-sounding
+but different products:
+- television / TV / LED TV → return null (we do not sell TVs)
+- car / vehicle / bike → return null (we do not sell vehicles)
+- refrigerator / fridge → return null (we do not sell refrigerators)
+- air conditioner / AC → return null (we do not sell ACs)
+- mobile phone / smartphone → return null (we do not sell phones)
+- furniture / sofa / bed → return null (we do not sell furniture)
+If the user asks for any of these, set product_type to null.
+
 CATEGORIES: Electronics | Home and Kitchen | Computers and Accessories |
 OfficeProducts | HomeImprovement | MusicalInstruments | Car and Motorbike |
 Health and PersonalCare | Toys and Games
@@ -489,6 +500,11 @@ Rules:
   If the user asked for an air conditioner, do not return fans or air purifiers.
   If the user asked for a refrigerator, do not return water purifiers or coolers.
   If the user asked for furniture, do not return any electronics.
+  If the user asked for a television or TV, do not return monitors or displays.
+  If the user asked for a car or vehicle, do not return car chargers or accessories.
+  If the user asked for a phone or mobile, do not return phone cases or accessories.
+- Return [] if the user is asking for a product category that is fundamentally
+  different from what is listed, even if names partially overlap.
 - Return [] if none of the listed products are genuinely what the user asked for.
   When in doubt, return [].
 
@@ -623,24 +639,17 @@ def format_recommendations(state: ProductAgentState) -> ProductAgentState:
 
     if not products:
         state["response"] = (
-            f'I couldn\'t find any products matching "{message}".\n\n'
-            f"Here's what we currently have available:\n\n"
-            f"  -Computers & Accessories\n"
-            f"    laptops, keyboards, mice, mousepads, monitors, webcams,\n"
-            f"    cables, chargers, USB hubs, pendrives, SSDs, RAM,\n"
-            f"    hard disks, memory cards, routers, printers\n\n"
-            f"  -Electronics\n"
-            f"    headphones, speakers, smartwatches, cameras, tablets\n\n"
-            f"  -Home & Kitchen\n"
-            f"    fans, mixers, kettles, irons, geysers, vacuum cleaners,\n"
-            f"    room heaters, air purifiers, water purifiers, microwaves, trimmers\n\n"
-            f"  -Mobile Accessories\n"
-            f"    phone cases, chargers\n\n"
-            f"  -Office Products\n"
-            f"    pens, notebooks\n\n"
-            f"  -Other\n"
-            f"    stands, laptop bags, LED lights\n\n"
-            f"Try searching within one of these categories."
+            f'Sorry, "{message}" is not available in our catalog.\n\n'
+            f"We currently stock:\n"
+            f"  • Computers & Accessories — laptops, keyboards, mice, monitors,\n"
+            f"    webcams, cables, chargers, pendrives, SSDs, RAM, routers, printers\n\n"
+            f"  • Electronics — headphones, speakers, smartwatches, cameras, tablets\n\n"
+            f"  • Home & Kitchen — fans, mixers, kettles, irons, geysers,\n"
+            f"    vacuum cleaners, room heaters, air purifiers, water purifiers\n\n"
+            f"  • Mobile Accessories — phone cases, chargers\n\n"
+            f"  • Office — pens, notebooks\n\n"
+            f"  • Other — stands, laptop bags, LED lights\n\n"
+            f"Try searching for one of these!"
         )
         if span:
             end_span(span, {"response_type": "no_products"})
@@ -713,24 +722,17 @@ def no_results_response(state: ProductAgentState) -> ProductAgentState:
 
     original_query = state.get("message", "your request")
     state["response"] = (
-        f'I couldn\'t find any products matching "{original_query}".\n\n'
-        f"Here's what we currently have available:\n\n"
-        f"  -Computers & Accessories\n"
-        f"    laptops, keyboards, mice, mousepads, monitors, webcams,\n"
-        f"    cables, chargers, USB hubs, pendrives, SSDs, RAM,\n"
-        f"    hard disks, memory cards, routers, printers\n\n"
-        f"  -Electronics\n"
-        f"    headphones, speakers, smartwatches, cameras, tablets\n\n"
-        f"  -Home & Kitchen\n"
-        f"    fans, mixers, kettles, irons, geysers, vacuum cleaners,\n"
-        f"    room heaters, air purifiers, water purifiers, microwaves, trimmers\n\n"
-        f"  -Mobile Accessories\n"
-        f"    phone cases, chargers\n\n"
-        f"  -Office Products\n"
-        f"    pens, notebooks\n\n"
-        f"  -Other\n"
-        f"    stands, laptop bags, LED lights\n\n"
-        f"Try searching within one of these categories."
+        f'Sorry, "{original_query}" is not available in our catalog.\n\n'
+        f"We currently stock:\n"
+        f"  • Computers & Accessories — laptops, keyboards, mice, monitors,\n"
+        f"    webcams, cables, chargers, pendrives, SSDs, RAM, routers, printers\n\n"
+        f"  • Electronics — headphones, speakers, smartwatches, cameras, tablets\n\n"
+        f"  • Home & Kitchen — fans, mixers, kettles, irons, geysers,\n"
+        f"    vacuum cleaners, room heaters, air purifiers, water purifiers\n\n"
+        f"  • Mobile Accessories — phone cases, chargers\n\n"
+        f"  • Office — pens, notebooks\n\n"
+        f"  • Other — stands, laptop bags, LED lights\n\n"
+        f"Try searching for one of these!"
     )
 
     if span:
