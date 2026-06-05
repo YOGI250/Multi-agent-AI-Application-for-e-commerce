@@ -25,8 +25,7 @@ eval/
 .pytest_cache/
 .deepeval/
 
-# Data (one-time import scripts only)
-data/
+# data/ included — CSV files needed for DB seeding on first start
 
 # Helm / infra
 helm/

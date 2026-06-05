@@ -7,7 +7,7 @@ import re
 import logging
 from datetime import datetime, timedelta, date
 from database.connection import SessionLocal
-from database.models import Product, Order, CarrierTracking
+from database.models import Product, Order, CarrierTracking, User
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -497,6 +497,11 @@ def run_import():
 
     db = SessionLocal()
     try:
+        if not db.query(User).filter(User.user_id == DEMO_USER_ID).first():
+            db.add(User(user_id=DEMO_USER_ID, email="demo@example.com", name="Demo User"))
+            db.commit()
+            logger.info(f"Created demo user: {DEMO_USER_ID}")
+
         products_count = import_products(db)
         orders_count = import_orders(db)
         seed_policies(db)

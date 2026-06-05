@@ -1,0 +1,20 @@
+# helm/values-local.yaml — lightweight config for local kind deployment
+# Disables heavy services (Langfuse, Prometheus, Grafana) to save RAM
+
+image:
+  repository: ecommerce-agent
+  tag: latest
+  pullPolicy: Never
+
+postgres:
+  enabled: true
+  storage: 1Gi
+
+langfuse:
+  enabled: false
+
+prometheus:
+  enabled: false
+
+grafana:
+  enabled: false
