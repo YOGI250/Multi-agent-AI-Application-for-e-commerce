@@ -73,6 +73,8 @@ spec:
                 secretKeyRef:
                   name: {{ .Values.secretName }}
                   key: langfuse-salt
+            - name: LANGFUSE_HOST
+              value: {{ .Values.langfuse.host | default "https://cloud.langfuse.com" | quote }}
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
           livenessProbe:
