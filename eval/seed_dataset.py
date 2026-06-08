@@ -28,17 +28,29 @@ def seed():
     except Exception as e:
         logger.info(f"Dataset already exists or error: {e}")
 
-    # create items
+    # create items — skip if a matching message already exists (idempotent)
+    try:
+        existing = langfuse_client.get_dataset(dataset_name)
+        existing_messages = {it.input.get("message", "") for it in existing.items}
+    except Exception:
+        existing_messages = set()
+
+    added = 0
     for i, item in enumerate(items):
+        msg = item["input"].get("message", "")
+        if msg in existing_messages:
+            logger.info(f"  Item {i+1}/{len(items)} already exists — skipping")
+            continue
         langfuse_client.create_dataset_item(
             dataset_name    = dataset_name,
             input           = item["input"],
             expected_output = item["expected_output"]
         )
-        logger.info(f"  Item {i+1}/5 added: {item['input']['message'][:50]}")
+        logger.info(f"  Item {i+1}/{len(items)} added: {msg[:50]}")
+        added += 1
 
     flush()
-    logger.info(f"Done — {len(items)} items in '{dataset_name}'")
+    logger.info(f"Done — {added} new items added to '{dataset_name}'")
 
 
 if __name__ == "__main__":
