@@ -24,10 +24,16 @@ logger = logging.getLogger(__name__)
 
 def seed():
     from database.connection import SessionLocal
-    from database.models import User, Order, CarrierTracking
+    from database.models import User, Order, CarrierTracking, SupportTicket
 
     db = SessionLocal()
     try:
+        # ── clear stale support tickets so eval always starts from a clean state ──
+        deleted = db.query(SupportTicket).filter(SupportTicket.user_id == "eval_guest_001").delete()
+        db.commit()
+        if deleted:
+            logger.info(f"Cleared {deleted} stale support ticket(s) for eval_guest_001")
+
         # ── eval_guest_001 user ───────────────────────────────────────────────
         if not db.query(User).filter(User.user_id == "eval_guest_001").first():
             db.add(User(

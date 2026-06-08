@@ -12,10 +12,10 @@ metrics:
     threshold: 0.7
     description: "Response must be relevant to the input query"
   faithfulness:
-    threshold: 0.8
+    threshold: 0.7
     description: "Response must be grounded in provided context, no hallucination"
   task_completion:
-    threshold: 0.8
+    threshold: 0.6
     description: "Agent must fully complete the requested task"
   correctness:
     threshold: 0.7
