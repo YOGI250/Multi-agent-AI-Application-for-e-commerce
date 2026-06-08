@@ -3,8 +3,9 @@
 eval/run_eval.py — CI/CD Stage 3: LLM Evaluation Runner
 
 Modes:
-  default (mocked): runs the real product_agent graph with patched LLM calls
-                    and patched DB tool calls — deterministic, no network I/O.
+  default (direct): runs the real agent graph with real LLM calls and real
+                    DB calls. Only input data is predefined in dataset.json.
+                    Requires a seeded PostgreSQL database (eval/seed_eval_db.py).
   RUN_LIVE_EVAL=true: calls the live FastAPI endpoint for actual responses.
 
 Scoring:
@@ -26,8 +27,6 @@ import subprocess
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
-from unittest.mock import MagicMock, patch
-
 import requests
 import yaml
 
@@ -203,7 +202,7 @@ You are an AI evaluation judge. Score the assistant response on 5 metrics.
 USER MESSAGE: {message}
 EXPECTED INTENT: {intent}
 EXPECTED KEYWORDS that should appear in the response: {keywords_str}
-REFERENCE RESPONSE (ground truth): {reference[:800]}
+REFERENCE EXPECTATION: {reference[:800]}
 ACTUAL RESPONSE TO EVALUATE: {response[:800]}
 
 Score each metric from 0.0 to 1.0 based on the actual response quality:
@@ -272,131 +271,54 @@ def score_case(message: str, response: str, reference: str, expected: dict) -> d
     return scores
 
 
-# ── Mocked agent runner ──────────────────────────────────────────────────────────
+# ── Agent runners (real LLM + real DB calls) ────────────────────────────────────
 
 
-class SequentialMockLLM:
-    """
-    Replaces ChatGroq during mocked eval. Returns fixture strings in call order.
-    product_agent makes exactly 2 LLM calls per product query:
-      call 1 — extract_preferences  → JSON filter object
-      call 2 — rank_and_filter      → JSON index array e.g. [1, 2, 3]
-    """
-
-    def __init__(self, fixtures: list):
-        self._fixtures = list(fixtures)
-        self._idx = 0
-
-    def invoke(self, *args, **kwargs):
-        if self._idx >= len(self._fixtures):
-            raise RuntimeError(
-                f"Unexpected LLM call #{self._idx + 1}: " f"only {len(self._fixtures)} fixtures defined for this sample"
-            )
-        content = self._fixtures[self._idx]
-        self._idx += 1
-        resp = MagicMock()
-        resp.content = content
-        resp.usage_metadata = {
-            "input_tokens": 50,
-            "output_tokens": 30,
-            "total_tokens": 80,
-        }
-        return resp
-
-
-def run_with_mocks(
-    message: str,
-    llm_fixtures: list,
-    search_results: list,
-    user_id: str = "eval_guest_001",
-) -> str:
-    """Run product_agent with mocked LLM + tool calls."""
+def run_product_agent(message: str, user_id: str = "eval_guest_001") -> str:
+    """Invoke product_agent with real LLM and real DB tool calls."""
     from agents.product_agent import product_agent as _pa
 
-    mock_llm = SequentialMockLLM(llm_fixtures)
-    with patch("agents.product_agent.ChatGroq", return_value=mock_llm), patch(
-        "tools.product_tools.search_products", return_value=search_results
-    ), patch("tools.product_tools.get_specs", return_value={}):
-        result = _pa.invoke(
-            {
-                "message": message,
-                "user_id": user_id,
-                "session_id": "eval_session_001",
-                "history": [],
-                "session_context": {},
-                "langfuse_trace_id": None,
-                "langfuse_parent_span_id": None,
-            }
-        )
+    result = _pa.invoke({
+        "message": message,
+        "user_id": user_id,
+        "session_id": "eval_session_001",
+        "history": [],
+        "session_context": {},
+        "langfuse_trace_id": None,
+        "langfuse_parent_span_id": None,
+    })
     return result.get("response", "")
 
 
-def run_with_mocks_order(
-    message: str,
-    llm_fixtures: list,
-    order_data: dict,
-    tracking_data: dict,
-    user_id: str = "eval_guest_001",
-) -> str:
-    """Run order_agent with mocked LLM + tool calls.
-    LLM calls: analyze_order_status (fixture 0), generate_response (fixture 1).
-    user_id must match order_data["user_id"] — process_order_result validates ownership.
-    """
+def run_order_agent(message: str, user_id: str = "eval_guest_001") -> str:
+    """Invoke order_agent with real LLM and real DB tool calls."""
     from agents.order_agent import order_agent as _oa
 
-    mock_llm = SequentialMockLLM(llm_fixtures)
-    with patch("agents.order_agent.ChatGroq", return_value=mock_llm), patch(
-        "tools.order_tools.get_order", return_value=order_data
-    ), patch(
-        "tools.order_tools.get_tracking",
-        return_value=tracking_data if tracking_data else None,
-    ):
-        result = _oa.invoke(
-            {
-                "message": message,
-                "user_id": user_id,
-                "session_id": "eval_session_001",
-                "history": [],
-                "session_context": {},
-                "langfuse_trace_id": None,
-                "langfuse_parent_span_id": None,
-            }
-        )
+    result = _oa.invoke({
+        "message": message,
+        "user_id": user_id,
+        "session_id": "eval_session_001",
+        "history": [],
+        "session_context": {},
+        "langfuse_trace_id": None,
+        "langfuse_parent_span_id": None,
+    })
     return result.get("response", "")
 
 
-def run_with_mocks_support(message: str, llm_fixtures: list, policy_data: dict, user_id: str = "eval_guest_001") -> str:
-    """Run support_agent with mocked LLM + tool calls.
-    LLM calls: classify_issue (fixture 0), draft_resolution (fixture 1).
-    assess_severity queries DB directly — has try/except so DB failure is safe.
-    """
+def run_support_agent(message: str, user_id: str = "eval_guest_001") -> str:
+    """Invoke support_agent with real LLM and real DB tool calls."""
     from agents.support_agent import support_agent as _sa
 
-    mock_llm = SequentialMockLLM(llm_fixtures)
-    with patch("agents.support_agent.ChatGroq", return_value=mock_llm), patch(
-        "tools.support_tools.get_policy", return_value=policy_data
-    ), patch(
-        "tools.support_tools.get_user_complaint_history",
-        return_value={
-            "existing_ticket_id": None,
-            "is_duplicate": False,
-            "days_open": 0,
-        },
-    ), patch(
-        "tools.support_tools.create_ticket",
-        return_value={"ticket_id": "eval_ticket_001", "status": "created"},
-    ):
-        result = _sa.invoke(
-            {
-                "message": message,
-                "user_id": user_id,
-                "session_id": "eval_session_001",
-                "history": [],
-                "session_context": {},
-                "langfuse_trace_id": None,
-                "langfuse_parent_span_id": None,
-            }
-        )
+    result = _sa.invoke({
+        "message": message,
+        "user_id": user_id,
+        "session_id": "eval_session_001",
+        "history": [],
+        "session_context": {},
+        "langfuse_trace_id": None,
+        "langfuse_parent_span_id": None,
+    })
     return result.get("response", "")
 
 
@@ -420,7 +342,7 @@ def call_live_api(message: str, user_id: str) -> str:
 
 
 def run_evaluation() -> tuple[list[dict], dict[str, float], bool]:
-    mode = "LIVE" if LIVE_EVAL else "MOCKED"
+    mode = "LIVE" if LIVE_EVAL else "DIRECT"
     logger.info(f"Starting evaluation | mode={mode} | samples={len(dataset)}")
     logger.info(f"git_sha={GIT_SHA[:8]} | branch={GIT_BRANCH}")
 
@@ -430,7 +352,11 @@ def run_evaluation() -> tuple[list[dict], dict[str, float], bool]:
         message = case["input"]["message"]
         user_id = case["input"].get("user_id", EVAL_USER)
         expected = case["expected_output"]
-        reference = case["mocked_response"]
+        should_contain = expected.get("should_contain", [])
+        reference = (
+            f"A helpful response about {expected.get('intent', 'the query')} "
+            f"that mentions: {', '.join(should_contain)}"
+        )
 
         logger.info(f"  [{i+1}/{len(dataset)}] {message[:60]}")
 
@@ -441,35 +367,18 @@ def run_evaluation() -> tuple[list[dict], dict[str, float], bool]:
                 continue
         else:
             agent_type = case.get("agent", "product_agent")
-            llm_fixtures = case.get("llm_fixtures", [])
             try:
                 if agent_type == "order_agent":
-                    actual_output = run_with_mocks_order(
-                        message,
-                        llm_fixtures,
-                        case.get("order_data", {}),
-                        case.get("tracking_data", {}),
-                        user_id=user_id,
-                    )
+                    actual_output = run_order_agent(message, user_id=user_id)
                 elif agent_type == "support_agent":
-                    actual_output = run_with_mocks_support(
-                        message,
-                        llm_fixtures,
-                        case.get("policy_data", {}),
-                        user_id=user_id,
-                    )
+                    actual_output = run_support_agent(message, user_id=user_id)
                 else:
-                    actual_output = run_with_mocks(
-                        message,
-                        llm_fixtures,
-                        case.get("search_results", []),
-                        user_id=user_id,
-                    )
+                    actual_output = run_product_agent(message, user_id=user_id)
             except Exception as e:
                 logger.error(f"    Agent run failed: {e}")
                 continue
             if not actual_output:
-                logger.warning("    Empty response from mocked agent — skipping sample")
+                logger.warning("    Empty response from agent — skipping sample")
                 continue
             logger.info(f"    [{agent_type}] produced {len(actual_output)} chars of output")
 
@@ -521,7 +430,7 @@ def generate_json_report(per_sample, averages, overall_pass) -> Path:
         "git_commit_sha": GIT_SHA,
         "branch_name": GIT_BRANCH,
         "total_samples": len(per_sample),
-        "mode": "live" if LIVE_EVAL else "mocked",
+        "mode": "live" if LIVE_EVAL else "direct",
         "per_metric_averages": averages,
         "thresholds": THRESHOLDS,
         "per_sample_scores": per_sample,
@@ -619,7 +528,7 @@ def generate_html_report(per_sample, averages, overall_pass) -> Path:
   Commit: <code>{GIT_SHA[:8]}</code> &nbsp;|&nbsp;
   Branch: <code>{GIT_BRANCH}</code> &nbsp;|&nbsp;
   Samples: {len(per_sample)} &nbsp;|&nbsp;
-  Mode: {"LIVE" if LIVE_EVAL else "MOCKED"}
+  Mode: {"LIVE" if LIVE_EVAL else "DIRECT"}
 </p>
 
 <h2>Overall Result: <span class="badge {badge_cls}">{badge_txt}</span></h2>
@@ -677,10 +586,10 @@ def push_report_to_langfuse(json_path: Path, per_sample: list, overall_pass: boo
             logger.warning(f"LangFuse: could not fetch dataset '{dataset_name}': {e}")
             return
 
-        # Build lookup: message → pre-computed result from mocked eval
+        # Build lookup: message → pre-computed result from agent eval
         result_by_message: dict = {s["message"]: s for s in per_sample}
 
-        # Task function — returns the pre-computed mocked agent output for each item
+        # Task function — returns the agent-generated output for each item
         def task(*, item, **kwargs):
             msg = item.input.get("message", "") if hasattr(item, "input") else item.get("input", {}).get("message", "")
             return result_by_message.get(msg, {}).get("actual_output", "")
@@ -701,7 +610,7 @@ def push_report_to_langfuse(json_path: Path, per_sample: list, overall_pass: boo
             data=dataset_items,
             task=task,
             evaluators=evaluators,
-            metadata={"git_sha": GIT_SHA, "branch": GIT_BRANCH, "overall_pass": str(overall_pass), "mode": "mocked"},
+            metadata={"git_sha": GIT_SHA, "branch": GIT_BRANCH, "overall_pass": str(overall_pass), "mode": "direct"},
         )
 
         lf.flush()
