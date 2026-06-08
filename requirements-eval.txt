@@ -3,4 +3,4 @@
 # Install with: pip install -r requirements-eval.txt
 # These are NOT included in the Docker image (conflict with langfuse grpcio)
 # ==================================================
-deepeval==2.0.5
+deepeval==4.0.5
