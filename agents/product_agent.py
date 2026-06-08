@@ -44,6 +44,8 @@ class ProductAgentState(TypedDict):
     langfuse_trace_id: Optional[str]
     langfuse_parent_span_id: Optional[str]
     langfuse_final_generation_id: Optional[str]
+    total_input_tokens: Optional[int]
+    total_output_tokens: Optional[int]
     messages: Optional[List[Any]]
 
 

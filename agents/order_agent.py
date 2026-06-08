@@ -42,6 +42,8 @@ class OrderAgentState(TypedDict):
     langfuse_trace_id: Optional[str]
     langfuse_parent_span_id: Optional[str]
     langfuse_final_generation_id: Optional[str]
+    total_input_tokens: Optional[int]
+    total_output_tokens: Optional[int]
     all_orders: Optional[list]
     show_all_orders: Optional[bool]
     messages: Optional[List[Any]]
