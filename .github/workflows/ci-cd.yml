@@ -112,11 +112,9 @@ jobs:
     needs: test
 
     env:
+      # Agent LLM calls are mocked — test key keeps CI deterministic and free
       GROQ_API_KEY:            test_groq_key
       DATABASE_URL:            postgresql://test:test@localhost:5432/test_db
-      LANGFUSE_SECRET_KEY:     test_secret
-      LANGFUSE_PUBLIC_KEY:     test_public
-      LANGFUSE_HOST:           http://localhost:3000
       GOOGLE_CLIENT_ID:        test_client_id
       POSTGRES_USER:           test
       POSTGRES_PASSWORD:       test
@@ -124,6 +122,10 @@ jobs:
       GRAFANA_ADMIN_PASSWORD:  admin
       LANGFUSE_NEXTAUTH_SECRET: test_secret
       LANGFUSE_SALT:           test_salt
+      # Real LangFuse cloud credentials — eval results visible in UI after every push
+      LANGFUSE_SECRET_KEY:     ${{ secrets.LANGFUSE_SECRET_KEY }}
+      LANGFUSE_PUBLIC_KEY:     ${{ secrets.LANGFUSE_PUBLIC_KEY }}
+      LANGFUSE_HOST:           https://cloud.langfuse.com
       # Set RUN_LIVE_EVAL=true in a scheduled workflow for live runs
       RUN_LIVE_EVAL:           "false"
 
@@ -142,12 +144,16 @@ jobs:
           pip install -r requirements.txt
           pip install -r requirements-eval.txt
 
+      - name: Seed LangFuse dataset (idempotent — skips if already exists)
+        run: python eval/seed_dataset.py
+        continue-on-error: true
+
       - name: Run LLM evaluation (mocked responses)
         run: python eval/run_eval.py
 
       - name: Upload evaluation reports
         uses: actions/upload-artifact@v4
-        if: always()   # upload even on failure so reports are available for review
+        if: always()
         with:
           name: eval-reports
           path: eval/reports/

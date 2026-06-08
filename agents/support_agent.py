@@ -82,14 +82,9 @@ def classify_issue(state: SupportAgentState) -> SupportAgentState:
 Classify the customer complaint and extract key details.
 
 FOLLOW-UP DETECTION:
-If current message has no clear issue_type but history shows a recent support interaction:
-- "how much time" / "when will it be resolved" → general_query about existing ticket
-- "any update" / "what happened" → general_query about existing ticket
-- "still not resolved" → use same issue_type as previous complaint
-
-Examples:
-- History: "my item is damaged, ticket created" → current: "how much time will it take"
-  → issue_type="general_query", use existing ticket from history
+If the current message has no clear issue but history shows a recent support interaction,
+treat it as a general_query about that existing interaction. If the user says the issue
+is still unresolved, reuse the same issue_type from history.
 
 Session context: {context_str}
 {order_hint}Recent messages:

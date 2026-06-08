@@ -1,57 +1,757 @@
 [
   {
+    "agent": "product_agent",
     "input": {
       "message": "show me laptops under 50000",
       "user_id": "eval_guest_001"
     },
     "expected_output": {
       "intent": "product_query",
-      "should_contain": ["laptop", "price", "rating"]
+      "should_contain": [
+        "laptop",
+        "price",
+        "rating"
+      ]
     },
-    "mocked_response": "Here are my top recommendations for laptops under ₹50,000:\n\n1. HP 15s Laptop\n   Price  : ₹42,999\n   Rating : 4.3 ⭐ (1,234 reviews)\n   Brand  : HP\n   Features:\n   • Intel Core i5 processor\n   • 8GB RAM, 512GB SSD\n\n2. Lenovo IdeaPad Slim 3\n   Price  : ₹38,999\n   Rating : 4.2 ⭐ (987 reviews)\n   Brand  : Lenovo\n\n3. ASUS VivoBook 15\n   Price  : ₹45,499\n   Rating : 4.4 ⭐ (756 reviews)\n   Brand  : ASUS\n\n...and 3 more products available."
+    "mocked_response": "Here are my top recommendations for \"show me laptops under 50000\":\n\n1. HP 15s Laptop\n   Price  : \u20b942999.0\n   Rating : 4.3 \u2b50 (1,234 reviews)\n   Brand  : HP\n\n2. Lenovo IdeaPad Slim 3\n   Price  : \u20b938999.0\n   Rating : 4.2 \u2b50 (987 reviews)\n   Brand  : Lenovo\n\n3. ASUS VivoBook 15\n   Price  : \u20b945499.0\n   Rating : 4.4 \u2b50 (756 reviews)\n   Brand  : ASUS\n",
+    "llm_fixtures": [
+      "{\"category\": \"Computers and Accessories\", \"keyword\": \"laptop\", \"max_price\": 50000, \"min_price\": null, \"brand\": null, \"min_rating\": null}",
+      "[1, 2, 3]"
+    ],
+    "search_results": [
+      {
+        "product_id": "eval_p001",
+        "name": "HP 15s Laptop",
+        "price": 42999.0,
+        "actual_price": 47999.0,
+        "discount_percent": 10.4,
+        "brand": "HP",
+        "rating": 4.3,
+        "rating_count": 1234,
+        "category": "Computers and Accessories",
+        "in_stock": true,
+        "description": "Intel Core i5, 8GB RAM, 512GB SSD",
+        "features": [
+          "Intel Core i5 processor",
+          "8GB RAM, 512GB SSD"
+        ],
+        "product_type": "laptop"
+      },
+      {
+        "product_id": "eval_p002",
+        "name": "Lenovo IdeaPad Slim 3",
+        "price": 38999.0,
+        "actual_price": 43999.0,
+        "discount_percent": 11.4,
+        "brand": "Lenovo",
+        "rating": 4.2,
+        "rating_count": 987,
+        "category": "Computers and Accessories",
+        "in_stock": true,
+        "description": "AMD Ryzen 5, 8GB RAM, 256GB SSD",
+        "features": [
+          "AMD Ryzen 5 processor",
+          "8GB RAM, 256GB SSD"
+        ],
+        "product_type": "laptop"
+      },
+      {
+        "product_id": "eval_p003",
+        "name": "ASUS VivoBook 15",
+        "price": 45499.0,
+        "actual_price": 51999.0,
+        "discount_percent": 12.5,
+        "brand": "ASUS",
+        "rating": 4.4,
+        "rating_count": 756,
+        "category": "Computers and Accessories",
+        "in_stock": true,
+        "description": "Intel Core i5, 16GB RAM, 512GB SSD",
+        "features": [
+          "Intel Core i5 processor",
+          "16GB RAM, 512GB SSD"
+        ],
+        "product_type": "laptop"
+      }
+    ]
   },
   {
+    "agent": "product_agent",
     "input": {
       "message": "I need a wireless mouse with good reviews",
       "user_id": "eval_guest_001"
     },
     "expected_output": {
       "intent": "product_query",
-      "should_contain": ["mouse", "rating", "brand"]
+      "should_contain": [
+        "mouse",
+        "rating",
+        "brand"
+      ]
     },
-    "mocked_response": "Here are my top recommendations for wireless mouse:\n\n1. Logitech M331 Silent Plus Wireless Mouse\n   Price  : ₹1,295\n   Rating : 4.6 ⭐ (12,375 reviews)\n   Brand  : Logitech\n   Features:\n   • Silent click technology\n   • 24-month battery life\n\n2. Logitech Pebble M350\n   Price  : ₹1,490\n   Rating : 4.6 ⭐ (10,652 reviews)\n   Brand  : Logitech\n\n3. Amazon Basics Wireless Mouse\n   Price  : ₹499\n   Rating : 4.2 ⭐ (3,456 reviews)\n   Brand  : Amazon\n\n...and 2 more products available."
+    "mocked_response": "Here are my top recommendations for \"I need a wireless mouse with good reviews\":\n\n1. Logitech M331 Silent Plus\n   Price  : \u20b91295.0\n   Rating : 4.6 \u2b50 (12,375 reviews)\n   Brand  : Logitech\n\n2. Logitech Pebble M350\n   Price  : \u20b91490.0\n   Rating : 4.6 \u2b50 (10,652 reviews)\n   Brand  : Logitech\n\n3. Amazon Basics Wireless Mouse\n   Price  : \u20b9499.0\n   Rating : 4.2 \u2b50 (3,456 reviews)\n   Brand  : Amazon\n",
+    "llm_fixtures": [
+      "{\"category\": \"Computers and Accessories\", \"keyword\": \"mouse\", \"max_price\": null, \"min_price\": null, \"brand\": null, \"min_rating\": 4.0}",
+      "[1, 2, 3]"
+    ],
+    "search_results": [
+      {
+        "product_id": "eval_p004",
+        "name": "Logitech M331 Silent Plus",
+        "price": 1295.0,
+        "actual_price": 1695.0,
+        "discount_percent": 23.6,
+        "brand": "Logitech",
+        "rating": 4.6,
+        "rating_count": 12375,
+        "category": "Computers and Accessories",
+        "in_stock": true,
+        "description": "Silent wireless mouse with 24-month battery",
+        "features": [
+          "Silent click technology",
+          "24-month battery life"
+        ],
+        "product_type": "mouse"
+      },
+      {
+        "product_id": "eval_p005",
+        "name": "Logitech Pebble M350",
+        "price": 1490.0,
+        "actual_price": 1995.0,
+        "discount_percent": 25.3,
+        "brand": "Logitech",
+        "rating": 4.6,
+        "rating_count": 10652,
+        "category": "Computers and Accessories",
+        "in_stock": true,
+        "description": "Ultra-slim wireless mouse",
+        "features": [
+          "Ultra-slim design",
+          "Bluetooth and USB receiver"
+        ],
+        "product_type": "mouse"
+      },
+      {
+        "product_id": "eval_p006",
+        "name": "Amazon Basics Wireless Mouse",
+        "price": 499.0,
+        "actual_price": 699.0,
+        "discount_percent": 28.6,
+        "brand": "Amazon",
+        "rating": 4.2,
+        "rating_count": 3456,
+        "category": "Computers and Accessories",
+        "in_stock": true,
+        "description": "2.4 GHz wireless mouse",
+        "features": [
+          "2.4 GHz wireless",
+          "12-month battery life"
+        ],
+        "product_type": "mouse"
+      }
+    ]
   },
   {
+    "agent": "product_agent",
     "input": {
       "message": "show me headphones under 2000",
       "user_id": "eval_guest_001"
     },
     "expected_output": {
       "intent": "product_query",
-      "should_contain": ["headphones", "price", "rating"]
+      "should_contain": [
+        "headphones",
+        "price",
+        "rating"
+      ]
     },
-    "mocked_response": "Here are my top recommendations for headphones under ₹2,000:\n\n1. boAt Rockerz 450\n   Price  : ₹1,299\n   Rating : 4.1 ⭐ (45,230 reviews)\n   Brand  : boAt\n   Features:\n   • 15 hours playback\n   • Bluetooth 5.0\n\n2. Sony WH-CH510\n   Price  : ₹1,799\n   Rating : 4.3 ⭐ (12,456 reviews)\n   Brand  : Sony\n\n3. JBL Tune 500BT\n   Price  : ₹1,649\n   Rating : 4.2 ⭐ (8,932 reviews)\n   Brand  : JBL\n\n...and 4 more products available."
+    "mocked_response": "Here are my top recommendations for \"show me headphones under 2000\":\n\n1. boAt Rockerz 450\n   Price  : \u20b91299.0\n   Rating : 4.1 \u2b50 (45,230 reviews)\n   Brand  : boAt\n\n2. Sony WH-CH510\n   Price  : \u20b91799.0\n   Rating : 4.3 \u2b50 (12,456 reviews)\n   Brand  : Sony\n\n3. JBL Tune 500BT\n   Price  : \u20b91649.0\n   Rating : 4.2 \u2b50 (8,932 reviews)\n   Brand  : JBL\n",
+    "llm_fixtures": [
+      "{\"category\": \"Electronics\", \"keyword\": \"headphones\", \"max_price\": 2000, \"min_price\": null, \"brand\": null, \"min_rating\": null}",
+      "[1, 2, 3]"
+    ],
+    "search_results": [
+      {
+        "product_id": "eval_p007",
+        "name": "boAt Rockerz 450",
+        "price": 1299.0,
+        "actual_price": 2999.0,
+        "discount_percent": 56.7,
+        "brand": "boAt",
+        "rating": 4.1,
+        "rating_count": 45230,
+        "category": "Electronics",
+        "in_stock": true,
+        "description": "Wireless on-ear headphones",
+        "features": [
+          "15 hours playback",
+          "Bluetooth 5.0"
+        ],
+        "product_type": "headphones"
+      },
+      {
+        "product_id": "eval_p008",
+        "name": "Sony WH-CH510",
+        "price": 1799.0,
+        "actual_price": 3490.0,
+        "discount_percent": 48.4,
+        "brand": "Sony",
+        "rating": 4.3,
+        "rating_count": 12456,
+        "category": "Electronics",
+        "in_stock": true,
+        "description": "Wireless headphones 35h battery",
+        "features": [
+          "35 hours battery life",
+          "Foldable design"
+        ],
+        "product_type": "headphones"
+      },
+      {
+        "product_id": "eval_p009",
+        "name": "JBL Tune 500BT",
+        "price": 1649.0,
+        "actual_price": 2999.0,
+        "discount_percent": 45.0,
+        "brand": "JBL",
+        "rating": 4.2,
+        "rating_count": 8932,
+        "category": "Electronics",
+        "in_stock": true,
+        "description": "Wireless on-ear headphones",
+        "features": [
+          "16 hours battery",
+          "Pure Bass sound"
+        ],
+        "product_type": "headphones"
+      }
+    ]
   },
   {
+    "agent": "product_agent",
     "input": {
       "message": "best smartwatch under 10000",
       "user_id": "eval_guest_001"
     },
     "expected_output": {
       "intent": "product_query",
-      "should_contain": ["smartwatch", "price", "brand"]
+      "should_contain": [
+        "smartwatch",
+        "price",
+        "brand"
+      ]
     },
-    "mocked_response": "Here are my top recommendations for smartwatch under ₹10,000:\n\n1. Noise ColorFit Pro 4\n   Price  : ₹3,499\n   Rating : 4.2 ⭐ (28,450 reviews)\n   Brand  : Noise\n   Features:\n   • 1.72 inch display\n   • SpO2 and heart rate monitor\n\n2. boAt Wave Call 2\n   Price  : ₹2,299\n   Rating : 4.0 ⭐ (15,670 reviews)\n   Brand  : boAt\n\n3. Samsung Galaxy Watch4\n   Price  : ₹8,999\n   Rating : 4.4 ⭐ (9,230 reviews)\n   Brand  : Samsung\n\n...and 3 more products available."
+    "mocked_response": "Here are my top recommendations for \"best smartwatch under 10000\":\n\n1. Noise ColorFit Pro 4\n   Price  : \u20b93499.0\n   Rating : 4.2 \u2b50 (28,450 reviews)\n   Brand  : Noise\n\n2. boAt Wave Call 2\n   Price  : \u20b92299.0\n   Rating : 4.0 \u2b50 (15,670 reviews)\n   Brand  : boAt\n\n3. Samsung Galaxy Watch4\n   Price  : \u20b98999.0\n   Rating : 4.4 \u2b50 (9,230 reviews)\n   Brand  : Samsung\n",
+    "llm_fixtures": [
+      "{\"category\": \"Electronics\", \"keyword\": \"smartwatch\", \"max_price\": 10000, \"min_price\": null, \"brand\": null, \"min_rating\": null}",
+      "[1, 2, 3]"
+    ],
+    "search_results": [
+      {
+        "product_id": "eval_p010",
+        "name": "Noise ColorFit Pro 4",
+        "price": 3499.0,
+        "actual_price": 6999.0,
+        "discount_percent": 50.0,
+        "brand": "Noise",
+        "rating": 4.2,
+        "rating_count": 28450,
+        "category": "Electronics",
+        "in_stock": true,
+        "description": "Smartwatch with SpO2",
+        "features": [
+          "1.72 inch display",
+          "SpO2 and heart rate monitor"
+        ],
+        "product_type": "smartwatch"
+      },
+      {
+        "product_id": "eval_p011",
+        "name": "boAt Wave Call 2",
+        "price": 2299.0,
+        "actual_price": 4999.0,
+        "discount_percent": 54.0,
+        "brand": "boAt",
+        "rating": 4.0,
+        "rating_count": 15670,
+        "category": "Electronics",
+        "in_stock": true,
+        "description": "Smartwatch with Bluetooth calling",
+        "features": [
+          "Bluetooth calling",
+          "100+ sports modes"
+        ],
+        "product_type": "smartwatch"
+      },
+      {
+        "product_id": "eval_p012",
+        "name": "Samsung Galaxy Watch4",
+        "price": 8999.0,
+        "actual_price": 13999.0,
+        "discount_percent": 35.7,
+        "brand": "Samsung",
+        "rating": 4.4,
+        "rating_count": 9230,
+        "category": "Electronics",
+        "in_stock": true,
+        "description": "Smartwatch with Wear OS",
+        "features": [
+          "Body composition analysis",
+          "Wear OS"
+        ],
+        "product_type": "smartwatch"
+      }
+    ]
   },
   {
+    "agent": "product_agent",
     "input": {
       "message": "I need a good mixer grinder for home use",
       "user_id": "eval_guest_001"
     },
     "expected_output": {
       "intent": "product_query",
-      "should_contain": ["mixer", "price", "brand"]
+      "should_contain": [
+        "mixer",
+        "price",
+        "brand"
+      ]
     },
-    "mocked_response": "Here are my top recommendations for mixer grinder:\n\n1. Bajaj GX8 1000W Mixer Grinder\n   Price  : ₹2,699\n   Rating : 4.3 ⭐ (34,120 reviews)\n   Brand  : Bajaj\n   Features:\n   • 1000W motor\n   • 3 stainless steel jars\n\n2. Preethi Blue Leaf Diamond\n   Price  : ₹3,299\n   Rating : 4.4 ⭐ (21,450 reviews)\n   Brand  : Preethi\n\n3. Philips HL7756\n   Price  : ₹3,799\n   Rating : 4.2 ⭐ (18,230 reviews)\n   Brand  : Philips\n\n...and 2 more products available."
+    "mocked_response": "Here are my top recommendations for \"I need a good mixer grinder for home use\":\n\n1. Bajaj GX8 1000W Mixer Grinder\n   Price  : \u20b92699.0\n   Rating : 4.3 \u2b50 (34,120 reviews)\n   Brand  : Bajaj\n\n2. Preethi Blue Leaf Diamond\n   Price  : \u20b93299.0\n   Rating : 4.4 \u2b50 (21,450 reviews)\n   Brand  : Preethi\n\n3. Philips HL7756\n   Price  : \u20b93799.0\n   Rating : 4.2 \u2b50 (18,230 reviews)\n   Brand  : Philips\n",
+    "llm_fixtures": [
+      "{\"category\": \"Home and Kitchen\", \"keyword\": \"mixer\", \"max_price\": null, \"min_price\": null, \"brand\": null, \"min_rating\": null}",
+      "[1, 2, 3]"
+    ],
+    "search_results": [
+      {
+        "product_id": "eval_p013",
+        "name": "Bajaj GX8 1000W Mixer Grinder",
+        "price": 2699.0,
+        "actual_price": 3499.0,
+        "discount_percent": 22.9,
+        "brand": "Bajaj",
+        "rating": 4.3,
+        "rating_count": 34120,
+        "category": "Home and Kitchen",
+        "in_stock": true,
+        "description": "1000W mixer grinder",
+        "features": [
+          "1000W motor",
+          "3 stainless steel jars"
+        ],
+        "product_type": "mixer_grinder"
+      },
+      {
+        "product_id": "eval_p014",
+        "name": "Preethi Blue Leaf Diamond",
+        "price": 3299.0,
+        "actual_price": 4299.0,
+        "discount_percent": 23.3,
+        "brand": "Preethi",
+        "rating": 4.4,
+        "rating_count": 21450,
+        "category": "Home and Kitchen",
+        "in_stock": true,
+        "description": "750W mixer grinder",
+        "features": [
+          "750W motor",
+          "3 jars with liquidising jar"
+        ],
+        "product_type": "mixer_grinder"
+      },
+      {
+        "product_id": "eval_p015",
+        "name": "Philips HL7756",
+        "price": 3799.0,
+        "actual_price": 4999.0,
+        "discount_percent": 24.0,
+        "brand": "Philips",
+        "rating": 4.2,
+        "rating_count": 18230,
+        "category": "Home and Kitchen",
+        "in_stock": true,
+        "description": "750W mixer grinder",
+        "features": [
+          "750W motor",
+          "3 multipurpose jars"
+        ],
+        "product_type": "mixer_grinder"
+      }
+    ]
+  },
+  {
+    "agent": "order_agent",
+    "input": {
+      "message": "where is my order ORD-EVAL-001",
+      "user_id": "eval_guest_001"
+    },
+    "expected_output": {
+      "intent": "order_query",
+      "should_contain": [
+        "ORD-EVAL-001",
+        "transit",
+        "delivery"
+      ]
+    },
+    "mocked_response": "Your order ORD-EVAL-001 is currently in transit. Last updated location: Mumbai Hub. Estimated delivery: June 12, 2026. Carrier: Delhivery.",
+    "llm_fixtures": [
+      "{\"issue_type\": \"tracking_inquiry\", \"summary\": \"Customer wants to track order ORD-EVAL-001\", \"action\": \"provide_tracking_update\"}",
+      "Your order ORD-EVAL-001 is currently in transit. Last updated location: Mumbai Hub. Estimated delivery: June 12, 2026. Carrier: Delhivery."
+    ],
+    "order_data": {
+      "order_id": "ORD-EVAL-001",
+      "user_id": "eval_guest_001",
+      "status": "in_transit",
+      "items": [
+        {
+          "name": "HP 15s Laptop",
+          "quantity": 1,
+          "price": 42999
+        }
+      ],
+      "carrier": "Delhivery",
+      "tracking_number": "DEL-EVAL-001",
+      "order_date": "2026-06-01",
+      "expected_delivery": "2026-06-12",
+      "order_value": 42999.0
+    },
+    "tracking_data": {
+      "tracking_number": "DEL-EVAL-001",
+      "carrier_name": "Delhivery",
+      "current_status": "In Transit",
+      "current_location": "Mumbai Hub",
+      "events": [
+        {
+          "timestamp": "2026-06-07 10:00",
+          "location": "Mumbai Hub",
+          "status": "In Transit"
+        },
+        {
+          "timestamp": "2026-06-06 08:00",
+          "location": "Delhi Hub",
+          "status": "Dispatched"
+        }
+      ],
+      "estimated_delivery": "2026-06-12",
+      "last_updated": "2026-06-07 10:00"
+    }
+  },
+  {
+    "agent": "order_agent",
+    "input": {
+      "message": "track my order ORD-EVAL-002",
+      "user_id": "eval_guest_001"
+    },
+    "expected_output": {
+      "intent": "order_query",
+      "should_contain": [
+        "ORD-EVAL-002",
+        "delivery",
+        "out"
+      ]
+    },
+    "mocked_response": "Great news! Your order ORD-EVAL-002 is out for delivery today. Estimated delivery: today by 9 PM. Carrier: Blue Dart.",
+    "llm_fixtures": [
+      "{\"issue_type\": \"tracking_inquiry\", \"summary\": \"Order ORD-EVAL-002 is out for delivery\", \"action\": \"notify_customer\"}",
+      "Great news! Your order ORD-EVAL-002 is out for delivery today. Estimated delivery: today by 9 PM. Carrier: Blue Dart."
+    ],
+    "order_data": {
+      "order_id": "ORD-EVAL-002",
+      "user_id": "eval_guest_001",
+      "status": "out_for_delivery",
+      "items": [
+        {
+          "name": "Logitech Mouse",
+          "quantity": 1,
+          "price": 1295
+        }
+      ],
+      "carrier": "Blue Dart",
+      "tracking_number": "BD-EVAL-002",
+      "order_date": "2026-06-05",
+      "expected_delivery": "2026-06-08",
+      "order_value": 1295.0
+    },
+    "tracking_data": {
+      "tracking_number": "BD-EVAL-002",
+      "carrier_name": "Blue Dart",
+      "current_status": "Out for Delivery",
+      "current_location": "Local Delivery Hub",
+      "events": [
+        {
+          "timestamp": "2026-06-08 08:00",
+          "location": "Local Hub",
+          "status": "Out for Delivery"
+        }
+      ],
+      "estimated_delivery": "2026-06-08",
+      "last_updated": "2026-06-08 08:00"
+    }
+  },
+  {
+    "agent": "order_agent",
+    "input": {
+      "message": "has my order ORD-EVAL-003 been delivered",
+      "user_id": "eval_guest_001"
+    },
+    "expected_output": {
+      "intent": "order_query",
+      "should_contain": [
+        "ORD-EVAL-003",
+        "delivered"
+      ]
+    },
+    "mocked_response": "Yes, your order ORD-EVAL-003 was delivered on June 5, 2026. Signed by: Resident. If you have any issues with the delivery, please contact support.",
+    "llm_fixtures": [
+      "{\"issue_type\": \"delivery_confirmation\", \"summary\": \"Order ORD-EVAL-003 was delivered\", \"action\": \"confirm_delivery\"}",
+      "Yes, your order ORD-EVAL-003 was delivered on June 5, 2026. Signed by: Resident. If you have any issues with the delivery, please contact support."
+    ],
+    "order_data": {
+      "order_id": "ORD-EVAL-003",
+      "user_id": "eval_guest_001",
+      "status": "delivered",
+      "items": [
+        {
+          "name": "boAt Headphones",
+          "quantity": 1,
+          "price": 1299
+        }
+      ],
+      "carrier": "Ekart",
+      "tracking_number": "EK-EVAL-003",
+      "order_date": "2026-06-02",
+      "expected_delivery": "2026-06-05",
+      "order_value": 1299.0
+    },
+    "tracking_data": {
+      "tracking_number": "EK-EVAL-003",
+      "carrier_name": "Ekart",
+      "current_status": "Delivered",
+      "current_location": "Customer Address",
+      "events": [
+        {
+          "timestamp": "2026-06-05 14:30",
+          "location": "Customer Address",
+          "status": "Delivered"
+        }
+      ],
+      "estimated_delivery": "2026-06-05",
+      "last_updated": "2026-06-05 14:30"
+    }
+  },
+  {
+    "agent": "order_agent",
+    "input": {
+      "message": "when will my order ORD-EVAL-004 arrive",
+      "user_id": "eval_guest_001"
+    },
+    "expected_output": {
+      "intent": "order_query",
+      "should_contain": [
+        "ORD-EVAL-004",
+        "processing",
+        "days"
+      ]
+    },
+    "mocked_response": "Your order ORD-EVAL-004 is currently being processed. It will be dispatched within 1-2 business days. Estimated delivery: June 14, 2026.",
+    "llm_fixtures": [
+      "{\"issue_type\": \"delivery_eta\", \"summary\": \"Order ORD-EVAL-004 is processing\", \"action\": \"provide_eta\"}",
+      "Your order ORD-EVAL-004 is currently being processed. It will be dispatched within 1-2 business days. Estimated delivery: June 14, 2026."
+    ],
+    "order_data": {
+      "order_id": "ORD-EVAL-004",
+      "user_id": "eval_guest_001",
+      "status": "processing",
+      "items": [
+        {
+          "name": "Samsung TV",
+          "quantity": 1,
+          "price": 29999
+        }
+      ],
+      "carrier": "Delhivery",
+      "tracking_number": null,
+      "order_date": "2026-06-07",
+      "expected_delivery": "2026-06-14",
+      "order_value": 29999.0
+    },
+    "tracking_data": {}
+  },
+  {
+    "agent": "order_agent",
+    "input": {
+      "message": "my order ORD-EVAL-005 seems delayed",
+      "user_id": "eval_guest_001"
+    },
+    "expected_output": {
+      "intent": "order_query",
+      "should_contain": [
+        "ORD-EVAL-005",
+        "delay",
+        "apolog"
+      ]
+    },
+    "mocked_response": "We apologize for the delay with order ORD-EVAL-005. There is a logistics delay in your area. Updated estimated delivery: June 15, 2026. We appreciate your patience.",
+    "llm_fixtures": [
+      "{\"issue_type\": \"delivery_delay\", \"summary\": \"Order ORD-EVAL-005 is delayed due to logistics\", \"action\": \"apologize_and_update\"}",
+      "We apologize for the delay with order ORD-EVAL-005. There is a logistics delay in your area. Updated estimated delivery: June 15, 2026. We appreciate your patience."
+    ],
+    "order_data": {
+      "order_id": "ORD-EVAL-005",
+      "user_id": "eval_guest_001",
+      "status": "delayed",
+      "items": [
+        {
+          "name": "Redmi Smartphone",
+          "quantity": 1,
+          "price": 8499
+        }
+      ],
+      "carrier": "Delhivery",
+      "tracking_number": "DEL-EVAL-005",
+      "order_date": "2026-06-03",
+      "expected_delivery": "2026-06-08",
+      "order_value": 8499.0
+    },
+    "tracking_data": {
+      "tracking_number": "DEL-EVAL-005",
+      "carrier_name": "Delhivery",
+      "current_status": "Delayed",
+      "current_location": "Regional Hub",
+      "events": [
+        {
+          "timestamp": "2026-06-07 12:00",
+          "location": "Regional Hub",
+          "status": "Delayed"
+        }
+      ],
+      "estimated_delivery": "2026-06-15",
+      "last_updated": "2026-06-07 12:00"
+    }
+  },
+  {
+    "agent": "support_agent",
+    "input": {
+      "message": "I want to return my order ORD-EVAL-011",
+      "user_id": "eval_guest_001"
+    },
+    "expected_output": {
+      "intent": "support_query",
+      "should_contain": [
+        "return",
+        "days",
+        "policy"
+      ]
+    },
+    "mocked_response": "We can process a return for your order ORD-EVAL-011. Please pack the item in original packaging. Returns are accepted within 30 days of delivery. A pickup will be scheduled within 2-3 business days.",
+    "llm_fixtures": [
+      "{\"issue_type\": \"return_request\", \"order_id\": \"ORD-EVAL-011\", \"details\": \"Customer wants to return order ORD-EVAL-011\"}",
+      "We can process a return for your order ORD-EVAL-011. Please pack the item in original packaging. Returns are accepted within 30 days of delivery. A pickup will be scheduled within 2-3 business days."
+    ],
+    "policy_data": {
+      "issue_type": "return_request",
+      "policy_text": "Products can be returned within 30 days of delivery. Items must be in original condition with all accessories. Return pickup will be scheduled within 2-3 business days. Refund processed in 5-7 business days.",
+      "updated_at": "2026-01-01"
+    }
+  },
+  {
+    "agent": "support_agent",
+    "input": {
+      "message": "I need a refund for order ORD-EVAL-012",
+      "user_id": "eval_guest_001"
+    },
+    "expected_output": {
+      "intent": "support_query",
+      "should_contain": [
+        "refund",
+        "days",
+        "processed"
+      ]
+    },
+    "mocked_response": "Your refund request for order ORD-EVAL-012 has been noted. Refunds are processed within 5-7 business days after the return is received. You will receive a confirmation email shortly.",
+    "llm_fixtures": [
+      "{\"issue_type\": \"refund\", \"order_id\": \"ORD-EVAL-012\", \"details\": \"Customer requesting refund for ORD-EVAL-012\"}",
+      "Your refund request for order ORD-EVAL-012 has been noted. Refunds are processed within 5-7 business days after the return is received. You will receive a confirmation email shortly."
+    ],
+    "policy_data": {
+      "issue_type": "refund",
+      "policy_text": "Refunds are initiated after the returned item is received and inspected. Refund is credited within 5-7 business days to the original payment method.",
+      "updated_at": "2026-01-01"
+    }
+  },
+  {
+    "agent": "support_agent",
+    "input": {
+      "message": "My product from order ORD-EVAL-013 arrived damaged",
+      "user_id": "eval_guest_001"
+    },
+    "expected_output": {
+      "intent": "support_query",
+      "should_contain": [
+        "damage",
+        "replacement",
+        "sorry"
+      ]
+    },
+    "mocked_response": "We're sorry to hear your product from order ORD-EVAL-013 arrived damaged. We will arrange an immediate replacement at no extra cost. Please share photos of the damage for our records.",
+    "llm_fixtures": [
+      "{\"issue_type\": \"damaged_product\", \"order_id\": \"ORD-EVAL-013\", \"details\": \"Product arrived damaged from ORD-EVAL-013\"}",
+      "We're sorry to hear your product from order ORD-EVAL-013 arrived damaged. We will arrange an immediate replacement at no extra cost. Please share photos of the damage for our records."
+    ],
+    "policy_data": {
+      "issue_type": "damaged_product",
+      "policy_text": "If a product arrives damaged, we provide free replacement or full refund. Customer must report within 48 hours of delivery with photos as proof.",
+      "updated_at": "2026-01-01"
+    }
+  },
+  {
+    "agent": "support_agent",
+    "input": {
+      "message": "I received wrong item in order ORD-EVAL-014",
+      "user_id": "eval_guest_001"
+    },
+    "expected_output": {
+      "intent": "support_query",
+      "should_contain": [
+        "wrong",
+        "correct",
+        "send"
+      ]
+    },
+    "mocked_response": "We apologize for sending the wrong item in order ORD-EVAL-014. We will arrange pickup of the wrong item and send the correct product within 3-5 business days at no extra charge.",
+    "llm_fixtures": [
+      "{\"issue_type\": \"wrong_item\", \"order_id\": \"ORD-EVAL-014\", \"details\": \"Wrong item received in ORD-EVAL-014\"}",
+      "We apologize for sending the wrong item in order ORD-EVAL-014. We will arrange pickup of the wrong item and send the correct product within 3-5 business days at no extra charge."
+    ],
+    "policy_data": {
+      "issue_type": "wrong_item",
+      "policy_text": "If wrong item is delivered, we arrange free pickup and deliver correct item within 3-5 business days. Customer can also opt for full refund.",
+      "updated_at": "2026-01-01"
+    }
+  },
+  {
+    "agent": "support_agent",
+    "input": {
+      "message": "what is your return policy",
+      "user_id": "eval_guest_001"
+    },
+    "expected_output": {
+      "intent": "support_query",
+      "should_contain": [
+        "return",
+        "30 days",
+        "condition"
+      ]
+    },
+    "mocked_response": "Our return policy: Products can be returned within 30 days of delivery. Items must be in original condition with all accessories. Refund is processed within 5-7 business days after we receive the returned item.",
+    "llm_fixtures": [
+      "{\"issue_type\": \"policy_query\", \"order_id\": null, \"details\": \"Customer asking about return policy\"}",
+      "Our return policy: Products can be returned within 30 days of delivery. Items must be in original condition with all accessories. Refund is processed within 5-7 business days after we receive the returned item."
+    ],
+    "policy_data": {
+      "issue_type": "return_request",
+      "policy_text": "Products can be returned within 30 days of delivery. Items must be in original condition with all accessories. Return pickup will be scheduled within 2-3 business days.",
+      "updated_at": "2026-01-01"
+    }
   }
 ]

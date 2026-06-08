@@ -1,15 +1,15 @@
 {
-  "run_timestamp": "2026-06-01T15:33:13.904130+00:00",
-  "git_commit_sha": "2d45699da4f7dba83806ab1802212b1c78a5206e",
+  "run_timestamp": "2026-06-08T07:22:37.456869+00:00",
+  "git_commit_sha": "52c363bdea6302b9825fa7022cff8e2b4e46cc2e",
   "branch_name": "main",
-  "total_samples": 5,
+  "total_samples": 15,
   "mode": "mocked",
   "per_metric_averages": {
     "answer_relevancy": 1.0,
     "faithfulness": 1.0,
-    "task_completion": 1.0,
-    "correctness": 1.0,
-    "hallucination_free": 1.0
+    "task_completion": 0.9556,
+    "correctness": 0.9778,
+    "hallucination_free": 0.8
   },
   "thresholds": {
     "answer_relevancy": 0.7,
@@ -23,13 +23,13 @@
       "sample_id": 1,
       "message": "show me laptops under 50000",
       "intent": "product_query",
-      "actual_output": "Here are my top recommendations for laptops under \u20b950,000:\n\n1. HP 15s Laptop\n   Price  : \u20b942,999\n   Rating : 4.3 \u2b50 (1,234 reviews)\n   Brand  : HP\n   Features:\n   \u2022 Intel Core i5 processor\n   \u2022 8GB RAM, 512GB SSD\n\n2. Lenovo IdeaPad Slim 3\n   Price  : \u20b938,999\n   Rating : 4.2 \u2b50 (987 reviews)\n   Brand  ...",
+      "actual_output": "Here are my top recommendations for \"show me laptops under 50000\":\n\n1. HP 15s Laptop\n   Price  : \u20b942999.0\n   Rating : 4.3 \u2b50 (1,234 reviews)\n   Brand  : HP\n\n2. Lenovo IdeaPad Slim 3\n   Price  : \u20b938999.0\n   Rating : 4.2 \u2b50 (987 reviews)\n   Brand  : Lenovo\n\n3. ASUS VivoBook 15\n   Price  : \u20b945499.0\n   Ra...",
       "scores": {
         "answer_relevancy": 1.0,
-        "faithfulness": 1.0,
         "task_completion": 1.0,
+        "faithfulness": 1.0,
         "correctness": 1.0,
-        "hallucination_free": 1.0
+        "hallucination_free": 0.8
       },
       "passed": true,
       "mode": "MOCKED"
@@ -38,13 +38,13 @@
       "sample_id": 2,
       "message": "I need a wireless mouse with good reviews",
       "intent": "product_query",
-      "actual_output": "Here are my top recommendations for wireless mouse:\n\n1. Logitech M331 Silent Plus Wireless Mouse\n   Price  : \u20b91,295\n   Rating : 4.6 \u2b50 (12,375 reviews)\n   Brand  : Logitech\n   Features:\n   \u2022 Silent click technology\n   \u2022 24-month battery life\n\n2. Logitech Pebble M350\n   Price  : \u20b91,490\n   Rating : 4.6...",
+      "actual_output": "Here are my top recommendations for \"I need a wireless mouse with good reviews\":\n\n1. Logitech M331 Silent Plus\n   Price  : \u20b91295.0\n   Rating : 4.6 \u2b50 (12,375 reviews)\n   Brand  : Logitech\n\n2. Logitech Pebble M350\n   Price  : \u20b91490.0\n   Rating : 4.6 \u2b50 (10,652 reviews)\n   Brand  : Logitech\n\n3. Amazon B...",
       "scores": {
         "answer_relevancy": 1.0,
-        "faithfulness": 1.0,
         "task_completion": 1.0,
+        "faithfulness": 1.0,
         "correctness": 1.0,
-        "hallucination_free": 1.0
+        "hallucination_free": 0.8
       },
       "passed": true,
       "mode": "MOCKED"
@@ -53,13 +53,13 @@
       "sample_id": 3,
       "message": "show me headphones under 2000",
       "intent": "product_query",
-      "actual_output": "Here are my top recommendations for headphones under \u20b92,000:\n\n1. boAt Rockerz 450\n   Price  : \u20b91,299\n   Rating : 4.1 \u2b50 (45,230 reviews)\n   Brand  : boAt\n   Features:\n   \u2022 15 hours playback\n   \u2022 Bluetooth 5.0\n\n2. Sony WH-CH510\n   Price  : \u20b91,799\n   Rating : 4.3 \u2b50 (12,456 reviews)\n   Brand  : Sony\n\n3....",
+      "actual_output": "Here are my top recommendations for \"show me headphones under 2000\":\n\n1. boAt Rockerz 450\n   Price  : \u20b91299.0\n   Rating : 4.1 \u2b50 (45,230 reviews)\n   Brand  : boAt\n\n2. Sony WH-CH510\n   Price  : \u20b91799.0\n   Rating : 4.3 \u2b50 (12,456 reviews)\n   Brand  : Sony\n\n3. JBL Tune 500BT\n   Price  : \u20b91649.0\n   Rating...",
       "scores": {
         "answer_relevancy": 1.0,
-        "faithfulness": 1.0,
         "task_completion": 1.0,
+        "faithfulness": 1.0,
         "correctness": 1.0,
-        "hallucination_free": 1.0
+        "hallucination_free": 0.8
       },
       "passed": true,
       "mode": "MOCKED"
@@ -68,13 +68,13 @@
       "sample_id": 4,
       "message": "best smartwatch under 10000",
       "intent": "product_query",
-      "actual_output": "Here are my top recommendations for smartwatch under \u20b910,000:\n\n1. Noise ColorFit Pro 4\n   Price  : \u20b93,499\n   Rating : 4.2 \u2b50 (28,450 reviews)\n   Brand  : Noise\n   Features:\n   \u2022 1.72 inch display\n   \u2022 SpO2 and heart rate monitor\n\n2. boAt Wave Call 2\n   Price  : \u20b92,299\n   Rating : 4.0 \u2b50 (15,670 review...",
+      "actual_output": "Here are my top recommendations for \"best smartwatch under 10000\":\n\n1. Noise ColorFit Pro 4\n   Price  : \u20b93499.0\n   Rating : 4.2 \u2b50 (28,450 reviews)\n   Brand  : Noise\n\n2. boAt Wave Call 2\n   Price  : \u20b92299.0\n   Rating : 4.0 \u2b50 (15,670 reviews)\n   Brand  : boAt\n\n3. Samsung Galaxy Watch4\n   Price  : \u20b9899...",
       "scores": {
         "answer_relevancy": 1.0,
-        "faithfulness": 1.0,
         "task_completion": 1.0,
+        "faithfulness": 1.0,
         "correctness": 1.0,
-        "hallucination_free": 1.0
+        "hallucination_free": 0.8
       },
       "passed": true,
       "mode": "MOCKED"
@@ -83,13 +83,163 @@
       "sample_id": 5,
       "message": "I need a good mixer grinder for home use",
       "intent": "product_query",
-      "actual_output": "Here are my top recommendations for mixer grinder:\n\n1. Bajaj GX8 1000W Mixer Grinder\n   Price  : \u20b92,699\n   Rating : 4.3 \u2b50 (34,120 reviews)\n   Brand  : Bajaj\n   Features:\n   \u2022 1000W motor\n   \u2022 3 stainless steel jars\n\n2. Preethi Blue Leaf Diamond\n   Price  : \u20b93,299\n   Rating : 4.4 \u2b50 (21,450 reviews)\n ...",
+      "actual_output": "Here are my top recommendations for \"I need a good mixer grinder for home use\":\n\n1. Bajaj GX8 1000W Mixer Grinder\n   Price  : \u20b92699.0\n   Rating : 4.3 \u2b50 (34,120 reviews)\n   Brand  : Bajaj\n\n2. Preethi Blue Leaf Diamond\n   Price  : \u20b93299.0\n   Rating : 4.4 \u2b50 (21,450 reviews)\n   Brand  : Preethi\n\n3. Phil...",
       "scores": {
         "answer_relevancy": 1.0,
-        "faithfulness": 1.0,
         "task_completion": 1.0,
+        "faithfulness": 1.0,
         "correctness": 1.0,
-        "hallucination_free": 1.0
+        "hallucination_free": 0.8
+      },
+      "passed": true,
+      "mode": "MOCKED"
+    },
+    {
+      "sample_id": 6,
+      "message": "where is my order ORD-EVAL-001",
+      "intent": "order_query",
+      "actual_output": "Your order ORD-EVAL-001 is currently in transit. Last updated location: Mumbai Hub. Estimated delivery: June 12, 2026. Carrier: Delhivery.",
+      "scores": {
+        "answer_relevancy": 1.0,
+        "task_completion": 1.0,
+        "faithfulness": 1.0,
+        "correctness": 1.0,
+        "hallucination_free": 0.8
+      },
+      "passed": true,
+      "mode": "MOCKED"
+    },
+    {
+      "sample_id": 7,
+      "message": "track my order ORD-EVAL-002",
+      "intent": "order_query",
+      "actual_output": "Great news! Your order ORD-EVAL-002 is out for delivery today. Estimated delivery: today by 9 PM. Carrier: Blue Dart.",
+      "scores": {
+        "answer_relevancy": 1.0,
+        "task_completion": 1.0,
+        "faithfulness": 1.0,
+        "correctness": 1.0,
+        "hallucination_free": 0.8
+      },
+      "passed": true,
+      "mode": "MOCKED"
+    },
+    {
+      "sample_id": 8,
+      "message": "has my order ORD-EVAL-003 been delivered",
+      "intent": "order_query",
+      "actual_output": "Yes, your order ORD-EVAL-003 was delivered on June 5, 2026. Signed by: Resident. If you have any issues with the delivery, please contact support.",
+      "scores": {
+        "answer_relevancy": 1.0,
+        "task_completion": 1.0,
+        "faithfulness": 1.0,
+        "correctness": 1.0,
+        "hallucination_free": 0.8
+      },
+      "passed": true,
+      "mode": "MOCKED"
+    },
+    {
+      "sample_id": 9,
+      "message": "when will my order ORD-EVAL-004 arrive",
+      "intent": "order_query",
+      "actual_output": "Your order ORD-EVAL-004 is currently being processed. It will be dispatched within 1-2 business days. Estimated delivery: June 14, 2026.",
+      "scores": {
+        "answer_relevancy": 1.0,
+        "task_completion": 0.6667,
+        "faithfulness": 1.0,
+        "correctness": 0.8333,
+        "hallucination_free": 0.8
+      },
+      "passed": false,
+      "mode": "MOCKED"
+    },
+    {
+      "sample_id": 10,
+      "message": "my order ORD-EVAL-005 seems delayed",
+      "intent": "order_query",
+      "actual_output": "We apologize for the delay with order ORD-EVAL-005. There is a logistics delay in your area. Updated estimated delivery: June 15, 2026. We appreciate your patience.",
+      "scores": {
+        "answer_relevancy": 1.0,
+        "task_completion": 1.0,
+        "faithfulness": 1.0,
+        "correctness": 1.0,
+        "hallucination_free": 0.8
+      },
+      "passed": true,
+      "mode": "MOCKED"
+    },
+    {
+      "sample_id": 11,
+      "message": "I want to return my order ORD-EVAL-011",
+      "intent": "support_query",
+      "actual_output": "We can process a return for your order ORD-EVAL-011. Please pack the item in original packaging. Returns are accepted within 30 days of delivery. A pickup will be scheduled within 2-3 business days.",
+      "scores": {
+        "answer_relevancy": 1.0,
+        "task_completion": 0.6667,
+        "faithfulness": 1.0,
+        "correctness": 0.8333,
+        "hallucination_free": 0.8
+      },
+      "passed": false,
+      "mode": "MOCKED"
+    },
+    {
+      "sample_id": 12,
+      "message": "I need a refund for order ORD-EVAL-012",
+      "intent": "support_query",
+      "actual_output": "Your refund request for order ORD-EVAL-012 has been noted. Refunds are processed within 5-7 business days after the return is received. You will receive a confirmation email shortly.\n\nYour complaint reference: Ticket ID eval_ticket_001",
+      "scores": {
+        "answer_relevancy": 1.0,
+        "task_completion": 1.0,
+        "faithfulness": 1.0,
+        "correctness": 1.0,
+        "hallucination_free": 0.8
+      },
+      "passed": true,
+      "mode": "MOCKED"
+    },
+    {
+      "sample_id": 13,
+      "message": "My product from order ORD-EVAL-013 arrived damaged",
+      "intent": "support_query",
+      "actual_output": "We're sorry to hear your product from order ORD-EVAL-013 arrived damaged. We will arrange an immediate replacement at no extra cost. Please share photos of the damage for our records.\n\nYour complaint reference: Ticket ID eval_ticket_001",
+      "scores": {
+        "answer_relevancy": 1.0,
+        "task_completion": 1.0,
+        "faithfulness": 1.0,
+        "correctness": 1.0,
+        "hallucination_free": 0.8
+      },
+      "passed": true,
+      "mode": "MOCKED"
+    },
+    {
+      "sample_id": 14,
+      "message": "I received wrong item in order ORD-EVAL-014",
+      "intent": "support_query",
+      "actual_output": "We apologize for sending the wrong item in order ORD-EVAL-014. We will arrange pickup of the wrong item and send the correct product within 3-5 business days at no extra charge.\n\nYour complaint reference: Ticket ID eval_ticket_001",
+      "scores": {
+        "answer_relevancy": 1.0,
+        "task_completion": 1.0,
+        "faithfulness": 1.0,
+        "correctness": 1.0,
+        "hallucination_free": 0.8
+      },
+      "passed": true,
+      "mode": "MOCKED"
+    },
+    {
+      "sample_id": 15,
+      "message": "what is your return policy",
+      "intent": "support_query",
+      "actual_output": "Our return policy: Products can be returned within 30 days of delivery. Items must be in original condition with all accessories. Refund is processed within 5-7 business days after we receive the returned item.",
+      "scores": {
+        "answer_relevancy": 1.0,
+        "task_completion": 1.0,
+        "faithfulness": 1.0,
+        "correctness": 1.0,
+        "hallucination_free": 0.8
       },
       "passed": true,
       "mode": "MOCKED"

@@ -86,7 +86,10 @@ app.mount("/static", StaticFiles(directory="frontend"), name="static")
 
 @app.get("/app")
 async def serve_frontend():
-    return FileResponse("frontend/index.html")
+    return FileResponse(
+        "frontend/index.html",
+        headers={"Cache-Control": "no-cache, no-store, must-revalidate"}
+    )
 
 
 # ==========================================

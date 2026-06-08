@@ -106,16 +106,10 @@ NORMALISE: smartwatches→smartwatch | mice→mouse | earphones/earbuds→headph
 air purifier→air_purifier | laptops→laptop | fans→fan | irons→iron
 washers/washing machines→washing_machine | stands→stand | rams→ram | geysers→water_heater
 
-STRICT RULE — DO NOT APPROXIMATE:
-Only return a product_type if it is a genuine match. Do NOT map similar-sounding
-but different products:
-- television / TV / LED TV → return null (we do not sell TVs)
-- car / vehicle / bike → return null (we do not sell vehicles)
-- refrigerator / fridge → return null (we do not sell refrigerators)
-- air conditioner / AC → return null (we do not sell ACs)
-- mobile phone / smartphone → return null (we do not sell phones)
-- furniture / sofa / bed → return null (we do not sell furniture)
-If the user asks for any of these, set product_type to null.
+STRICT RULE — EXACT MEANING ONLY:
+Only assign a product_type if the user's query means the same thing as that product_type.
+Word overlap is NOT enough — "water bottle" ≠ water_purifier, "iphone" ≠ phone_case,
+"television" ≠ monitor. If the user is asking for a product we do not stock, return null.
 
 CATEGORIES: Electronics | Home and Kitchen | Computers and Accessories |
 OfficeProducts | HomeImprovement | MusicalInstruments | Car and Motorbike |
@@ -498,15 +492,9 @@ Rules:
   Example: basic iron for steam iron request is fine.
 - STRICT: Do NOT include a product just because it is vaguely related.
   If the user asked for an air conditioner, do not return fans or air purifiers.
-  If the user asked for a refrigerator, do not return water purifiers or coolers.
-  If the user asked for furniture, do not return any electronics.
-  If the user asked for a television or TV, do not return monitors or displays.
-  If the user asked for a car or vehicle, do not return car chargers or accessories.
-  If the user asked for a phone or mobile, do not return phone cases or accessories.
-- Return [] if the user is asking for a product category that is fundamentally
-  different from what is listed, even if names partially overlap.
-- Return [] if none of the listed products are genuinely what the user asked for.
-  When in doubt, return [].
+- A product is only a match if it means the same thing as what the user asked for.
+  Word overlap is NOT a match — if the listed products are a different product category
+  from what the user asked for, return []. When in doubt, return [].
 
 Return ONLY a JSON array of product indices, most relevant first.
 Indices are 1-based. Example: [3, 1, 7, 2, 5]

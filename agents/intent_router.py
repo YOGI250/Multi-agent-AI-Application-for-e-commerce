@@ -129,16 +129,9 @@ Intents:
 - product_query: searching for products, recommendations, product comparisons
 - support_query: complaints, refunds, damaged items, wrong items, cancellations
 
-ALWAYS classify as product_query when the message is about finding or browsing products:
-- "show me laptops", "find me a fan", "search for keyboards", "show me office products"
-- Names a product type/category with no mention of orders, refunds, or complaints
-- "I want headphones", "I need a mixer", "looking for a charger under 500"
-NOTE: "I want to cancel my order", "I need a refund", "do you have my order?" are NOT product_query — they mention orders or issues, not products to buy.
-
-ALWAYS classify as unknown (never map to another intent based on session context):
-- Greetings: "hi", "hello", "hey", "good morning", "how are you"
-- Generic help: "what can you help me with?", "what do you do?", "help"
-- Unrelated small talk or unclear one-word messages
+product_query: message is about finding or browsing products to buy, with no mention of orders, complaints, or refunds.
+order_query / support_query: message mentions an existing order, delivery, refund, complaint, or issue — even if a product name appears.
+unknown: greetings, small talk, generic help requests, or anything unclear.
 
 Session context: {context_str}
 Recent messages:

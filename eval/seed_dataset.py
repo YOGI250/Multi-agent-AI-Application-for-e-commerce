@@ -1,4 +1,4 @@
-# paste this into: eval/seed_dataset.py
+
 
 import json
 import logging
@@ -18,7 +18,7 @@ def seed():
     with open("eval/dataset.json", "r") as f:
         items = json.load(f)
 
-    # create dataset
+    # create dataset  
     try:
         langfuse_client.create_dataset(
             name        = dataset_name,

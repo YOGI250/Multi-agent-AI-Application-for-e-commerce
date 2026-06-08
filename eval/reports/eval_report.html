@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Eval Report — 2026-06-01 15:33 UTC</title>
+<title>Eval Report — 2026-06-08 07:22 UTC</title>
 <style>
   body   { font-family: Arial, sans-serif; margin: 40px; color: #333; }
   h1     { color: #1a1a2e; }
@@ -29,10 +29,10 @@
 <body>
 <h1>LLM Evaluation Report</h1>
 <p class="meta">
-  Generated: 2026-06-01 15:33 UTC &nbsp;|&nbsp;
-  Commit: <code>2d45699d</code> &nbsp;|&nbsp;
+  Generated: 2026-06-08 07:22 UTC &nbsp;|&nbsp;
+  Commit: <code>52c363bd</code> &nbsp;|&nbsp;
   Branch: <code>main</code> &nbsp;|&nbsp;
-  Samples: 5 &nbsp;|&nbsp;
+  Samples: 15 &nbsp;|&nbsp;
   Mode: MOCKED
 </p>
 
@@ -43,15 +43,15 @@
   <tr><th>Metric</th><th>Average Score</th><th>Threshold</th><th>Result</th></tr>
   <tr class='pass-row'><td>answer_relevancy</td><td>1.0000</td><td>0.7</td><td>✅ PASS</td></tr>
 <tr class='pass-row'><td>faithfulness</td><td>1.0000</td><td>0.8</td><td>✅ PASS</td></tr>
-<tr class='pass-row'><td>task_completion</td><td>1.0000</td><td>0.8</td><td>✅ PASS</td></tr>
-<tr class='pass-row'><td>correctness</td><td>1.0000</td><td>0.7</td><td>✅ PASS</td></tr>
-<tr class='pass-row'><td>hallucination_free</td><td>1.0000</td><td>0.8</td><td>✅ PASS</td></tr>
+<tr class='pass-row'><td>task_completion</td><td>0.9556</td><td>0.8</td><td>✅ PASS</td></tr>
+<tr class='pass-row'><td>correctness</td><td>0.9778</td><td>0.7</td><td>✅ PASS</td></tr>
+<tr class='pass-row'><td>hallucination_free</td><td>0.8000</td><td>0.8</td><td>✅ PASS</td></tr>
 
 </table>
 
 <h2>Score Charts <span style="font-size:0.7em;color:#666">(vertical line = threshold)</span></h2>
 <div style="max-width:600px">
-  <div class='bar-label'>answer_relevancy</div><div class='bar-track'>  <div class='bar-fill' style='width:100%;background:#4caf50'>    1.0000  </div>  <span class='threshold-line' style='left:70%'></span></div><div class='bar-label'>faithfulness</div><div class='bar-track'>  <div class='bar-fill' style='width:100%;background:#4caf50'>    1.0000  </div>  <span class='threshold-line' style='left:80%'></span></div><div class='bar-label'>task_completion</div><div class='bar-track'>  <div class='bar-fill' style='width:100%;background:#4caf50'>    1.0000  </div>  <span class='threshold-line' style='left:80%'></span></div><div class='bar-label'>correctness</div><div class='bar-track'>  <div class='bar-fill' style='width:100%;background:#4caf50'>    1.0000  </div>  <span class='threshold-line' style='left:70%'></span></div><div class='bar-label'>hallucination_free</div><div class='bar-track'>  <div class='bar-fill' style='width:100%;background:#4caf50'>    1.0000  </div>  <span class='threshold-line' style='left:80%'></span></div>
+  <div class='bar-label'>answer_relevancy</div><div class='bar-track'>  <div class='bar-fill' style='width:100%;background:#4caf50'>    1.0000  </div>  <span class='threshold-line' style='left:70%'></span></div><div class='bar-label'>faithfulness</div><div class='bar-track'>  <div class='bar-fill' style='width:100%;background:#4caf50'>    1.0000  </div>  <span class='threshold-line' style='left:80%'></span></div><div class='bar-label'>task_completion</div><div class='bar-track'>  <div class='bar-fill' style='width:95%;background:#4caf50'>    0.9556  </div>  <span class='threshold-line' style='left:80%'></span></div><div class='bar-label'>correctness</div><div class='bar-track'>  <div class='bar-fill' style='width:97%;background:#4caf50'>    0.9778  </div>  <span class='threshold-line' style='left:70%'></span></div><div class='bar-label'>hallucination_free</div><div class='bar-track'>  <div class='bar-fill' style='width:80%;background:#4caf50'>    0.8000  </div>  <span class='threshold-line' style='left:80%'></span></div>
 </div>
 
 <h2>Per-Sample Results</h2>
@@ -59,11 +59,21 @@
   <tr>
     <th>#</th><th>Intent</th><th>Message</th><th>Scores</th><th>Pass</th>
   </tr>
-  <tr class='pass-row'><td>1</td><td>product_query</td><td style='max-width:300px;word-break:break-word'>show me laptops under 50000</td><td style='font-size:0.8em'>answer_relevancy: 1.00 | faithfulness: 1.00 | task_completion: 1.00 | correctness: 1.00 | hallucination_free: 1.00</td><td>✅</td></tr>
-<tr class='pass-row'><td>2</td><td>product_query</td><td style='max-width:300px;word-break:break-word'>I need a wireless mouse with good reviews</td><td style='font-size:0.8em'>answer_relevancy: 1.00 | faithfulness: 1.00 | task_completion: 1.00 | correctness: 1.00 | hallucination_free: 1.00</td><td>✅</td></tr>
-<tr class='pass-row'><td>3</td><td>product_query</td><td style='max-width:300px;word-break:break-word'>show me headphones under 2000</td><td style='font-size:0.8em'>answer_relevancy: 1.00 | faithfulness: 1.00 | task_completion: 1.00 | correctness: 1.00 | hallucination_free: 1.00</td><td>✅</td></tr>
-<tr class='pass-row'><td>4</td><td>product_query</td><td style='max-width:300px;word-break:break-word'>best smartwatch under 10000</td><td style='font-size:0.8em'>answer_relevancy: 1.00 | faithfulness: 1.00 | task_completion: 1.00 | correctness: 1.00 | hallucination_free: 1.00</td><td>✅</td></tr>
-<tr class='pass-row'><td>5</td><td>product_query</td><td style='max-width:300px;word-break:break-word'>I need a good mixer grinder for home use</td><td style='font-size:0.8em'>answer_relevancy: 1.00 | faithfulness: 1.00 | task_completion: 1.00 | correctness: 1.00 | hallucination_free: 1.00</td><td>✅</td></tr>
+  <tr class='pass-row'><td>1</td><td>product_query</td><td style='max-width:300px;word-break:break-word'>show me laptops under 50000</td><td style='font-size:0.8em'>answer_relevancy: 1.00 | task_completion: 1.00 | faithfulness: 1.00 | correctness: 1.00 | hallucination_free: 0.80</td><td>✅</td></tr>
+<tr class='pass-row'><td>2</td><td>product_query</td><td style='max-width:300px;word-break:break-word'>I need a wireless mouse with good reviews</td><td style='font-size:0.8em'>answer_relevancy: 1.00 | task_completion: 1.00 | faithfulness: 1.00 | correctness: 1.00 | hallucination_free: 0.80</td><td>✅</td></tr>
+<tr class='pass-row'><td>3</td><td>product_query</td><td style='max-width:300px;word-break:break-word'>show me headphones under 2000</td><td style='font-size:0.8em'>answer_relevancy: 1.00 | task_completion: 1.00 | faithfulness: 1.00 | correctness: 1.00 | hallucination_free: 0.80</td><td>✅</td></tr>
+<tr class='pass-row'><td>4</td><td>product_query</td><td style='max-width:300px;word-break:break-word'>best smartwatch under 10000</td><td style='font-size:0.8em'>answer_relevancy: 1.00 | task_completion: 1.00 | faithfulness: 1.00 | correctness: 1.00 | hallucination_free: 0.80</td><td>✅</td></tr>
+<tr class='pass-row'><td>5</td><td>product_query</td><td style='max-width:300px;word-break:break-word'>I need a good mixer grinder for home use</td><td style='font-size:0.8em'>answer_relevancy: 1.00 | task_completion: 1.00 | faithfulness: 1.00 | correctness: 1.00 | hallucination_free: 0.80</td><td>✅</td></tr>
+<tr class='pass-row'><td>6</td><td>order_query</td><td style='max-width:300px;word-break:break-word'>where is my order ORD-EVAL-001</td><td style='font-size:0.8em'>answer_relevancy: 1.00 | task_completion: 1.00 | faithfulness: 1.00 | correctness: 1.00 | hallucination_free: 0.80</td><td>✅</td></tr>
+<tr class='pass-row'><td>7</td><td>order_query</td><td style='max-width:300px;word-break:break-word'>track my order ORD-EVAL-002</td><td style='font-size:0.8em'>answer_relevancy: 1.00 | task_completion: 1.00 | faithfulness: 1.00 | correctness: 1.00 | hallucination_free: 0.80</td><td>✅</td></tr>
+<tr class='pass-row'><td>8</td><td>order_query</td><td style='max-width:300px;word-break:break-word'>has my order ORD-EVAL-003 been delivered</td><td style='font-size:0.8em'>answer_relevancy: 1.00 | task_completion: 1.00 | faithfulness: 1.00 | correctness: 1.00 | hallucination_free: 0.80</td><td>✅</td></tr>
+<tr class='fail-row'><td>9</td><td>order_query</td><td style='max-width:300px;word-break:break-word'>when will my order ORD-EVAL-004 arrive</td><td style='font-size:0.8em'>answer_relevancy: 1.00 | task_completion: 0.67 | faithfulness: 1.00 | correctness: 0.83 | hallucination_free: 0.80</td><td>❌</td></tr>
+<tr class='pass-row'><td>10</td><td>order_query</td><td style='max-width:300px;word-break:break-word'>my order ORD-EVAL-005 seems delayed</td><td style='font-size:0.8em'>answer_relevancy: 1.00 | task_completion: 1.00 | faithfulness: 1.00 | correctness: 1.00 | hallucination_free: 0.80</td><td>✅</td></tr>
+<tr class='fail-row'><td>11</td><td>support_query</td><td style='max-width:300px;word-break:break-word'>I want to return my order ORD-EVAL-011</td><td style='font-size:0.8em'>answer_relevancy: 1.00 | task_completion: 0.67 | faithfulness: 1.00 | correctness: 0.83 | hallucination_free: 0.80</td><td>❌</td></tr>
+<tr class='pass-row'><td>12</td><td>support_query</td><td style='max-width:300px;word-break:break-word'>I need a refund for order ORD-EVAL-012</td><td style='font-size:0.8em'>answer_relevancy: 1.00 | task_completion: 1.00 | faithfulness: 1.00 | correctness: 1.00 | hallucination_free: 0.80</td><td>✅</td></tr>
+<tr class='pass-row'><td>13</td><td>support_query</td><td style='max-width:300px;word-break:break-word'>My product from order ORD-EVAL-013 arrived damaged</td><td style='font-size:0.8em'>answer_relevancy: 1.00 | task_completion: 1.00 | faithfulness: 1.00 | correctness: 1.00 | hallucination_free: 0.80</td><td>✅</td></tr>
+<tr class='pass-row'><td>14</td><td>support_query</td><td style='max-width:300px;word-break:break-word'>I received wrong item in order ORD-EVAL-014</td><td style='font-size:0.8em'>answer_relevancy: 1.00 | task_completion: 1.00 | faithfulness: 1.00 | correctness: 1.00 | hallucination_free: 0.80</td><td>✅</td></tr>
+<tr class='pass-row'><td>15</td><td>support_query</td><td style='max-width:300px;word-break:break-word'>what is your return policy</td><td style='font-size:0.8em'>answer_relevancy: 1.00 | task_completion: 1.00 | faithfulness: 1.00 | correctness: 1.00 | hallucination_free: 0.80</td><td>✅</td></tr>
 
 </table>
 </body>

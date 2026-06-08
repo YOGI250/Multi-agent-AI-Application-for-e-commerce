@@ -4,6 +4,38 @@
   "timezone": "browser",
   "schemaVersion": 38,
   "refresh": "30s",
+  "templating": {
+    "list": [
+      {
+        "name": "level",
+        "type": "query",
+        "label": "Log Level",
+        "datasource": { "type": "loki", "uid": "P8E80F9AEF21F6940" },
+        "query": "label_values(level)",
+        "includeAll": true,
+        "allValue": ".*",
+        "multi": false,
+        "current": { "text": "All", "value": "$__all" }
+      },
+      {
+        "name": "agent",
+        "type": "query",
+        "label": "Agent",
+        "datasource": { "type": "loki", "uid": "P8E80F9AEF21F6940" },
+        "query": "label_values(agent_used)",
+        "includeAll": true,
+        "allValue": ".*",
+        "multi": false,
+        "current": { "text": "All", "value": "$__all" }
+      },
+      {
+        "name": "session_id",
+        "type": "textbox",
+        "label": "Session ID",
+        "query": ""
+      }
+    ]
+  },
   "panels": [
     {
       "id": 100,
@@ -364,7 +396,7 @@
             "type": "loki",
             "uid": "P8E80F9AEF21F6940"
           },
-          "expr": "{job=\"ecommerce-app\"}",
+          "expr": "{namespace=\"ecommerce\", container=\"fastapi\", level=~\"$level\"} |= \"$session_id\"",
           "legendFormat": "",
           "queryType": "range",
           "refId": "A"

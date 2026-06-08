@@ -48,78 +48,285 @@ data:
           path: /var/lib/grafana/dashboards
   ecommerce-dashboard.json: |
     {
-      "title": "E-Commerce AI Support Dashboard",
-      "uid": "ecommerce-ai",
-      "schemaVersion": 36,
-      "refresh": "10s",
+      "title": "E-Commerce AI Support — Business Overview",
+      "uid": "ecommerce-agent",
+      "timezone": "browser",
+      "schemaVersion": 38,
+      "refresh": "30s",
+      "templating": {
+        "list": [
+          {
+            "name": "level",
+            "type": "query",
+            "label": "Log Level",
+            "datasource": { "type": "loki", "uid": "P8E80F9AEF21F6940" },
+            "query": "label_values(level)",
+            "includeAll": true,
+            "allValue": ".*",
+            "multi": false,
+            "current": { "text": "All", "value": "$__all" }
+          },
+          {
+            "name": "agent",
+            "type": "query",
+            "label": "Agent",
+            "datasource": { "type": "loki", "uid": "P8E80F9AEF21F6940" },
+            "query": "label_values(agent_used)",
+            "includeAll": true,
+            "allValue": ".*",
+            "multi": false,
+            "current": { "text": "All", "value": "$__all" }
+          },
+          {
+            "name": "session_id",
+            "type": "textbox",
+            "label": "Session ID",
+            "query": ""
+          }
+        ]
+      },
       "panels": [
         {
-          "id": 1,
-          "title": "Request Volume Over Time",
-          "type": "timeseries",
-          "gridPos": { "x": 0, "y": 0, "w": 12, "h": 8 },
-          "targets": [{
-            "expr": "rate(chat_requests_total[1m])",
-            "legendFormat": "{{ `{{agent_used}}` }} - {{ `{{status}}` }}"
-          }]
+          "id": 100, "type": "row", "title": "At a Glance",
+          "gridPos": { "h": 1, "w": 24, "x": 0, "y": 0 }, "collapsed": false
         },
         {
-          "id": 2,
-          "title": "Agent Selection Distribution",
-          "type": "piechart",
-          "gridPos": { "x": 12, "y": 0, "w": 12, "h": 8 },
+          "id": 1,
+          "title": "Conversations Today",
+          "description": "Total number of chat conversations handled in the last 24 hours.",
+          "type": "stat",
+          "gridPos": { "h": 4, "w": 8, "x": 0, "y": 1 },
+          "fieldConfig": {
+            "defaults": {
+              "color": { "mode": "thresholds" },
+              "thresholds": { "mode": "absolute", "steps": [{ "color": "blue", "value": null }] },
+              "unit": "short", "decimals": 0, "noValue": "0"
+            }
+          },
+          "options": {
+            "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+            "colorMode": "background", "graphMode": "area"
+          },
           "targets": [{
-            "expr": "sum by (agent_used) (chat_requests_total)",
-            "legendFormat": "{{ `{{agent_used}}` }}"
+            "datasource": "Prometheus",
+            "expr": "sum(increase(chat_requests_total[24h])) or vector(0)",
+            "legendFormat": "Conversations", "refId": "A"
           }]
         },
         {
           "id": 3,
-          "title": "Average Latency Per Agent (seconds)",
-          "type": "timeseries",
-          "gridPos": { "x": 0, "y": 8, "w": 12, "h": 8 },
+          "title": "Avg Response Time",
+          "description": "Average time a customer waits for a reply. Green = under 3 s. Yellow = 3-10 s. Red = over 10 s.",
+          "type": "stat",
+          "gridPos": { "h": 4, "w": 8, "x": 8, "y": 1 },
+          "fieldConfig": {
+            "defaults": {
+              "color": { "mode": "thresholds" },
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  { "color": "green", "value": null },
+                  { "color": "yellow", "value": 3 },
+                  { "color": "red", "value": 10 }
+                ]
+              },
+              "unit": "s", "decimals": 1, "noValue": "N/A"
+            }
+          },
+          "options": {
+            "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+            "colorMode": "background", "graphMode": "area"
+          },
           "targets": [{
-            "expr": "rate(chat_request_latency_seconds_sum[5m]) / rate(chat_request_latency_seconds_count[5m])",
-            "legendFormat": "{{ `{{agent_used}}` }}"
+            "datasource": "Prometheus",
+            "expr": "sum(increase(chat_request_latency_seconds_sum[24h])) / sum(increase(chat_request_latency_seconds_count[24h]))",
+            "legendFormat": "Avg Response Time", "refId": "A"
           }]
         },
         {
           "id": 4,
-          "title": "Error Rate (per second)",
-          "type": "timeseries",
-          "gridPos": { "x": 12, "y": 8, "w": 12, "h": 8 },
+          "title": "Errors in Last Hour",
+          "description": "Number of failed conversations in the past hour. Green = no errors. Yellow = 1-4. Red = 5+.",
+          "type": "stat",
+          "gridPos": { "h": 4, "w": 8, "x": 16, "y": 1 },
+          "fieldConfig": {
+            "defaults": {
+              "color": { "mode": "thresholds" },
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  { "color": "green", "value": null },
+                  { "color": "yellow", "value": 1 },
+                  { "color": "red", "value": 5 }
+                ]
+              },
+              "unit": "short", "decimals": 0, "noValue": "0"
+            }
+          },
+          "options": {
+            "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+            "colorMode": "background", "graphMode": "none"
+          },
           "targets": [{
-            "expr": "rate(chat_errors_total[5m])",
-            "legendFormat": "{{ `{{error_type}}` }} / {{ `{{agent_used}}` }}"
+            "datasource": "Prometheus",
+            "expr": "sum(increase(chat_errors_total[1h])) or vector(0)",
+            "legendFormat": "Errors", "refId": "A"
           }]
         },
         {
+          "id": 101, "type": "row", "title": "Conversation Traffic",
+          "gridPos": { "h": 1, "w": 24, "x": 0, "y": 5 }, "collapsed": false
+        },
+        {
           "id": 5,
-          "title": "LLM Token Consumption Over Time",
+          "title": "Chat Activity Over Time",
+          "description": "How busy the system is. Each line is a different AI assistant.",
           "type": "timeseries",
-          "gridPos": { "x": 0, "y": 16, "w": 24, "h": 8 },
+          "gridPos": { "h": 8, "w": 14, "x": 0, "y": 6 },
+          "fieldConfig": {
+            "defaults": {
+              "color": { "mode": "palette-classic" },
+              "custom": { "lineInterpolation": "smooth", "lineWidth": 2, "fillOpacity": 12, "showPoints": "never" },
+              "unit": "reqps"
+            }
+          },
+          "options": {
+            "tooltip": { "mode": "multi", "sort": "desc" },
+            "legend": { "displayMode": "table", "placement": "bottom", "calcs": ["lastNotNull", "max"] }
+          },
           "targets": [{
-            "expr": "rate(llm_tokens_total[5m])",
-            "legendFormat": "{{ `{{agent_used}}` }} - {{ `{{token_type}}` }}"
+            "datasource": "Prometheus",
+            "expr": "sum by (agent_used) (rate(chat_requests_total[2m]))",
+            "legendFormat": "{{ `{{agent_used}}` }}", "refId": "A"
           }]
         },
         {
           "id": 6,
+          "title": "What Customers Are Asking About",
+          "description": "Breakdown of all-time requests by agent.",
+          "type": "piechart",
+          "gridPos": { "h": 8, "w": 10, "x": 14, "y": 6 },
+          "fieldConfig": { "defaults": { "color": { "mode": "palette-classic" } } },
+          "options": {
+            "displayLabels": ["percent", "name"],
+            "legend": { "displayMode": "table", "placement": "right", "values": ["value", "percent"] },
+            "tooltip": { "mode": "single" }
+          },
+          "targets": [{
+            "datasource": "Prometheus",
+            "expr": "sum by (agent_used) (chat_requests_total)",
+            "legendFormat": "{{ `{{agent_used}}` }}", "refId": "A"
+          }]
+        },
+        {
+          "id": 102, "type": "row", "title": "Response Performance",
+          "gridPos": { "h": 1, "w": 24, "x": 0, "y": 14 }, "collapsed": false
+        },
+        {
+          "id": 7,
+          "title": "How Fast Is Each Assistant Responding?",
+          "description": "Average response time per agent. Green < 3 s. Yellow 3-10 s. Red > 10 s.",
+          "type": "timeseries",
+          "gridPos": { "h": 8, "w": 14, "x": 0, "y": 15 },
+          "fieldConfig": {
+            "defaults": {
+              "color": { "mode": "palette-classic" },
+              "custom": { "lineInterpolation": "smooth", "lineWidth": 2, "fillOpacity": 8, "showPoints": "never" },
+              "unit": "s"
+            }
+          },
+          "options": {
+            "tooltip": { "mode": "multi", "sort": "desc" },
+            "legend": { "displayMode": "table", "placement": "bottom", "calcs": ["mean", "max"] }
+          },
+          "targets": [{
+            "datasource": "Prometheus",
+            "expr": "rate(chat_request_latency_seconds_sum[5m]) / rate(chat_request_latency_seconds_count[5m])",
+            "legendFormat": "{{ `{{agent_used}}` }}", "refId": "A"
+          }]
+        },
+        {
+          "id": 8,
+          "title": "Errors Over Time",
+          "description": "Failed conversations over time. Green = no errors. Red bar = failures.",
+          "type": "timeseries",
+          "gridPos": { "h": 8, "w": 10, "x": 14, "y": 15 },
+          "fieldConfig": {
+            "defaults": {
+              "color": { "mode": "thresholds" },
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [{ "color": "green", "value": null }, { "color": "red", "value": 1 }]
+              },
+              "custom": {
+                "drawStyle": "bars", "barMaxWidth": 20, "lineWidth": 0,
+                "fillOpacity": 80, "showPoints": "never"
+              },
+              "unit": "short", "min": 0
+            }
+          },
+          "options": {
+            "tooltip": { "mode": "multi" },
+            "legend": { "displayMode": "list", "placement": "bottom" }
+          },
+          "targets": [{
+            "datasource": "Prometheus",
+            "expr": "increase(chat_errors_total[5m]) or vector(0)",
+            "legendFormat": "{{ `{{error_type}}` }} — {{ `{{agent_used}}` }}", "refId": "A"
+          }]
+        },
+        {
+          "id": 103, "type": "row", "title": "AI Processing Load",
+          "gridPos": { "h": 1, "w": 24, "x": 0, "y": 23 }, "collapsed": false
+        },
+        {
+          "id": 9,
+          "title": "AI Token Usage Per Minute",
+          "description": "Tokens read and written by the AI per minute. Stacked bars show input vs output per agent. Reflects AI API cost directly.",
+          "type": "timeseries",
+          "gridPos": { "h": 8, "w": 24, "x": 0, "y": 24 },
+          "fieldConfig": {
+            "defaults": {
+              "color": { "mode": "palette-classic" },
+              "custom": {
+                "drawStyle": "bars", "barMaxWidth": 20, "lineWidth": 0,
+                "fillOpacity": 80, "showPoints": "never",
+                "stacking": { "mode": "normal", "group": "A" }
+              },
+              "unit": "short"
+            }
+          },
+          "options": {
+            "tooltip": { "mode": "multi", "sort": "desc" },
+            "legend": { "displayMode": "table", "placement": "bottom", "calcs": ["mean", "max"] }
+          },
+          "targets": [{
+            "datasource": "Prometheus",
+            "expr": "rate(llm_tokens_total[5m]) * 60",
+            "legendFormat": "{{ `{{agent_used}}` }} — {{ `{{token_type}}` }}", "refId": "A"
+          }]
+        },
+        {
+          "id": 104, "type": "row", "title": "System Logs (For Technical Staff)",
+          "gridPos": { "h": 1, "w": 24, "x": 0, "y": 32 }, "collapsed": false
+        },
+        {
+          "id": 10,
           "title": "Application Logs",
+          "description": "Live log stream from the application.",
           "type": "logs",
-          "gridPos": { "x": 0, "y": 24, "w": 24, "h": 10 },
           "datasource": { "type": "loki", "uid": "P8E80F9AEF21F6940" },
+          "gridPos": { "h": 10, "w": 24, "x": 0, "y": 33 },
+          "options": {
+            "dedupStrategy": "none", "enableLogDetails": true,
+            "showLabels": true, "showTime": true,
+            "sortOrder": "Descending", "wrapLogMessage": true
+          },
           "targets": [{
             "datasource": { "type": "loki", "uid": "P8E80F9AEF21F6940" },
-            "expr": "{namespace=\"ecommerce\", container=\"fastapi\"}",
-            "legendFormat": ""
-          }],
-          "options": {
-            "showTime": true,
-            "showLabels": true,
-            "wrapLogMessage": true,
-            "sortOrder": "Descending"
-          }
+            "expr": "{namespace=\"ecommerce\", container=\"fastapi\", level=~\"$level\"} |= \"$session_id\"",
+            "legendFormat": "", "queryType": "range", "refId": "A"
+          }]
         }
       ]
     }
