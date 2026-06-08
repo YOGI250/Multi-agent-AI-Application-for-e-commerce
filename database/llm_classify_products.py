@@ -132,27 +132,26 @@ def run():
         all_results: dict[str, str] = {}
         batches = [products[i : i + BATCH_SIZE] for i in range(0, total, BATCH_SIZE)]
 
+        updated = 0
+        type_counts: dict[str, int] = {}
+
         for batch_num, batch in enumerate(batches, 1):
             logger.info(f"Batch {batch_num}/{len(batches)} ({len(batch)} products)...")
             result = classify_batch(llm, batch)
-            all_results.update(result)
+
+            # Write this batch to DB immediately — avoids Neon idle connection timeout
+            for product_id, ptype in result.items():
+                db.query(Product).filter(Product.product_id == product_id).update(
+                    {"product_type": ptype}
+                )
+                type_counts[ptype] = type_counts.get(ptype, 0) + 1
+                updated += 1
+            db.commit()
 
             # Groq free tier: avoid hitting rate limits
             if batch_num % 5 == 0:
                 time.sleep(2)
 
-        # Write all results back to DB in one pass
-        logger.info("Writing classifications to PostgreSQL...")
-        updated = 0
-        type_counts: dict[str, int] = {}
-
-        for product in db.query(Product).all():
-            ptype = all_results.get(product.product_id, "other")
-            product.product_type = ptype
-            type_counts[ptype] = type_counts.get(ptype, 0) + 1
-            updated += 1
-
-        db.commit()
         logger.info(f"Updated {updated} products.")
 
         logger.info("\nProduct type distribution:")

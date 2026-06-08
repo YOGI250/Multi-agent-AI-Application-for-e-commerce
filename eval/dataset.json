@@ -2,13 +2,13 @@
   {
     "agent": "product_agent",
     "input": {
-      "message": "show me laptops under 50000",
+      "message": "show me keyboards under 3000",
       "user_id": "eval_guest_001"
     },
     "expected_output": {
       "intent": "product_query",
-      "should_contain": ["laptop", "price", "rating"],
-      "reference": "Here are some laptops under ₹50,000: [Product names with prices between ₹30,000-₹50,000, ratings above 4.0, and brand names like Lenovo, HP, or Acer]. Each recommendation includes the price in rupees, star rating, and key features."
+      "should_contain": ["keyboard", "price", "rating"],
+      "reference": "Here are some keyboards under ₹3,000: [Product names with prices under ₹3,000, ratings above 4.0, and brand names]. Each recommendation includes the price in rupees and star rating."
     }
   },
   {
