@@ -140,9 +140,7 @@ def run():
 
             # Write this batch to DB immediately — avoids Neon idle connection timeout
             for product_id, ptype in result.items():
-                db.query(Product).filter(Product.product_id == product_id).update(
-                    {"product_type": ptype}
-                )
+                db.query(Product).filter(Product.product_id == product_id).update({"product_type": ptype})
                 type_counts[ptype] = type_counts.get(ptype, 0) + 1
                 updated += 1
             db.commit()
