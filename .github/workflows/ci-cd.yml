@@ -299,6 +299,8 @@ jobs:
             --set image.tag=${{ github.sha }} \
             --set image.pullPolicy=IfNotPresent \
             --set replicaCount=1 \
+            --set postgres.storageClass=local-path \
+            --set langfuseDb.storageClass=local-path \
             --timeout=300s
 
       - name: Wait for PostgreSQL to be Ready
