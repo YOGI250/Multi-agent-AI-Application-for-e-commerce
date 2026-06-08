@@ -14,7 +14,9 @@ logger = logging.getLogger(__name__)
 # LangFuse client — single instance per process
 # ─────────────────────────────────────────────────────────────
 langfuse_client = Langfuse(
-    secret_key=settings.langfuse_secret_key, public_key=settings.langfuse_public_key, host=settings.langfuse_host
+    secret_key=settings.langfuse_secret_key.strip(),
+    public_key=settings.langfuse_public_key.strip(),
+    host=settings.langfuse_host.strip(),
 )
 
 # ─────────────────────────────────────────────────────────────

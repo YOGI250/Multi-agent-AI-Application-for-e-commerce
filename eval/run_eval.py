@@ -36,9 +36,7 @@ from deepeval.models import DeepEvalBaseLLM
 from deepeval.metrics import GEval
 from deepeval.test_case import LLMTestCase, SingleTurnParams
 
-logging.basicConfig(
-    level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s"
-)
+logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 logger = logging.getLogger(__name__)
 
 REPO_ROOT = Path(__file__).parent.parent
@@ -67,11 +65,7 @@ EVAL_USER = os.getenv("EVAL_USER_ID", "google_105309025092043620678")
 
 def _git(cmd: list[str]) -> str:
     try:
-        return (
-            subprocess.check_output(cmd, cwd=REPO_ROOT, stderr=subprocess.DEVNULL)
-            .decode()
-            .strip()
-        )
+        return subprocess.check_output(cmd, cwd=REPO_ROOT, stderr=subprocess.DEVNULL).decode().strip()
     except Exception:
         return "unknown"
 
@@ -90,9 +84,7 @@ class GroqDeepEvalLLM(DeepEvalBaseLLM):
         if groq_key and not groq_key.startswith("test_"):
             from langchain_groq import ChatGroq
 
-            self._llm = ChatGroq(
-                api_key=groq_key, model="llama-3.1-8b-instant", temperature=0
-            )
+            self._llm = ChatGroq(api_key=groq_key, model="llama-3.1-8b-instant", temperature=0)
         else:
             self._llm = None
 
@@ -114,9 +106,7 @@ class GroqDeepEvalLLM(DeepEvalBaseLLM):
 # ── DeepEval scoring ─────────────────────────────────────────────────────────────
 
 
-def score_with_deepeval(
-    message: str, actual_output: str, reference: str, expected: dict
-) -> dict[str, float]:
+def score_with_deepeval(message: str, actual_output: str, reference: str, expected: dict) -> dict[str, float]:
     """
     Score using DeepEval metric classes + custom Groq batch judge.
 
@@ -169,9 +159,7 @@ def score_with_deepeval(
             logger.info(f"    [DeepEval GEval] {metric_name}: {scores[metric_name]}")
         except Exception as e:
             logger.warning(f"    GEval {metric_name} failed: {e} — heuristic fallback")
-            scores[metric_name] = _heuristic_score(actual_output, reference, expected)[
-                metric_name
-            ]
+            scores[metric_name] = _heuristic_score(actual_output, reference, expected)[metric_name]
 
     # ── Custom Groq batch judge — remaining 3 dimensions in one call ──────────
     try:
@@ -190,9 +178,7 @@ def score_with_deepeval(
 # ── Heuristic fallback (used only when DeepEval judge is unavailable) ────────────
 
 
-def _llm_judge_eval(
-    message: str, response: str, reference: str, expected: dict
-) -> dict[str, float]:
+def _llm_judge_eval(message: str, response: str, reference: str, expected: dict) -> dict[str, float]:
     """
     Groq LLM-as-judge for eval pipeline.
     Uses llama-3.1-8b-instant — fast, cheap, already available via GROQ_API_KEY.
@@ -275,9 +261,7 @@ def _heuristic_score(response: str, reference: str, expected: dict) -> dict[str,
     }
 
 
-def score_case(
-    message: str, response: str, reference: str, expected: dict
-) -> dict[str, float]:
+def score_case(message: str, response: str, reference: str, expected: dict) -> dict[str, float]:
     try:
         scores = score_with_deepeval(message, response, reference, expected)
         logger.info("    [scorer] DeepEval (AnswerRelevancyMetric + GEval, Groq judge)")
@@ -306,8 +290,7 @@ class SequentialMockLLM:
     def invoke(self, *args, **kwargs):
         if self._idx >= len(self._fixtures):
             raise RuntimeError(
-                f"Unexpected LLM call #{self._idx + 1}: "
-                f"only {len(self._fixtures)} fixtures defined for this sample"
+                f"Unexpected LLM call #{self._idx + 1}: " f"only {len(self._fixtures)} fixtures defined for this sample"
             )
         content = self._fixtures[self._idx]
         self._idx += 1
@@ -382,9 +365,7 @@ def run_with_mocks_order(
     return result.get("response", "")
 
 
-def run_with_mocks_support(
-    message: str, llm_fixtures: list, policy_data: dict, user_id: str = "eval_guest_001"
-) -> str:
+def run_with_mocks_support(message: str, llm_fixtures: list, policy_data: dict, user_id: str = "eval_guest_001") -> str:
     """Run support_agent with mocked LLM + tool calls.
     LLM calls: classify_issue (fixture 0), draft_resolution (fixture 1).
     assess_severity queries DB directly — has try/except so DB failure is safe.
@@ -426,9 +407,7 @@ def call_live_api(message: str, user_id: str) -> str:
     """Call the running FastAPI /api/v1/chat endpoint and return the response text."""
     url = f"{API_BASE}/chat"
     try:
-        resp = requests.post(
-            url, json={"message": message, "guest_id": user_id}, timeout=30
-        )
+        resp = requests.post(url, json={"message": message, "guest_id": user_id}, timeout=30)
         resp.raise_for_status()
         data = resp.json()
         return data.get("response", "")
@@ -492,9 +471,7 @@ def run_evaluation() -> tuple[list[dict], dict[str, float], bool]:
             if not actual_output:
                 logger.warning("    Empty response from mocked agent — skipping sample")
                 continue
-            logger.info(
-                f"    [{agent_type}] produced {len(actual_output)} chars of output"
-            )
+            logger.info(f"    [{agent_type}] produced {len(actual_output)} chars of output")
 
         scores = score_case(message, actual_output, reference, expected)
         passed = all(scores[k] >= THRESHOLDS[k] for k in scores if k in THRESHOLDS)
@@ -504,8 +481,7 @@ def run_evaluation() -> tuple[list[dict], dict[str, float], bool]:
                 "sample_id": i + 1,
                 "message": message,
                 "intent": expected.get("intent"),
-                "actual_output": actual_output[:300]
-                + ("..." if len(actual_output) > 300 else ""),
+                "actual_output": actual_output[:300] + ("..." if len(actual_output) > 300 else ""),
                 "scores": scores,
                 "passed": passed,
                 "mode": mode,
@@ -678,32 +654,26 @@ def generate_html_report(per_sample, averages, overall_pass) -> Path:
 # ── Push JSON report to LangFuse ────────────────────────────────────────────────
 
 
-def push_report_to_langfuse(
-    json_path: Path, per_sample: list, overall_pass: bool
-) -> None:
+def push_report_to_langfuse(json_path: Path, per_sample: list, overall_pass: bool) -> None:
     try:
         sys.path.insert(0, str(REPO_ROOT))
         from langfuse import Langfuse
 
         lf = Langfuse(
-            public_key=os.getenv("LANGFUSE_PUBLIC_KEY", "placeholder"),
-            secret_key=os.getenv("LANGFUSE_SECRET_KEY", "placeholder"),
-            host=os.getenv("LANGFUSE_HOST", "http://localhost:3000"),
+            public_key=os.getenv("LANGFUSE_PUBLIC_KEY", "placeholder").strip(),
+            secret_key=os.getenv("LANGFUSE_SECRET_KEY", "placeholder").strip(),
+            host=os.getenv("LANGFUSE_HOST", "http://localhost:3000").strip(),
         )
 
         dataset_name = config["evaluation"]["dataset_name"]
-        run_name = (
-            f"ci-eval-{GIT_SHA[:8]}-{datetime.now(timezone.utc).strftime('%Y%m%d%H%M')}"
-        )
+        run_name = f"ci-eval-{GIT_SHA[:8]}-{datetime.now(timezone.utc).strftime('%Y%m%d%H%M')}"
 
         # Fetch existing dataset items seeded by seed_dataset.py
         # so we link run results to existing items (not create duplicates each run)
         item_map: dict[str, str] = {}
         try:
             existing = lf.get_dataset(dataset_name)
-            item_map = {
-                item.input.get("message", ""): item.id for item in existing.items
-            }
+            item_map = {item.input.get("message", ""): item.id for item in existing.items}
         except Exception:
             pass  # dataset not seeded yet — will create items inline below
 
@@ -760,10 +730,7 @@ def main() -> int:
         logger.error("Evaluation FAILED — one or more metrics below threshold.")
         for metric, avg in averages.items():
             if avg < THRESHOLDS.get(metric, 0.0):
-                logger.error(
-                    f"  FAIL: {metric} = {avg:.4f} "
-                    f"(threshold = {THRESHOLDS[metric]})"
-                )
+                logger.error(f"  FAIL: {metric} = {avg:.4f} " f"(threshold = {THRESHOLDS[metric]})")
 
     return 0 if overall_pass else 1
 
