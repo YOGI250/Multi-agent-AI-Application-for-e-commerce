@@ -129,7 +129,6 @@ def run():
         total = len(products)
         logger.info(f"Classifying {total} products using Groq LLM...")
 
-        all_results: dict[str, str] = {}
         batches = [products[i : i + BATCH_SIZE] for i in range(0, total, BATCH_SIZE)]
 
         updated = 0
