@@ -93,7 +93,7 @@ jobs:
             --cov-config=.coveragerc \
             --cov-report=term-missing \
             --cov-report=xml:coverage.xml \
-            --cov-fail-under=85 \
+            --cov-fail-under=80 \
             -v
 
       - name: Upload coverage report

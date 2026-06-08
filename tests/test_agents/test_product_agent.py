@@ -128,7 +128,7 @@ class TestNoResultsResponse:
     def test_no_results_mentions_products(self, base_state):
         from agents.product_agent import no_results_response
         result = no_results_response(base_state)
-        assert "product" in result["response"].lower()
+        assert "catalog" in result["response"].lower() or "available" in result["response"].lower()
 
 
 # ==========================================
