@@ -690,9 +690,32 @@ def push_report_to_langfuse(json_path: Path, per_sample: list, overall_pass: boo
                     )
                     item_id = new_item.id
 
+                # create_dataset_run_item requires a trace_id in LangFuse v3+.
+                # Create a lightweight eval trace so the run is visible in Experiments.
+                trace = lf.trace(
+                    name=f"eval-{sample.get('intent', 'unknown')}",
+                    input={"message": sample["message"]},
+                    output={"response": sample["actual_output"]},
+                    metadata={
+                        "mode": sample.get("mode", "mocked"),
+                        "agent": sample.get("intent", "unknown"),
+                        "passed": sample["passed"],
+                        "git_sha": GIT_SHA,
+                    },
+                    tags=["eval", sample.get("mode", "mocked")],
+                )
+
+                for metric, score_val in sample["scores"].items():
+                    lf.score(
+                        trace_id=trace.id,
+                        name=metric,
+                        value=score_val,
+                    )
+
                 lf.create_dataset_run_item(
                     run_name=run_name,
                     dataset_item_id=item_id,
+                    trace_id=trace.id,
                     metadata={
                         "scores": sample["scores"],
                         "passed": sample["passed"],
@@ -701,8 +724,8 @@ def push_report_to_langfuse(json_path: Path, per_sample: list, overall_pass: boo
                     },
                 )
                 pushed += 1
-            except Exception:
-                pass
+            except Exception as exc:
+                logger.warning(f"LangFuse: failed to push sample {sample.get('sample_id')}: {exc}")
 
         lf.flush()
         logger.info(f"LangFuse: eval run '{run_name}' pushed ({pushed} items)")
