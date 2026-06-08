@@ -305,9 +305,8 @@ jobs:
 
       - name: Wait for PostgreSQL to be Ready
         run: |
-          kubectl wait pod -l component=postgres \
+          kubectl rollout status statefulset/ecommerce-postgres \
             --namespace=ecommerce \
-            --for=condition=Ready \
             --timeout=240s
 
       - name: Smoke test — health check endpoint
