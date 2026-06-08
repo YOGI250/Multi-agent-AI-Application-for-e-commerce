@@ -7,7 +7,8 @@
     },
     "expected_output": {
       "intent": "product_query",
-      "should_contain": ["laptop", "price", "rating"]
+      "should_contain": ["laptop", "price", "rating"],
+      "reference": "Here are some laptops under ₹50,000: [Product names with prices between ₹30,000-₹50,000, ratings above 4.0, and brand names like Lenovo, HP, or Acer]. Each recommendation includes the price in rupees, star rating, and key features."
     }
   },
   {
@@ -18,7 +19,8 @@
     },
     "expected_output": {
       "intent": "product_query",
-      "should_contain": ["mouse", "rating", "brand"]
+      "should_contain": ["mouse", "rating", "brand"],
+      "reference": "Here are some highly-rated wireless mice: [Product names with ratings above 4.0, brand names like Logitech, HP, or Dell, and prices in rupees]. Each recommendation includes the rating, brand, and price."
     }
   },
   {
@@ -29,7 +31,8 @@
     },
     "expected_output": {
       "intent": "product_query",
-      "should_contain": ["headphones", "price", "rating"]
+      "should_contain": ["headphones", "price", "rating"],
+      "reference": "Here are some headphones under ₹2,000: [Product names with prices under ₹2,000, ratings, and brand names]. Each listing includes the exact price in rupees and the customer rating."
     }
   },
   {
@@ -40,7 +43,8 @@
     },
     "expected_output": {
       "intent": "product_query",
-      "should_contain": ["smartwatch", "price", "brand"]
+      "should_contain": ["smartwatch", "price", "brand"],
+      "reference": "Here are the best smartwatches under ₹10,000: [Product names with prices under ₹10,000, brand names, and ratings]. Each recommendation includes the price in rupees and brand name."
     }
   },
   {
@@ -51,7 +55,8 @@
     },
     "expected_output": {
       "intent": "product_query",
-      "should_contain": ["mixer", "price", "brand"]
+      "should_contain": ["mixer", "price", "brand"],
+      "reference": "Here are some good mixer grinders for home use: [Product names from brands like Prestige, Philips, or Bajaj, with prices and ratings]. Each recommendation includes the brand, price in rupees, and star rating."
     }
   },
   {
@@ -62,7 +67,8 @@
     },
     "expected_output": {
       "intent": "order_query",
-      "should_contain": ["ORD-EVAL-001", "transit", "delivery"]
+      "should_contain": ["ORD-EVAL-001", "transit", "delivery"],
+      "reference": "Your order ORD-EVAL-001 is currently in transit and on its way to you. It was shipped via DTDC and is expected to be delivered within the next few days. Tracking number: DT251092001."
     }
   },
   {
@@ -73,7 +79,8 @@
     },
     "expected_output": {
       "intent": "order_query",
-      "should_contain": ["ORD-EVAL-002", "delivery", "out"]
+      "should_contain": ["ORD-EVAL-002", "delivery", "out"],
+      "reference": "Your order ORD-EVAL-002 is out for delivery today. It was shipped via BlueDart and should arrive at your address today. Tracking number: BD123456001."
     }
   },
   {
@@ -84,7 +91,8 @@
     },
     "expected_output": {
       "intent": "order_query",
-      "should_contain": ["ORD-EVAL-003", "delivered"]
+      "should_contain": ["ORD-EVAL-003", "delivered"],
+      "reference": "Yes, your order ORD-EVAL-003 has been successfully delivered. It was delivered by FedEx. If you haven't received it, please let us know and we will look into it."
     }
   },
   {
@@ -95,7 +103,8 @@
     },
     "expected_output": {
       "intent": "order_query",
-      "should_contain": ["ORD-EVAL-004", "processing", "days"]
+      "should_contain": ["ORD-EVAL-004", "processing", "days"],
+      "reference": "Your order ORD-EVAL-004 is currently being processed. It is expected to be dispatched soon and should arrive within the next 5 days. We will notify you once it is shipped."
     }
   },
   {
@@ -106,7 +115,8 @@
     },
     "expected_output": {
       "intent": "order_query",
-      "should_contain": ["ORD-EVAL-005", "delay", "apolog"]
+      "should_contain": ["ORD-EVAL-005", "delay", "apolog"],
+      "reference": "I sincerely apologize for the delay with your order ORD-EVAL-005. The order was expected to be delivered earlier and has been delayed. Our logistics team is working to resolve this as quickly as possible."
     }
   },
   {
@@ -117,7 +127,8 @@
     },
     "expected_output": {
       "intent": "support_query",
-      "should_contain": ["return", "days", "policy"]
+      "should_contain": ["return", "days", "policy"],
+      "reference": "I can help you with returning your order ORD-EVAL-011. Our return policy allows returns within 30 days of delivery in the original condition with all packaging. A support ticket has been created for your return request."
     }
   },
   {
@@ -128,7 +139,8 @@
     },
     "expected_output": {
       "intent": "support_query",
-      "should_contain": ["refund", "days", "processed"]
+      "should_contain": ["refund", "days", "processed"],
+      "reference": "I have raised a refund request for your order ORD-EVAL-012. Refunds are typically processed within 5-7 business days and credited to your original payment method. A support ticket has been created to track this."
     }
   },
   {
@@ -139,7 +151,8 @@
     },
     "expected_output": {
       "intent": "support_query",
-      "should_contain": ["damage", "replacement", "sorry"]
+      "should_contain": ["damage", "replacement", "sorry"],
+      "reference": "I am very sorry to hear that your product from order ORD-EVAL-013 arrived damaged. We sincerely apologize for this inconvenience. We will arrange for a replacement to be sent to you. A high-priority support ticket has been created."
     }
   },
   {
@@ -150,7 +163,8 @@
     },
     "expected_output": {
       "intent": "support_query",
-      "should_contain": ["wrong", "correct", "send"]
+      "should_contain": ["wrong", "correct", "send"],
+      "reference": "I apologize that you received the wrong item in order ORD-EVAL-014. We will arrange to send you the correct product and organize a return pickup for the wrong item. A support ticket has been created to handle this."
     }
   },
   {
@@ -161,7 +175,8 @@
     },
     "expected_output": {
       "intent": "support_query",
-      "should_contain": ["return", "30 days", "condition"]
+      "should_contain": ["return", "30 days", "condition"],
+      "reference": "Our return policy allows you to return products within 30 days of delivery, provided the item is in its original condition with all packaging and accessories intact. Refunds are processed within 5-7 business days after the returned item is received and verified."
     }
   }
 ]

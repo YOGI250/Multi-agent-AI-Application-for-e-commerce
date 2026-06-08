@@ -22,7 +22,7 @@ def seed():
     try:
         langfuse_client.create_dataset(
             name        = dataset_name,
-            description = "Ecommerce agent evaluation — 5 cases covering all 3 agents"
+            description = "Ecommerce agent evaluation — 15 cases covering all 3 agents"
         )
         logger.info(f"Dataset created: {dataset_name}")
     except Exception as e:

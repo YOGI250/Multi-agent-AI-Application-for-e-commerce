@@ -22,6 +22,7 @@ ingress:
   tls: true
 
 postgres:
+  enabled: false
   storage: 20Gi
   storageClass: standard
 

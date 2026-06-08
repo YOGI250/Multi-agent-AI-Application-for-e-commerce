@@ -58,11 +58,6 @@ spec:
                 secretKeyRef:
                   name: {{ .Values.secretName }}
                   key: google-client-secret
-            - name: POSTGRES_PASSWORD
-              valueFrom:
-                secretKeyRef:
-                  name: {{ .Values.secretName }}
-                  key: postgres-password
             - name: LANGFUSE_NEXTAUTH_SECRET
               valueFrom:
                 secretKeyRef:

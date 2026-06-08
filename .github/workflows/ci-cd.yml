@@ -111,29 +111,11 @@ jobs:
     runs-on: ubuntu-latest
     needs: test
 
-    services:
-      postgres:
-        image: postgres:16
-        env:
-          POSTGRES_USER:     test
-          POSTGRES_PASSWORD: test
-          POSTGRES_DB:       test_db
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd pg_isready
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-
     env:
       # Agent makes real LLM calls during eval — requires real GROQ_API_KEY
       GROQ_API_KEY:            ${{ secrets.GROQ_API_KEY }}
-      DATABASE_URL:            postgresql://test:test@localhost:5432/test_db
+      DATABASE_URL:            ${{ secrets.NEON_DATABASE_URL }}
       GOOGLE_CLIENT_ID:        test_client_id
-      POSTGRES_USER:           test
-      POSTGRES_PASSWORD:       test
-      POSTGRES_DB:             test_db
       GRAFANA_ADMIN_PASSWORD:  admin
       LANGFUSE_NEXTAUTH_SECRET: test_secret
       LANGFUSE_SALT:           test_salt
@@ -157,8 +139,8 @@ jobs:
           pip install -r requirements.txt
           pip install -r requirements-eval.txt
 
-      - name: Create database tables
-        run: python -c "from database.connection import create_tables; from database.models import *; create_tables()"
+      - name: Seed eval database (idempotent — eval user + eval orders)
+        run: python eval/seed_eval_db.py
 
       - name: Seed LangFuse dataset (idempotent — skips if already exists)
         run: python eval/seed_dataset.py
@@ -260,7 +242,7 @@ jobs:
           kubectl create secret generic ecommerce-secrets \
             --namespace=ecommerce \
             --from-literal=groq-api-key="${{ secrets.GROQ_API_KEY }}" \
-            --from-literal=database-url="postgresql://ecommerce_user:${{ secrets.POSTGRES_PASSWORD }}@ecommerce-postgres:5432/ecommerce_db" \
+            --from-literal=database-url="${{ secrets.NEON_DATABASE_URL }}" \
             --from-literal=langfuse-encryption-key="${{ secrets.LANGFUSE_ENCRYPTION_KEY }}" \
             --from-literal=langfuse-secret-key="${{ secrets.LANGFUSE_SECRET_KEY }}" \
             --from-literal=langfuse-public-key="${{ secrets.LANGFUSE_PUBLIC_KEY }}" \
@@ -268,7 +250,6 @@ jobs:
             --from-literal=langfuse-salt="${{ secrets.LANGFUSE_SALT }}" \
             --from-literal=google-client-id="${{ secrets.GOOGLE_CLIENT_ID }}" \
             --from-literal=google-client-secret="${{ secrets.GOOGLE_CLIENT_SECRET }}" \
-            --from-literal=postgres-password="${{ secrets.POSTGRES_PASSWORD }}" \
             --dry-run=client -o yaml | kubectl apply -f -
           kubectl label secret ecommerce-secrets -n ecommerce \
             app.kubernetes.io/managed-by=Helm --overwrite
@@ -281,18 +262,7 @@ jobs:
         run: |
           echo "${{ secrets.DOCKER_PASSWORD }}" | docker login -u "${{ secrets.DOCKER_USERNAME }}" --password-stdin
           docker pull ${{ env.IMAGE_NAME }}:${{ github.sha }}
-          docker pull postgres:17-alpine
           kind load docker-image ${{ env.IMAGE_NAME }}:${{ github.sha }} --name ecommerce
-          kind load docker-image postgres:17-alpine --name ecommerce
-
-      - name: Sync PostgreSQL password
-        run: |
-          kubectl wait pod -l component=postgres \
-            --namespace=ecommerce --for=condition=Ready --timeout=30s 2>/dev/null || true
-          kubectl exec -n ecommerce ecommerce-postgres-0 -- \
-            psql -U ecommerce_user -d ecommerce_db \
-            -c "ALTER USER ecommerce_user WITH PASSWORD '${{ secrets.POSTGRES_PASSWORD }}';" \
-            2>/dev/null || true
 
       - name: Deploy with Helm
         id: helm_deploy
@@ -306,15 +276,8 @@ jobs:
             --set image.tag=${{ github.sha }} \
             --set image.pullPolicy=IfNotPresent \
             --set replicaCount=1 \
-            --set postgres.storageClass=standard \
             --set langfuseDb.storageClass=standard \
             --timeout=300s
-
-      - name: Wait for PostgreSQL to be Ready
-        run: |
-          kubectl rollout status statefulset/ecommerce-postgres \
-            --namespace=ecommerce \
-            --timeout=240s
 
       - name: Smoke test — health check endpoint
         id: smoke_test

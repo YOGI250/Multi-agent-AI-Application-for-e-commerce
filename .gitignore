@@ -9,3 +9,5 @@ logs/
 google_credentials.json
 .coverage
 htmlcov/
+.deepeval/
+eval/reports/

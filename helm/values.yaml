@@ -46,7 +46,7 @@ ingress:
 # PostgreSQL
 # ─────────────────────────────────────────────────────────────
 postgres:
-  enabled: true
+  enabled: false
   image: postgres:17-alpine
   database: ecommerce_db
   user: ecommerce_user

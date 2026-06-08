@@ -353,7 +353,7 @@ def run_evaluation() -> tuple[list[dict], dict[str, float], bool]:
         user_id = case["input"].get("user_id", EVAL_USER)
         expected = case["expected_output"]
         should_contain = expected.get("should_contain", [])
-        reference = (
+        reference = expected.get("reference") or (
             f"A helpful response about {expected.get('intent', 'the query')} "
             f"that mentions: {', '.join(should_contain)}"
         )
