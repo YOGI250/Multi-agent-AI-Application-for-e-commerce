@@ -20,27 +20,33 @@ done
 
 echo "PostgreSQL is ready"
 
-# create tables and seed if empty
+# create tables and seed if empty — seeding failure is non-fatal
 python3 -c "
 from database.connection import SessionLocal, create_tables
 from database.models import Product
+import subprocess, sys
 
 create_tables()
 
-db = SessionLocal()
-count = db.query(Product).count()
-db.close()
+try:
+    db = SessionLocal()
+    count = db.query(Product).count()
+    db.close()
 
-if count == 0:
-    print('Database empty — seeding products and policies...')
-    import subprocess
-    result = subprocess.run(
-        ['python3', '-m', 'database.import_kaggle_data'],
-        check=True
-    )
-    print('Seeding complete')
-else:
-    print(f'Database has {count} products — skipping seed')
+    if count == 0:
+        print('Database empty — seeding products and policies...')
+        result = subprocess.run(
+            ['python3', '-m', 'database.import_kaggle_data'],
+            check=False
+        )
+        if result.returncode != 0:
+            print('Warning: seeding failed — starting without seed data')
+        else:
+            print('Seeding complete')
+    else:
+        print(f'Database has {count} products — skipping seed')
+except Exception as e:
+    print(f'Warning: seed step failed ({e}) — starting without seed data')
 "
 
 echo "Starting FastAPI..."
