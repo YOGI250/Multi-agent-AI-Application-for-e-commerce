@@ -24,13 +24,47 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(me
 logger = logging.getLogger(__name__)
 
 VALID_TYPES = [
-    "mouse", "keyboard", "headphones", "speaker", "laptop", "tablet",
-    "smartwatch", "monitor", "webcam", "router", "cable", "charger",
-    "usb_hub", "pendrive", "ssd", "hard_disk", "ram", "memory_card",
-    "printer", "stand", "mousepad", "laptop_bag", "phone_case", "extension",
-    "fan", "mixer", "iron", "kettle", "water_heater", "room_heater",
-    "vacuum", "washing_machine", "air_purifier", "water_purifier",
-    "camera", "pen", "notebook", "light", "trimmer", "microwave", "other",
+    "mouse",
+    "keyboard",
+    "headphones",
+    "speaker",
+    "laptop",
+    "tablet",
+    "smartwatch",
+    "monitor",
+    "webcam",
+    "router",
+    "cable",
+    "charger",
+    "usb_hub",
+    "pendrive",
+    "ssd",
+    "hard_disk",
+    "ram",
+    "memory_card",
+    "printer",
+    "stand",
+    "mousepad",
+    "laptop_bag",
+    "phone_case",
+    "extension",
+    "fan",
+    "mixer",
+    "iron",
+    "kettle",
+    "water_heater",
+    "room_heater",
+    "vacuum",
+    "washing_machine",
+    "air_purifier",
+    "water_purifier",
+    "camera",
+    "pen",
+    "notebook",
+    "light",
+    "trimmer",
+    "microwave",
+    "other",
 ]
 
 BATCH_SIZE = 20
@@ -41,9 +75,7 @@ def classify_batch(llm: ChatGroq, batch: list[tuple[str, str]]) -> dict[str, str
     batch: list of (product_id, product_name)
     Returns: dict of product_id -> product_type
     """
-    numbered = "\n".join(
-        f"{i+1}. {name[:120]}" for i, (_, name) in enumerate(batch)
-    )
+    numbered = "\n".join(f"{i+1}. {name[:120]}" for i, (_, name) in enumerate(batch))
 
     prompt = f"""You are a product classification expert for an Indian e-commerce platform.
 
@@ -98,7 +130,7 @@ def run():
         logger.info(f"Classifying {total} products using Groq LLM...")
 
         all_results: dict[str, str] = {}
-        batches = [products[i:i+BATCH_SIZE] for i in range(0, total, BATCH_SIZE)]
+        batches = [products[i : i + BATCH_SIZE] for i in range(0, total, BATCH_SIZE)]
 
         for batch_num, batch in enumerate(batches, 1):
             logger.info(f"Batch {batch_num}/{len(batches)} ({len(batch)} products)...")
