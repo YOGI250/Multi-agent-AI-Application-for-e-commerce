@@ -105,13 +105,15 @@ class GroqDeepEvalLLM(DeepEvalBaseLLM):
 # ── DeepEval scoring ─────────────────────────────────────────────────────────────
 
 
-def score_with_deepeval(message: str, actual_output: str, reference: str, expected: dict) -> dict[str, float]:
+def score_with_deepeval(
+    message: str, actual_output: str, reference: str, expected: dict, agent_type: str = "product_agent"
+) -> dict[str, float]:
     """
     Score using DeepEval metric classes + custom Groq batch judge.
 
     DeepEval GEval covers 2 required dimensions (satisfies framework requirement):
       - answer_relevancy  : GEval — is response relevant to the user request?
-      - task_completion   : GEval — did the agent complete the search task?
+      - task_completion   : GEval — did the agent complete the task?
 
     Custom Groq single-call judge covers the remaining 3 dimensions in one
     API call (avoids the rate-limit issue DeepEval causes with many internal calls):
@@ -127,18 +129,46 @@ def score_with_deepeval(message: str, actual_output: str, reference: str, expect
 
     scores: dict[str, float] = {}
 
+    # ── Agent-type-specific GEval criteria ───────────────────────────────────
+    if agent_type == "order_agent":
+        relevancy_criteria = (
+            "Does the actual output directly address the user's order inquiry "
+            "with relevant order status, tracking, or delivery information?"
+        )
+        completion_criteria = (
+            "Does the actual output fully address the order query with specific details "
+            "such as order status (delivered, in transit, processing), carrier name, "
+            "tracking number, or expected delivery date?"
+        )
+    elif agent_type == "support_agent":
+        relevancy_criteria = (
+            "Does the actual output directly address the user's support request "
+            "with relevant policy information, resolution steps, or ticket confirmation?"
+        )
+        completion_criteria = (
+            "Does the actual output fully handle the support request by providing "
+            "policy details, a resolution, or creating/referencing a support ticket?"
+        )
+    else:
+        relevancy_criteria = (
+            "Does the actual output directly address the user's product search request "
+            "with specific product recommendations?"
+        )
+        completion_criteria = (
+            "Does the actual output fully complete the task by listing product names, "
+            "prices in rupees, ratings, and brand names?"
+        )
+
     # ── DeepEval GEval — 2 dimensions ────────────────────────────────────────
     geval_metrics = [
         (
             "answer_relevancy",
-            "Does the actual output directly address the user's product search request "
-            "with specific product recommendations?",
+            relevancy_criteria,
             [SingleTurnParams.INPUT, SingleTurnParams.ACTUAL_OUTPUT],
         ),
         (
             "task_completion",
-            "Does the actual output fully complete the task by listing product names, "
-            "prices in rupees, ratings, and brand names?",
+            completion_criteria,
             [SingleTurnParams.INPUT, SingleTurnParams.ACTUAL_OUTPUT],
         ),
     ]
@@ -260,9 +290,11 @@ def _heuristic_score(response: str, reference: str, expected: dict) -> dict[str,
     }
 
 
-def score_case(message: str, response: str, reference: str, expected: dict) -> dict[str, float]:
+def score_case(
+    message: str, response: str, reference: str, expected: dict, agent_type: str = "product_agent"
+) -> dict[str, float]:
     try:
-        scores = score_with_deepeval(message, response, reference, expected)
+        scores = score_with_deepeval(message, response, reference, expected, agent_type=agent_type)
         logger.info("    [scorer] DeepEval (AnswerRelevancyMetric + GEval, Groq judge)")
     except Exception as e:
         logger.warning(f"    DeepEval failed entirely: {e} — heuristic fallback")
@@ -278,15 +310,17 @@ def run_product_agent(message: str, user_id: str = "eval_guest_001") -> str:
     """Invoke product_agent with real LLM and real DB tool calls."""
     from agents.product_agent import product_agent as _pa
 
-    result = _pa.invoke({
-        "message": message,
-        "user_id": user_id,
-        "session_id": "eval_session_001",
-        "history": [],
-        "session_context": {},
-        "langfuse_trace_id": None,
-        "langfuse_parent_span_id": None,
-    })
+    result = _pa.invoke(
+        {
+            "message": message,
+            "user_id": user_id,
+            "session_id": "eval_session_001",
+            "history": [],
+            "session_context": {},
+            "langfuse_trace_id": None,
+            "langfuse_parent_span_id": None,
+        }
+    )
     return result.get("response", "")
 
 
@@ -294,15 +328,17 @@ def run_order_agent(message: str, user_id: str = "eval_guest_001") -> str:
     """Invoke order_agent with real LLM and real DB tool calls."""
     from agents.order_agent import order_agent as _oa
 
-    result = _oa.invoke({
-        "message": message,
-        "user_id": user_id,
-        "session_id": "eval_session_001",
-        "history": [],
-        "session_context": {},
-        "langfuse_trace_id": None,
-        "langfuse_parent_span_id": None,
-    })
+    result = _oa.invoke(
+        {
+            "message": message,
+            "user_id": user_id,
+            "session_id": "eval_session_001",
+            "history": [],
+            "session_context": {},
+            "langfuse_trace_id": None,
+            "langfuse_parent_span_id": None,
+        }
+    )
     return result.get("response", "")
 
 
@@ -310,15 +346,17 @@ def run_support_agent(message: str, user_id: str = "eval_guest_001") -> str:
     """Invoke support_agent with real LLM and real DB tool calls."""
     from agents.support_agent import support_agent as _sa
 
-    result = _sa.invoke({
-        "message": message,
-        "user_id": user_id,
-        "session_id": "eval_session_001",
-        "history": [],
-        "session_context": {},
-        "langfuse_trace_id": None,
-        "langfuse_parent_span_id": None,
-    })
+    result = _sa.invoke(
+        {
+            "message": message,
+            "user_id": user_id,
+            "session_id": "eval_session_001",
+            "history": [],
+            "session_context": {},
+            "langfuse_trace_id": None,
+            "langfuse_parent_span_id": None,
+        }
+    )
     return result.get("response", "")
 
 
@@ -358,6 +396,7 @@ def run_evaluation() -> tuple[list[dict], dict[str, float], bool]:
             f"that mentions: {', '.join(should_contain)}"
         )
 
+        agent_type = case.get("agent", "product_agent")
         logger.info(f"  [{i+1}/{len(dataset)}] {message[:60]}")
 
         if LIVE_EVAL:
@@ -366,7 +405,6 @@ def run_evaluation() -> tuple[list[dict], dict[str, float], bool]:
                 logger.warning("    Empty response from live API — skipping sample")
                 continue
         else:
-            agent_type = case.get("agent", "product_agent")
             try:
                 if agent_type == "order_agent":
                     actual_output = run_order_agent(message, user_id=user_id)
@@ -382,7 +420,7 @@ def run_evaluation() -> tuple[list[dict], dict[str, float], bool]:
                 continue
             logger.info(f"    [{agent_type}] produced {len(actual_output)} chars of output")
 
-        scores = score_case(message, actual_output, reference, expected)
+        scores = score_case(message, actual_output, reference, expected, agent_type=agent_type)
         passed = all(scores[k] >= THRESHOLDS[k] for k in scores if k in THRESHOLDS)
 
         per_sample.append(
@@ -600,6 +638,7 @@ def push_report_to_langfuse(json_path: Path, per_sample: list, overall_pass: boo
                 msg = input.get("message", "") if isinstance(input, dict) else ""
                 score = result_by_message.get(msg, {}).get("scores", {}).get(metric_name, 0.0)
                 return Evaluation(name=metric_name, value=score)
+
             return evaluator
 
         evaluators = [make_evaluator(m) for m in THRESHOLDS]
