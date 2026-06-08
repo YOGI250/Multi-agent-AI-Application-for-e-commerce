@@ -658,6 +658,7 @@ def push_report_to_langfuse(json_path: Path, per_sample: list, overall_pass: boo
     try:
         sys.path.insert(0, str(REPO_ROOT))
         from langfuse import Langfuse
+        from langfuse.experiment import Evaluation
 
         lf = Langfuse(
             public_key=os.getenv("LANGFUSE_PUBLIC_KEY", "placeholder").strip(),
@@ -668,67 +669,43 @@ def push_report_to_langfuse(json_path: Path, per_sample: list, overall_pass: boo
         dataset_name = config["evaluation"]["dataset_name"]
         run_name = f"ci-eval-{GIT_SHA[:8]}-{datetime.now(timezone.utc).strftime('%Y%m%d%H%M')}"
 
-        # Fetch existing dataset items seeded by seed_dataset.py
-        # so we link run results to existing items (not create duplicates each run)
-        item_map: dict[str, str] = {}
+        # Fetch dataset items seeded by seed_dataset.py
         try:
-            existing = lf.get_dataset(dataset_name)
-            item_map = {item.input.get("message", ""): item.id for item in existing.items}
-        except Exception:
-            pass  # dataset not seeded yet — will create items inline below
+            dataset = lf.get_dataset(dataset_name)
+            dataset_items = dataset.items
+        except Exception as e:
+            logger.warning(f"LangFuse: could not fetch dataset '{dataset_name}': {e}")
+            return
 
-        pushed = 0
-        for sample in per_sample:
-            try:
-                item_id = item_map.get(sample["message"])
-                if not item_id:
-                    # Fallback: create item inline if seed_dataset.py wasn't run
-                    new_item = lf.create_dataset_item(
-                        dataset_name=dataset_name,
-                        input={"message": sample["message"]},
-                        expected_output={"intent": sample.get("intent")},
-                    )
-                    item_id = new_item.id
+        # Build lookup: message → pre-computed result from mocked eval
+        result_by_message: dict = {s["message"]: s for s in per_sample}
 
-                # create_dataset_run_item requires a trace_id in LangFuse v3+.
-                # Create a lightweight eval trace so the run is visible in Experiments.
-                trace = lf.trace(
-                    name=f"eval-{sample.get('intent', 'unknown')}",
-                    input={"message": sample["message"]},
-                    output={"response": sample["actual_output"]},
-                    metadata={
-                        "mode": sample.get("mode", "mocked"),
-                        "agent": sample.get("intent", "unknown"),
-                        "passed": sample["passed"],
-                        "git_sha": GIT_SHA,
-                    },
-                    tags=["eval", sample.get("mode", "mocked")],
-                )
+        # Task function — returns the pre-computed mocked agent output for each item
+        def task(*, item, **kwargs):
+            msg = item.input.get("message", "") if hasattr(item, "input") else item.get("input", {}).get("message", "")
+            return result_by_message.get(msg, {}).get("actual_output", "")
 
-                for metric, score_val in sample["scores"].items():
-                    lf.score(
-                        trace_id=trace.id,
-                        name=metric,
-                        value=score_val,
-                    )
+        # One evaluator per metric — returns pre-computed score
+        def make_evaluator(metric_name: str):
+            def evaluator(*, input, output, expected_output, metadata, **kwargs):
+                msg = input.get("message", "") if isinstance(input, dict) else ""
+                score = result_by_message.get(msg, {}).get("scores", {}).get(metric_name, 0.0)
+                return Evaluation(name=metric_name, value=score)
+            return evaluator
 
-                lf.create_dataset_run_item(
-                    run_name=run_name,
-                    dataset_item_id=item_id,
-                    trace_id=trace.id,
-                    metadata={
-                        "scores": sample["scores"],
-                        "passed": sample["passed"],
-                        "mode": sample.get("mode", "mocked"),
-                        "agent": sample.get("intent", "unknown"),
-                    },
-                )
-                pushed += 1
-            except Exception as exc:
-                logger.warning(f"LangFuse: failed to push sample {sample.get('sample_id')}: {exc}")
+        evaluators = [make_evaluator(m) for m in THRESHOLDS]
+
+        lf.run_experiment(
+            name=dataset_name,
+            run_name=run_name,
+            data=dataset_items,
+            task=task,
+            evaluators=evaluators,
+            metadata={"git_sha": GIT_SHA, "branch": GIT_BRANCH, "overall_pass": str(overall_pass), "mode": "mocked"},
+        )
 
         lf.flush()
-        logger.info(f"LangFuse: eval run '{run_name}' pushed ({pushed} items)")
+        logger.info(f"LangFuse: eval run '{run_name}' pushed to Experiments tab")
 
     except Exception as e:
         # LangFuse may not be reachable in CI — don't fail the pipeline for this
