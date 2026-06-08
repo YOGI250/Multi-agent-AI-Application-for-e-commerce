@@ -299,15 +299,18 @@ jobs:
             --for=condition=Ready \
             --timeout=240s
 
+          # Free port 9191 if already in use (from prior manual testing)
+          fuser -k 9191/tcp 2>/dev/null || true
+
           # Port-forward and poll /health
-          kubectl port-forward svc/ecommerce-fastapi 8080:80 \
+          kubectl port-forward svc/ecommerce-fastapi 9191:80 \
             --namespace=ecommerce &
           PF_PID=$!
           sleep 3
           HTTP_STATUS="000"
           for i in $(seq 1 20); do
             HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
-              http://localhost:8080/health 2>/dev/null || echo "000")
+              http://localhost:9191/health 2>/dev/null || echo "000")
             [ "$HTTP_STATUS" = "200" ] && break
             sleep 3
           done
