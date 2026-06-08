@@ -33,20 +33,19 @@ import yaml
 
 # ── DeepEval ──────────────────────────────────────────────────────────────────
 from deepeval.models import DeepEvalBaseLLM
-from deepeval.metrics import AnswerRelevancyMetric, GEval
+from deepeval.metrics import GEval
 from deepeval.test_case import LLMTestCase, SingleTurnParams
 
 logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s [%(levelname)s] %(message)s"
+    level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s"
 )
 logger = logging.getLogger(__name__)
 
-REPO_ROOT   = Path(__file__).parent.parent
+REPO_ROOT = Path(__file__).parent.parent
 sys.path.insert(0, str(REPO_ROOT))  # make agents/, services/, etc. importable
 CONFIG_PATH = REPO_ROOT / "eval" / "config.yaml"
 DATASET_PATH = REPO_ROOT / "eval" / "dataset.json"
-REPORTS_DIR  = REPO_ROOT / "eval" / "reports"
+REPORTS_DIR = REPO_ROOT / "eval" / "reports"
 REPORTS_DIR.mkdir(parents=True, exist_ok=True)
 
 # ── Load config and dataset ─────────────────────────────────────────────────────
@@ -54,31 +53,34 @@ REPORTS_DIR.mkdir(parents=True, exist_ok=True)
 with open(CONFIG_PATH) as f:
     config = yaml.safe_load(f)
 
-THRESHOLDS: dict[str, float] = {
-    k: v["threshold"] for k, v in config["metrics"].items()
-}
+THRESHOLDS: dict[str, float] = {k: v["threshold"] for k, v in config["metrics"].items()}
 
 with open(DATASET_PATH) as f:
     dataset = json.load(f)
 
-LIVE_EVAL  = os.getenv("RUN_LIVE_EVAL", "false").lower() == "true"
-API_BASE   = os.getenv("EVAL_API_BASE", "http://localhost:8000")
-EVAL_USER  = os.getenv("EVAL_USER_ID", "google_105309025092043620678")
+LIVE_EVAL = os.getenv("RUN_LIVE_EVAL", "false").lower() == "true"
+API_BASE = os.getenv("EVAL_API_BASE", "http://localhost:8000")
+EVAL_USER = os.getenv("EVAL_USER_ID", "google_105309025092043620678")
 
 # ── Git metadata ────────────────────────────────────────────────────────────────
 
+
 def _git(cmd: list[str]) -> str:
     try:
-        return subprocess.check_output(cmd, cwd=REPO_ROOT,
-                                       stderr=subprocess.DEVNULL).decode().strip()
+        return (
+            subprocess.check_output(cmd, cwd=REPO_ROOT, stderr=subprocess.DEVNULL)
+            .decode()
+            .strip()
+        )
     except Exception:
         return "unknown"
 
 
-GIT_SHA    = _git(["git", "rev-parse", "HEAD"])
+GIT_SHA = _git(["git", "rev-parse", "HEAD"])
 GIT_BRANCH = _git(["git", "rev-parse", "--abbrev-ref", "HEAD"])
 
 # ── DeepEval judge model (Groq as backend) ──────────────────────────────────────
+
 
 class GroqDeepEvalLLM(DeepEvalBaseLLM):
     """Wraps Groq llama-3.1-8b-instant so DeepEval metrics can use it as a judge."""
@@ -87,7 +89,10 @@ class GroqDeepEvalLLM(DeepEvalBaseLLM):
         groq_key = os.getenv("GROQ_API_KEY", "")
         if groq_key and not groq_key.startswith("test_"):
             from langchain_groq import ChatGroq
-            self._llm = ChatGroq(api_key=groq_key, model="llama-3.1-8b-instant", temperature=0)
+
+            self._llm = ChatGroq(
+                api_key=groq_key, model="llama-3.1-8b-instant", temperature=0
+            )
         else:
             self._llm = None
 
@@ -108,8 +113,10 @@ class GroqDeepEvalLLM(DeepEvalBaseLLM):
 
 # ── DeepEval scoring ─────────────────────────────────────────────────────────────
 
-def score_with_deepeval(message: str, actual_output: str,
-                        reference: str, expected: dict) -> dict[str, float]:
+
+def score_with_deepeval(
+    message: str, actual_output: str, reference: str, expected: dict
+) -> dict[str, float]:
     """
     Score using DeepEval metric classes + custom Groq batch judge.
 
@@ -162,7 +169,9 @@ def score_with_deepeval(message: str, actual_output: str,
             logger.info(f"    [DeepEval GEval] {metric_name}: {scores[metric_name]}")
         except Exception as e:
             logger.warning(f"    GEval {metric_name} failed: {e} — heuristic fallback")
-            scores[metric_name] = _heuristic_score(actual_output, reference, expected)[metric_name]
+            scores[metric_name] = _heuristic_score(actual_output, reference, expected)[
+                metric_name
+            ]
 
     # ── Custom Groq batch judge — remaining 3 dimensions in one call ──────────
     try:
@@ -180,8 +189,10 @@ def score_with_deepeval(message: str, actual_output: str,
 
 # ── Heuristic fallback (used only when DeepEval judge is unavailable) ────────────
 
-def _llm_judge_eval(message: str, response: str,
-                    reference: str, expected: dict) -> dict[str, float]:
+
+def _llm_judge_eval(
+    message: str, response: str, reference: str, expected: dict
+) -> dict[str, float]:
     """
     Groq LLM-as-judge for eval pipeline.
     Uses llama-3.1-8b-instant — fast, cheap, already available via GROQ_API_KEY.
@@ -196,8 +207,8 @@ def _llm_judge_eval(message: str, response: str,
     except ImportError:
         raise ImportError("langchain_groq not installed")
 
-    intent          = expected.get("intent", "unknown")
-    should_contain  = expected.get("should_contain", [])
+    intent = expected.get("intent", "unknown")
+    should_contain = expected.get("should_contain", [])
 
     keywords_str = ", ".join(should_contain)
     prompt = f"""\
@@ -220,16 +231,22 @@ Score each metric from 0.0 to 1.0 based on the actual response quality:
 Respond with ONLY a JSON object. Example format (fill in real scores, not these placeholder values):
 {{"answer_relevancy": <score>, "faithfulness": <score>, "task_completion": <score>, "correctness": <score>, "hallucination_free": <score>}}"""
 
-    llm    = ChatGroq(api_key=groq_api_key, model="llama-3.1-8b-instant", temperature=0)
+    llm = ChatGroq(api_key=groq_api_key, model="llama-3.1-8b-instant", temperature=0)
     result = llm.invoke(prompt)
-    raw    = result.content.strip()
+    raw = result.content.strip()
 
     if raw.startswith("```"):
         raw = re.sub(r"^```[a-z]*\n?", "", raw)
         raw = re.sub(r"\n?```$", "", raw)
 
     scores = json.loads(raw)
-    expected_keys = {"answer_relevancy", "faithfulness", "task_completion", "correctness", "hallucination_free"}
+    expected_keys = {
+        "answer_relevancy",
+        "faithfulness",
+        "task_completion",
+        "correctness",
+        "hallucination_free",
+    }
     if not expected_keys.issubset(scores.keys()):
         raise ValueError(f"Incomplete keys from LLM judge: {scores.keys()}")
 
@@ -240,7 +257,7 @@ def _heuristic_score(response: str, reference: str, expected: dict) -> dict[str,
     """Keyword + overlap heuristics used when no Groq key is available."""
     should_contain = [kw.lower() for kw in expected.get("should_contain", [])]
     resp_lower = response.lower()
-    ref_lower  = reference.lower()
+    ref_lower = reference.lower()
 
     kw_hits = sum(1 for kw in should_contain if kw in resp_lower)
     task_completion = kw_hits / len(should_contain) if should_contain else 0.8
@@ -251,15 +268,16 @@ def _heuristic_score(response: str, reference: str, expected: dict) -> dict[str,
 
     return {
         "answer_relevancy": min(1.0, round(overlap * 1.1, 4)),
-        "faithfulness":     round(overlap, 4),
-        "task_completion":  round(task_completion, 4),
-        "correctness":      round((overlap + task_completion) / 2, 4),
+        "faithfulness": round(overlap, 4),
+        "task_completion": round(task_completion, 4),
+        "correctness": round((overlap + task_completion) / 2, 4),
         "hallucination_free": 0.8,
     }
 
 
-def score_case(message: str, response: str,
-               reference: str, expected: dict) -> dict[str, float]:
+def score_case(
+    message: str, response: str, reference: str, expected: dict
+) -> dict[str, float]:
     try:
         scores = score_with_deepeval(message, response, reference, expected)
         logger.info("    [scorer] DeepEval (AnswerRelevancyMetric + GEval, Groq judge)")
@@ -272,6 +290,7 @@ def score_case(message: str, response: str,
 
 # ── Mocked agent runner ──────────────────────────────────────────────────────────
 
+
 class SequentialMockLLM:
     """
     Replaces ChatGroq during mocked eval. Returns fixture strings in call order.
@@ -279,6 +298,7 @@ class SequentialMockLLM:
       call 1 — extract_preferences  → JSON filter object
       call 2 — rank_and_filter      → JSON index array e.g. [1, 2, 3]
     """
+
     def __init__(self, fixtures: list):
         self._fixtures = list(fixtures)
         self._idx = 0
@@ -293,90 +313,121 @@ class SequentialMockLLM:
         self._idx += 1
         resp = MagicMock()
         resp.content = content
-        resp.usage_metadata = {"input_tokens": 50, "output_tokens": 30, "total_tokens": 80}
+        resp.usage_metadata = {
+            "input_tokens": 50,
+            "output_tokens": 30,
+            "total_tokens": 80,
+        }
         return resp
 
 
-def run_with_mocks(message: str, llm_fixtures: list, search_results: list,
-                   user_id: str = "eval_guest_001") -> str:
+def run_with_mocks(
+    message: str,
+    llm_fixtures: list,
+    search_results: list,
+    user_id: str = "eval_guest_001",
+) -> str:
     """Run product_agent with mocked LLM + tool calls."""
     from agents.product_agent import product_agent as _pa
+
     mock_llm = SequentialMockLLM(llm_fixtures)
-    with patch("agents.product_agent.ChatGroq", return_value=mock_llm), \
-         patch("tools.product_tools.search_products", return_value=search_results), \
-         patch("tools.product_tools.get_specs", return_value={}):
-        result = _pa.invoke({
-            "message": message,
-            "user_id": user_id,
-            "session_id": "eval_session_001",
-            "history": [],
-            "session_context": {},
-            "langfuse_trace_id": None,
-            "langfuse_parent_span_id": None,
-        })
+    with patch("agents.product_agent.ChatGroq", return_value=mock_llm), patch(
+        "tools.product_tools.search_products", return_value=search_results
+    ), patch("tools.product_tools.get_specs", return_value={}):
+        result = _pa.invoke(
+            {
+                "message": message,
+                "user_id": user_id,
+                "session_id": "eval_session_001",
+                "history": [],
+                "session_context": {},
+                "langfuse_trace_id": None,
+                "langfuse_parent_span_id": None,
+            }
+        )
     return result.get("response", "")
 
 
-def run_with_mocks_order(message: str, llm_fixtures: list,
-                         order_data: dict, tracking_data: dict,
-                         user_id: str = "eval_guest_001") -> str:
+def run_with_mocks_order(
+    message: str,
+    llm_fixtures: list,
+    order_data: dict,
+    tracking_data: dict,
+    user_id: str = "eval_guest_001",
+) -> str:
     """Run order_agent with mocked LLM + tool calls.
     LLM calls: analyze_order_status (fixture 0), generate_response (fixture 1).
     user_id must match order_data["user_id"] — process_order_result validates ownership.
     """
     from agents.order_agent import order_agent as _oa
+
     mock_llm = SequentialMockLLM(llm_fixtures)
-    with patch("agents.order_agent.ChatGroq", return_value=mock_llm), \
-         patch("tools.order_tools.get_order", return_value=order_data), \
-         patch("tools.order_tools.get_tracking", return_value=tracking_data if tracking_data else None):
-        result = _oa.invoke({
-            "message": message,
-            "user_id": user_id,
-            "session_id": "eval_session_001",
-            "history": [],
-            "session_context": {},
-            "langfuse_trace_id": None,
-            "langfuse_parent_span_id": None,
-        })
+    with patch("agents.order_agent.ChatGroq", return_value=mock_llm), patch(
+        "tools.order_tools.get_order", return_value=order_data
+    ), patch(
+        "tools.order_tools.get_tracking",
+        return_value=tracking_data if tracking_data else None,
+    ):
+        result = _oa.invoke(
+            {
+                "message": message,
+                "user_id": user_id,
+                "session_id": "eval_session_001",
+                "history": [],
+                "session_context": {},
+                "langfuse_trace_id": None,
+                "langfuse_parent_span_id": None,
+            }
+        )
     return result.get("response", "")
 
 
-def run_with_mocks_support(message: str, llm_fixtures: list, policy_data: dict,
-                           user_id: str = "eval_guest_001") -> str:
+def run_with_mocks_support(
+    message: str, llm_fixtures: list, policy_data: dict, user_id: str = "eval_guest_001"
+) -> str:
     """Run support_agent with mocked LLM + tool calls.
     LLM calls: classify_issue (fixture 0), draft_resolution (fixture 1).
     assess_severity queries DB directly — has try/except so DB failure is safe.
     """
     from agents.support_agent import support_agent as _sa
+
     mock_llm = SequentialMockLLM(llm_fixtures)
-    with patch("agents.support_agent.ChatGroq", return_value=mock_llm), \
-         patch("tools.support_tools.get_policy", return_value=policy_data), \
-         patch("tools.support_tools.get_user_complaint_history",
-               return_value={"existing_ticket_id": None, "is_duplicate": False, "days_open": 0}), \
-         patch("tools.support_tools.create_ticket",
-               return_value={"ticket_id": "eval_ticket_001", "status": "created"}):
-        result = _sa.invoke({
-            "message": message,
-            "user_id": user_id,
-            "session_id": "eval_session_001",
-            "history": [],
-            "session_context": {},
-            "langfuse_trace_id": None,
-            "langfuse_parent_span_id": None,
-        })
+    with patch("agents.support_agent.ChatGroq", return_value=mock_llm), patch(
+        "tools.support_tools.get_policy", return_value=policy_data
+    ), patch(
+        "tools.support_tools.get_user_complaint_history",
+        return_value={
+            "existing_ticket_id": None,
+            "is_duplicate": False,
+            "days_open": 0,
+        },
+    ), patch(
+        "tools.support_tools.create_ticket",
+        return_value={"ticket_id": "eval_ticket_001", "status": "created"},
+    ):
+        result = _sa.invoke(
+            {
+                "message": message,
+                "user_id": user_id,
+                "session_id": "eval_session_001",
+                "history": [],
+                "session_context": {},
+                "langfuse_trace_id": None,
+                "langfuse_parent_span_id": None,
+            }
+        )
     return result.get("response", "")
 
 
 # ── Live API call ────────────────────────────────────────────────────────────────
+
 
 def call_live_api(message: str, user_id: str) -> str:
     """Call the running FastAPI /api/v1/chat endpoint and return the response text."""
     url = f"{API_BASE}/chat"
     try:
         resp = requests.post(
-            url,
-            json={"message": message, "guest_id": user_id},
-            timeout=30
+            url, json={"message": message, "guest_id": user_id}, timeout=30
         )
         resp.raise_for_status()
         data = resp.json()
@@ -388,6 +439,7 @@ def call_live_api(message: str, user_id: str) -> str:
 
 # ── Main evaluation loop ─────────────────────────────────────────────────────────
 
+
 def run_evaluation() -> tuple[list[dict], dict[str, float], bool]:
     mode = "LIVE" if LIVE_EVAL else "MOCKED"
     logger.info(f"Starting evaluation | mode={mode} | samples={len(dataset)}")
@@ -396,9 +448,9 @@ def run_evaluation() -> tuple[list[dict], dict[str, float], bool]:
     per_sample: list[dict] = []
 
     for i, case in enumerate(dataset):
-        message   = case["input"]["message"]
-        user_id   = case["input"].get("user_id", EVAL_USER)
-        expected  = case["expected_output"]
+        message = case["input"]["message"]
+        user_id = case["input"].get("user_id", EVAL_USER)
+        expected = case["expected_output"]
         reference = case["mocked_response"]
 
         logger.info(f"  [{i+1}/{len(dataset)}] {message[:60]}")
@@ -406,28 +458,31 @@ def run_evaluation() -> tuple[list[dict], dict[str, float], bool]:
         if LIVE_EVAL:
             actual_output = call_live_api(message, user_id)
             if not actual_output:
-                logger.warning(f"    Empty response from live API — skipping sample")
+                logger.warning("    Empty response from live API — skipping sample")
                 continue
         else:
-            agent_type   = case.get("agent", "product_agent")
+            agent_type = case.get("agent", "product_agent")
             llm_fixtures = case.get("llm_fixtures", [])
             try:
                 if agent_type == "order_agent":
                     actual_output = run_with_mocks_order(
-                        message, llm_fixtures,
+                        message,
+                        llm_fixtures,
                         case.get("order_data", {}),
                         case.get("tracking_data", {}),
                         user_id=user_id,
                     )
                 elif agent_type == "support_agent":
                     actual_output = run_with_mocks_support(
-                        message, llm_fixtures,
+                        message,
+                        llm_fixtures,
                         case.get("policy_data", {}),
                         user_id=user_id,
                     )
                 else:
                     actual_output = run_with_mocks(
-                        message, llm_fixtures,
+                        message,
+                        llm_fixtures,
                         case.get("search_results", []),
                         user_id=user_id,
                     )
@@ -435,33 +490,31 @@ def run_evaluation() -> tuple[list[dict], dict[str, float], bool]:
                 logger.error(f"    Agent run failed: {e}")
                 continue
             if not actual_output:
-                logger.warning(f"    Empty response from mocked agent — skipping sample")
+                logger.warning("    Empty response from mocked agent — skipping sample")
                 continue
-            logger.info(f"    [{agent_type}] produced {len(actual_output)} chars of output")
+            logger.info(
+                f"    [{agent_type}] produced {len(actual_output)} chars of output"
+            )
 
-        # Build DeepEval test case (satisfies framework requirement)
-        test_case = LLMTestCase(
-            input           = message,
-            actual_output   = actual_output,
-            expected_output = reference,
+        scores = score_case(message, actual_output, reference, expected)
+        passed = all(scores[k] >= THRESHOLDS[k] for k in scores if k in THRESHOLDS)
+
+        per_sample.append(
+            {
+                "sample_id": i + 1,
+                "message": message,
+                "intent": expected.get("intent"),
+                "actual_output": actual_output[:300]
+                + ("..." if len(actual_output) > 300 else ""),
+                "scores": scores,
+                "passed": passed,
+                "mode": mode,
+            }
         )
-
-        scores  = score_case(message, actual_output, reference, expected)
-        passed  = all(scores[k] >= THRESHOLDS[k] for k in scores if k in THRESHOLDS)
-
-        per_sample.append({
-            "sample_id":     i + 1,
-            "message":       message,
-            "intent":        expected.get("intent"),
-            "actual_output": actual_output[:300] + ("..." if len(actual_output) > 300 else ""),
-            "scores":        scores,
-            "passed":        passed,
-            "mode":          mode,
-        })
 
         for metric, val in scores.items():
             threshold = THRESHOLDS.get(metric, 0.0)
-            status    = "PASS" if val >= threshold else "FAIL"
+            status = "PASS" if val >= threshold else "FAIL"
             logger.info(f"    {metric:<20} {val:.4f}  [{status}]")
 
     # Per-metric averages
@@ -476,7 +529,7 @@ def run_evaluation() -> tuple[list[dict], dict[str, float], bool]:
     logger.info("EVALUATION SUMMARY")
     for metric, avg in averages.items():
         threshold = THRESHOLDS[metric]
-        status    = "PASS" if avg >= threshold else "FAIL"
+        status = "PASS" if avg >= threshold else "FAIL"
         logger.info(f"  {metric:<20} avg={avg:.4f}  threshold={threshold}  [{status}]")
     logger.info(f"  OVERALL: {'PASS' if overall_pass else 'FAIL'}")
 
@@ -485,17 +538,18 @@ def run_evaluation() -> tuple[list[dict], dict[str, float], bool]:
 
 # ── Report generation ────────────────────────────────────────────────────────────
 
+
 def generate_json_report(per_sample, averages, overall_pass) -> Path:
     report = {
-        "run_timestamp":       datetime.now(timezone.utc).isoformat(),
-        "git_commit_sha":      GIT_SHA,
-        "branch_name":         GIT_BRANCH,
-        "total_samples":       len(per_sample),
-        "mode":                "live" if LIVE_EVAL else "mocked",
+        "run_timestamp": datetime.now(timezone.utc).isoformat(),
+        "git_commit_sha": GIT_SHA,
+        "branch_name": GIT_BRANCH,
+        "total_samples": len(per_sample),
+        "mode": "live" if LIVE_EVAL else "mocked",
         "per_metric_averages": averages,
-        "thresholds":          THRESHOLDS,
-        "per_sample_scores":   per_sample,
-        "overall_pass":        overall_pass,
+        "thresholds": THRESHOLDS,
+        "per_sample_scores": per_sample,
+        "overall_pass": overall_pass,
     }
     path = REPORTS_DIR / "eval_report.json"
     path.write_text(json.dumps(report, indent=2))
@@ -504,16 +558,16 @@ def generate_json_report(per_sample, averages, overall_pass) -> Path:
 
 
 def generate_html_report(per_sample, averages, overall_pass) -> Path:
-    ts         = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
-    badge_cls  = "pass" if overall_pass else "fail"
-    badge_txt  = "PASS" if overall_pass else "FAIL"
+    ts = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
+    badge_cls = "pass" if overall_pass else "fail"
+    badge_txt = "PASS" if overall_pass else "FAIL"
 
     # Summary rows
     summary_rows = ""
     for metric, avg in averages.items():
         threshold = THRESHOLDS.get(metric, 0.0)
-        passed    = avg >= threshold
-        row_cls   = "pass-row" if passed else "fail-row"
+        passed = avg >= threshold
+        row_cls = "pass-row" if passed else "fail-row"
         summary_rows += (
             f"<tr class='{row_cls}'>"
             f"<td>{metric}</td>"
@@ -527,9 +581,7 @@ def generate_html_report(per_sample, averages, overall_pass) -> Path:
     sample_rows = ""
     for s in per_sample:
         row_cls = "pass-row" if s["passed"] else "fail-row"
-        scores_str = " | ".join(
-            f"{k}: {v:.2f}" for k, v in s["scores"].items()
-        )
+        scores_str = " | ".join(f"{k}: {v:.2f}" for k, v in s["scores"].items())
         sample_rows += (
             f"<tr class='{row_cls}'>"
             f"<td>{s['sample_id']}</td>"
@@ -544,8 +596,8 @@ def generate_html_report(per_sample, averages, overall_pass) -> Path:
     bars = ""
     for metric, avg in averages.items():
         threshold = THRESHOLDS.get(metric, 0.0)
-        width     = int(avg * 100)
-        color     = "#4caf50" if avg >= threshold else "#f44336"
+        width = int(avg * 100)
+        color = "#4caf50" if avg >= threshold else "#f44336"
         bars += (
             f"<div class='bar-label'>{metric}</div>"
             f"<div class='bar-track'>"
@@ -625,19 +677,24 @@ def generate_html_report(per_sample, averages, overall_pass) -> Path:
 
 # ── Push JSON report to LangFuse ────────────────────────────────────────────────
 
-def push_report_to_langfuse(json_path: Path, per_sample: list, overall_pass: bool) -> None:
+
+def push_report_to_langfuse(
+    json_path: Path, per_sample: list, overall_pass: bool
+) -> None:
     try:
         sys.path.insert(0, str(REPO_ROOT))
         from langfuse import Langfuse
 
         lf = Langfuse(
-            public_key = os.getenv("LANGFUSE_PUBLIC_KEY", "placeholder"),
-            secret_key = os.getenv("LANGFUSE_SECRET_KEY", "placeholder"),
-            host       = os.getenv("LANGFUSE_HOST", "http://localhost:3000"),
+            public_key=os.getenv("LANGFUSE_PUBLIC_KEY", "placeholder"),
+            secret_key=os.getenv("LANGFUSE_SECRET_KEY", "placeholder"),
+            host=os.getenv("LANGFUSE_HOST", "http://localhost:3000"),
         )
 
         dataset_name = config["evaluation"]["dataset_name"]
-        run_name     = f"ci-eval-{GIT_SHA[:8]}-{datetime.now(timezone.utc).strftime('%Y%m%d%H%M')}"
+        run_name = (
+            f"ci-eval-{GIT_SHA[:8]}-{datetime.now(timezone.utc).strftime('%Y%m%d%H%M')}"
+        )
 
         # Fetch existing dataset items seeded by seed_dataset.py
         # so we link run results to existing items (not create duplicates each run)
@@ -645,8 +702,7 @@ def push_report_to_langfuse(json_path: Path, per_sample: list, overall_pass: boo
         try:
             existing = lf.get_dataset(dataset_name)
             item_map = {
-                item.input.get("message", ""): item.id
-                for item in existing.items
+                item.input.get("message", ""): item.id for item in existing.items
             }
         except Exception:
             pass  # dataset not seeded yet — will create items inline below
@@ -658,20 +714,20 @@ def push_report_to_langfuse(json_path: Path, per_sample: list, overall_pass: boo
                 if not item_id:
                     # Fallback: create item inline if seed_dataset.py wasn't run
                     new_item = lf.create_dataset_item(
-                        dataset_name    = dataset_name,
-                        input           = {"message": sample["message"]},
-                        expected_output = {"intent": sample.get("intent")},
+                        dataset_name=dataset_name,
+                        input={"message": sample["message"]},
+                        expected_output={"intent": sample.get("intent")},
                     )
                     item_id = new_item.id
 
                 lf.create_dataset_run_item(
-                    run_name        = run_name,
-                    dataset_item_id = item_id,
-                    metadata        = {
-                        "scores":  sample["scores"],
-                        "passed":  sample["passed"],
-                        "mode":    sample.get("mode", "mocked"),
-                        "agent":   sample.get("intent", "unknown"),
+                    run_name=run_name,
+                    dataset_item_id=item_id,
+                    metadata={
+                        "scores": sample["scores"],
+                        "passed": sample["passed"],
+                        "mode": sample.get("mode", "mocked"),
+                        "agent": sample.get("intent", "unknown"),
                     },
                 )
                 pushed += 1
@@ -687,6 +743,7 @@ def push_report_to_langfuse(json_path: Path, per_sample: list, overall_pass: boo
 
 
 # ── Entry point ─────────────────────────────────────────────────────────────────
+
 
 def main() -> int:
     per_sample, averages, overall_pass = run_evaluation()
