@@ -82,6 +82,12 @@ data:
             "type": "textbox",
             "label": "Session ID",
             "query": ""
+          },
+          {
+            "name": "request_id",
+            "type": "textbox",
+            "label": "Request ID",
+            "query": ""
           }
         ]
       },
@@ -313,7 +319,7 @@ data:
         {
           "id": 10,
           "title": "Application Logs",
-          "description": "Live log stream from the application.",
+          "description": "Live log stream. Filter by log level, agent, and request ID. All filters are optional — leave Request ID blank to see all logs.",
           "type": "logs",
           "datasource": { "type": "loki", "uid": "P8E80F9AEF21F6940" },
           "gridPos": { "h": 10, "w": 24, "x": 0, "y": 33 },
@@ -324,7 +330,7 @@ data:
           },
           "targets": [{
             "datasource": { "type": "loki", "uid": "P8E80F9AEF21F6940" },
-            "expr": "{namespace=\"ecommerce\", container=\"fastapi\", level=~\"$level\"} |= \"$session_id\"",
+            "expr": "{namespace=\"ecommerce\", container=\"fastapi\", level=~\"$level\", agent_used=~\"$agent\"} |= \"$session_id\" |= \"$request_id\"",
             "legendFormat": "", "queryType": "range", "refId": "A"
           }]
         }

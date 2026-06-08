@@ -43,6 +43,7 @@ class ProductAgentState(TypedDict):
     session_context: Optional[dict]
     langfuse_trace_id: Optional[str]
     langfuse_parent_span_id: Optional[str]
+    langfuse_final_generation_id: Optional[str]
     messages: Optional[List[Any]]
 
 
@@ -519,7 +520,7 @@ Maximum {settings.product_recommendation_count} products. No explanation."""
     state["total_output_tokens"] = (state.get("total_output_tokens") or 0) + usage.get("output", 0)
 
     if trace_id:
-        create_generation(
+        gen = create_generation(
             trace_id=trace_id,
             name="rank_and_filter",
             model=settings.llm_model_name,
@@ -531,6 +532,7 @@ Maximum {settings.product_recommendation_count} products. No explanation."""
             prompt_version=prompt_version,
             agent_used="product_agent",
         )
+        state["langfuse_final_generation_id"] = gen.id if gen else None
 
     try:
         text = response.content.strip()

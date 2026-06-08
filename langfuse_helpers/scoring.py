@@ -30,10 +30,10 @@ Respond with ONLY a JSON object. Example format (fill in real scores, not these 
 {{"answer_relevancy": <score>, "faithfulness": <score>, "completeness": <score>, "task_completion": <score>, "hallucination": <score>}}"""
 
 
-def score_response(trace_id: str, agent_used: str, message: str, response: str):
+def score_response(trace_id: str, agent_used: str, message: str, response: str, observation_id: str = None):
     """
     Groq LLM-as-judge scoring. Called after every agent run in api/routes.py.
-    Scores are visible in LangFuse UI per trace.
+    Scores are visible in LangFuse UI per trace, linked to the generation span when observation_id is provided.
     """
     try:
         scores = _llm_judge(agent_used, message, response)
@@ -41,6 +41,7 @@ def score_response(trace_id: str, agent_used: str, message: str, response: str):
         for metric_name, score_value in scores.items():
             langfuse_client.create_score(
                 trace_id=trace_id,
+                observation_id=observation_id,
                 name=metric_name,
                 value=score_value,
                 comment=f"LLM-judged (Groq {_SCORER_MODEL}) for {agent_used}",

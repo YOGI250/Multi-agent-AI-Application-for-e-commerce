@@ -176,3 +176,163 @@ class TestGenerateResponse:
             result = generate_response(base_state)
 
         assert result["response"] is not None
+
+
+# ==========================================
+# TESTS — prepare_order_fetch node
+# ==========================================
+class TestPrepareOrderFetch:
+
+    def test_sets_fetch_order_tool_call_when_order_id(self, base_state):
+        from agents.order_agent import prepare_order_fetch
+        base_state["order_id"]      = "ORD-1001"
+        base_state["show_all_orders"] = False
+        result = prepare_order_fetch(base_state)
+        assert result["messages"] is not None
+        assert len(result["messages"]) == 1
+        tc = result["messages"][0].tool_calls[0]
+        assert tc["name"] == "fetch_order_data"
+        assert tc["args"]["order_id"] == "ORD-1001"
+
+    def test_sets_fetch_all_orders_tool_call_when_show_all(self, base_state):
+        from agents.order_agent import prepare_order_fetch
+        base_state["show_all_orders"] = True
+        base_state["user_id"]         = "test_user_123"
+        result = prepare_order_fetch(base_state)
+        tc = result["messages"][0].tool_calls[0]
+        assert tc["name"] == "fetch_all_orders_for_user"
+        assert tc["args"]["user_id"] == "test_user_123"
+
+    def test_sets_fetch_all_orders_when_no_order_id(self, base_state):
+        from agents.order_agent import prepare_order_fetch
+        base_state["order_id"]        = None
+        base_state["show_all_orders"] = False
+        result = prepare_order_fetch(base_state)
+        tc = result["messages"][0].tool_calls[0]
+        assert tc["name"] == "fetch_all_orders_for_user"
+
+
+# ==========================================
+# TESTS — process_order_result node
+# ==========================================
+class TestProcessOrderResult:
+
+    def test_sets_order_data_from_tool_message(self, base_state):
+        import json
+        from langchain_core.messages import ToolMessage
+        from agents.order_agent import process_order_result
+        order = {"order_id": "ORD-1001", "user_id": "test_user_123", "status": "shipped"}
+        base_state["messages"] = [ToolMessage(content=json.dumps(order), tool_call_id="order_fetch_1")]
+        result = process_order_result(base_state)
+        assert result["order_data"] == order
+        assert result["order_id_found"] is True
+
+    def test_rejects_order_belonging_to_different_user(self, base_state):
+        import json
+        from langchain_core.messages import ToolMessage
+        from agents.order_agent import process_order_result
+        order = {"order_id": "ORD-1001", "user_id": "other_user", "status": "shipped"}
+        base_state["messages"] = [ToolMessage(content=json.dumps(order), tool_call_id="order_fetch_1")]
+        result = process_order_result(base_state)
+        assert result["order_data"] is None
+        assert result["order_id_found"] is False
+
+    def test_handles_empty_tool_result(self, base_state):
+        from agents.order_agent import process_order_result
+        base_state["messages"] = []
+        result = process_order_result(base_state)
+        assert result["order_id_found"] is False
+
+    def test_handles_list_result_sets_all_orders(self, base_state):
+        import json
+        from langchain_core.messages import ToolMessage
+        from agents.order_agent import process_order_result
+        orders = [
+            {"order_id": "ORD-1001", "user_id": "test_user_123", "status": "shipped"},
+            {"order_id": "ORD-1002", "user_id": "test_user_123", "status": "delivered"},
+        ]
+        base_state["messages"] = [ToolMessage(content=json.dumps(orders), tool_call_id="order_fetch_1")]
+        result = process_order_result(base_state)
+        assert result["all_orders"] == orders
+        assert result["order_id_found"] is True
+
+
+# ==========================================
+# TESTS — route_order_data_found edge
+# ==========================================
+class TestRouteOrderDataFound:
+
+    def test_routes_to_analyze_when_order_found(self, base_state):
+        from agents.order_agent import route_order_data_found
+        base_state["order_data"] = {"order_id": "ORD-1001", "status": "shipped"}
+        result = route_order_data_found(base_state)
+        assert result == "analyze_order_status"
+
+    def test_routes_to_error_when_no_order(self, base_state):
+        from agents.order_agent import route_order_data_found
+        base_state["order_data"] = None
+        result = route_order_data_found(base_state)
+        assert result == "error_response"
+
+
+# ==========================================
+# TESTS — analyze_order_status node
+# ==========================================
+class TestAnalyzeOrderStatus:
+
+    def test_parses_llm_json_response(self, state_with_order):
+        from agents.order_agent import analyze_order_status
+        mock_resp = MagicMock()
+        mock_resp.content = '{"issue_type": "on_track", "summary": "Order is on its way."}'
+        mock_resp.usage_metadata = {"input_tokens": 100, "output_tokens": 20}
+        with patch("agents.order_agent.ChatGroq") as mock_groq, \
+             patch("agents.order_agent.get_prompt", return_value=("prompt", 1)):
+            mock_groq.return_value.invoke.return_value = mock_resp
+            result = analyze_order_status(state_with_order)
+        assert result["order_analysis"]["issue_type"] == "on_track"
+
+    def test_handles_malformed_json(self, state_with_order):
+        from agents.order_agent import analyze_order_status
+        mock_resp = MagicMock()
+        mock_resp.content = "The order is on track."
+        mock_resp.usage_metadata = {"input_tokens": 100, "output_tokens": 10}
+        with patch("agents.order_agent.ChatGroq") as mock_groq, \
+             patch("agents.order_agent.get_prompt", return_value=("prompt", 1)):
+            mock_groq.return_value.invoke.return_value = mock_resp
+            result = analyze_order_status(state_with_order)
+        assert "order_analysis" in result
+        assert result["order_analysis"]["issue_type"] == "unknown"
+
+    def test_handles_llm_failure(self, state_with_order):
+        from agents.order_agent import analyze_order_status
+        with patch("agents.order_agent.ChatGroq") as mock_groq, \
+             patch("agents.order_agent.get_prompt", return_value=("prompt", 1)):
+            mock_groq.return_value.invoke.side_effect = Exception("LLM error")
+            result = analyze_order_status(state_with_order)
+        assert result["response"] is not None
+
+
+# ==========================================
+# TESTS — shipment_tracking_node node
+# ==========================================
+class TestShipmentTrackingNode:
+
+    def test_skips_tracking_when_no_tracking_number(self, state_with_order):
+        from agents.order_agent import shipment_tracking_node
+        state_with_order["order_data"]["tracking_number"] = None
+        result = shipment_tracking_node(state_with_order)
+        assert result["tracking_info"] == {}
+
+    def test_invokes_subgraph_when_tracking_number_present(self, state_with_order):
+        from agents.order_agent import shipment_tracking_node
+        mock_subgraph_result = {
+            "carrier_name": "BlueDart",
+            "eta":          "2026-05-28",
+            "current_location": "Mumbai",
+            "tracking_events": [],
+        }
+        with patch("agents.order_agent.shipment_tracking_subgraph") as mock_sg:
+            mock_sg.invoke.return_value = mock_subgraph_result
+            result = shipment_tracking_node(state_with_order)
+        assert result["tracking_info"]["carrier_name"] == "BlueDart"
+        assert result["tracking_info"]["eta"] == "2026-05-28"

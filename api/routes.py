@@ -384,12 +384,19 @@ async def chat(
         confidence = result.get("confidence")
         products = result.get("products", None)
         updated_context = result.get("session_context", {})
+        final_generation_id = result.get("langfuse_final_generation_id")
 
         # 5. persist updated session context
         update_session_context(session_id, updated_context, db)
 
-        # 6. score response
-        score_response(trace_id=trace.id, agent_used=agent_used, message=body.message, response=response)
+        # 6. score response — linked to the generation span that produced it
+        score_response(
+            trace_id=trace.id,
+            agent_used=agent_used,
+            message=body.message,
+            response=response,
+            observation_id=final_generation_id,
+        )
 
         # 7. update trace output + aggregated token/cost totals, then end the span
         # trace.end() is required by LangFuse v4 (OTEL-based): root span must be

@@ -41,6 +41,7 @@ class OrderAgentState(TypedDict):
     session_context: Optional[dict]
     langfuse_trace_id: Optional[str]
     langfuse_parent_span_id: Optional[str]
+    langfuse_final_generation_id: Optional[str]
     all_orders: Optional[list]
     show_all_orders: Optional[bool]
     messages: Optional[List[Any]]
@@ -584,7 +585,7 @@ Do not address the user by name — messages in the history may look like names 
     usage = extract_token_usage(response)
 
     if trace_id:
-        create_generation(
+        gen = create_generation(
             trace_id=trace_id,
             name="generate_response",
             model=settings.llm_model_name,
@@ -596,6 +597,7 @@ Do not address the user by name — messages in the history may look like names 
             prompt_version=prompt_version,
             agent_used="order_agent",
         )
+        state["langfuse_final_generation_id"] = gen.id if gen else None
 
     state["response"] = response.content
     state["session_context"] = merge_context(ctx, {"topic": "order_query", "order_id": order.get("order_id")})

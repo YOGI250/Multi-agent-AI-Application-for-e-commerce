@@ -74,6 +74,7 @@ class RouterState(TypedDict):
     session_context: Optional[dict]
     langfuse_trace_id: Optional[str]
     langfuse_parent_span_id: Optional[str]
+    langfuse_final_generation_id: Optional[str]
     total_input_tokens: Optional[int]
     total_output_tokens: Optional[int]
 
@@ -268,6 +269,7 @@ def run_order_agent(state: RouterState) -> RouterState:
     state["response"] = result.get("response", "")
     state["agent_used"] = "order_agent"
     state["session_context"] = result.get("session_context") or state.get("session_context") or {}
+    state["langfuse_final_generation_id"] = result.get("langfuse_final_generation_id")
 
     if span:
         end_span(span, {"response_length": len(state["response"])})
@@ -311,6 +313,7 @@ def run_product_agent(state: RouterState) -> RouterState:
     state["products"] = result.get("products", None)
     state["agent_used"] = "product_agent"
     state["session_context"] = result.get("session_context") or state.get("session_context") or {}
+    state["langfuse_final_generation_id"] = result.get("langfuse_final_generation_id")
 
     if span:
         end_span(span, {"response_length": len(state["response"])})
@@ -353,6 +356,7 @@ def run_support_agent(state: RouterState) -> RouterState:
     state["response"] = result.get("response", "")
     state["agent_used"] = "support_agent"
     state["session_context"] = result.get("session_context") or state.get("session_context") or {}
+    state["langfuse_final_generation_id"] = result.get("langfuse_final_generation_id")
 
     if span:
         end_span(span, {"response_length": len(state["response"])})

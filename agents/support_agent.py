@@ -49,6 +49,7 @@ class SupportAgentState(TypedDict):
     session_context: Optional[dict]
     langfuse_trace_id: Optional[str]
     langfuse_parent_span_id: Optional[str]
+    langfuse_final_generation_id: Optional[str]
     messages: Optional[List[Any]]
 
 
@@ -558,7 +559,7 @@ Instructions:
     state["total_output_tokens"] = (state.get("total_output_tokens") or 0) + usage.get("output", 0)
 
     if trace_id:
-        create_generation(
+        gen = create_generation(
             trace_id=trace_id,
             name="draft_resolution",
             model=settings.llm_model_name,
@@ -570,6 +571,7 @@ Instructions:
             prompt_version=prompt_version,
             agent_used="support_agent",
         )
+        state["langfuse_final_generation_id"] = gen.id if gen else None
 
     state["resolution"] = response.content
     state["session_context"] = merge_context(
