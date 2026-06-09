@@ -171,30 +171,13 @@ Respond ONLY with JSON:
     if filters and filters.get("product_type"):
         ptype = filters["product_type"].lower().strip()
         normalization = {
-            "smartwatches": "smartwatch",
-            "smartwatche": "smartwatch",
+            "smartwatches": "smartwatch", "smartwatche": "smartwatch",
             "mice": "mouse",
-            "earphones": "headphones",
-            "earphone": "headphones",
-            "earbuds": "headphones",
-            "earbud": "headphones",
-            "headphone": "headphones",
-            "laptops": "laptop",
-            "keyboards": "keyboard",
-            "speakers": "speaker",
-            "tablets": "tablet",
-            "fans": "fan",
-            "mixers": "mixer",
-            "irons": "iron",
-            "rams": "ram",
-            "stands": "stand",
-            "lights": "light",
-            "washer": "washing_machine",
-            "washers": "washing_machine",
-            "washing machines": "washing_machine",
-            "washing_machines": "washing_machine",
-            "geyser": "water_heater",
-            "geysers": "water_heater",
+            "earphones": "headphones", "earphone": "headphones", "earbuds": "headphones", "earbud": "headphones", "headphone": "headphones",
+            "laptops": "laptop", "keyboards": "keyboard", "speakers": "speaker", "tablets": "tablet",
+            "fans": "fan", "mixers": "mixer", "irons": "iron", "rams": "ram", "stands": "stand", "lights": "light",
+            "washer": "washing_machine", "washers": "washing_machine", "washing machines": "washing_machine", "washing_machines": "washing_machine",
+            "geyser": "water_heater", "geysers": "water_heater",
         }
         filters["product_type"] = normalization.get(ptype, ptype)
 
@@ -205,73 +188,40 @@ Respond ONLY with JSON:
     # Multi-word entries come first so "laptop stand" matches "stand" before
     # the single-word "laptop" entry can fire.
     KEYWORD_MAP = [
-        ("smart watches", "smartwatch"),
-        ("smart watch", "smartwatch"),
-        ("smartwatches", "smartwatch"),
-        ("smartwatch", "smartwatch"),
-        ("ro water purifier", "water_purifier"),
-        ("ro purifier", "water_purifier"),
-        ("mouse pad", "mousepad"),
-        ("mouse mat", "mousepad"),
-        ("laptop stand", "stand"),
-        ("phone stand", "stand"),
-        ("desk stand", "stand"),
+        # multi-word first (must precede single-word components)
+        ("smart watches", "smartwatch"), ("smart watch", "smartwatch"), ("smartwatches", "smartwatch"), ("smartwatch", "smartwatch"),
+        ("ro water purifier", "water_purifier"), ("ro purifier", "water_purifier"),
+        ("mouse pad", "mousepad"), ("mouse mat", "mousepad"),
+        ("laptop stand", "stand"), ("phone stand", "stand"), ("desk stand", "stand"),
         ("laptop bag", "laptop_bag"),
         ("air purifier", "air_purifier"),
-        ("water purifier", "water_purifier"),
+        ("water purifier", "water_purifier"), ("ro water purifier", "water_purifier"),
         ("room heater", "room_heater"),
-        ("water heater", "water_heater"),
-        ("geyser", "water_heater"),
-        ("washing machine", "washing_machine"),
+        ("water heater", "water_heater"), ("geyser", "water_heater"),
+        ("washing machine", "washing_machine"), ("washer", "washing_machine"),
         ("vacuum cleaner", "vacuum"),
-        ("usb cable", "cable"),
-        ("hdmi cable", "cable"),
-        ("hdmi", "cable"),
+        ("usb cable", "cable"), ("hdmi cable", "cable"), ("hdmi", "cable"),
         ("phone case", "phone_case"),
         ("hard disk", "hard_disk"),
         ("memory card", "memory_card"),
         ("usb hub", "usb_hub"),
-        ("pen drive", "pendrive"),
-        ("led light", "light"),
-        ("led bulb", "light"),
-        ("desk lamp", "light"),
-        ("table lamp", "light"),
-        ("extension board", "extension"),
-        ("extension cord", "extension"),
-        ("power strip", "extension"),
-        ("headphone", "headphones"),
-        ("earphone", "headphones"),
-        ("earbud", "headphones"),
-        ("speaker", "speaker"),
-        ("keyboard", "keyboard"),
-        ("monitor", "monitor"),
-        ("tablet", "tablet"),
-        ("webcam", "webcam"),
-        ("router", "router"),
-        ("charger", "charger"),
-        ("pendrive", "pendrive"),
-        ("grinder", "mixer"),
-        ("mixer", "mixer"),
-        ("washer", "washing_machine"),
-        ("vacuum", "vacuum"),
-        ("kettle", "kettle"),
-        ("microwave", "microwave"),
-        ("trimmer", "trimmer"),
-        ("camera", "camera"),
-        ("printer", "printer"),
-        ("laptop", "laptop"),
-        ("mice", "mouse"),
-        ("mousepad", "mousepad"),
-        ("mouse", "mouse"),
-        ("cable", "cable"),
-        ("stand", "stand"),
-        ("light", "light"),
-        ("iron", "iron"),
-        ("fan", "fan"),
-        ("ram", "ram"),
-        ("ssd", "ssd"),
-        ("pen", "pen"),
-        ("notebook", "notebook"),
+        ("pen drive", "pendrive"), ("pendrive", "pendrive"),
+        ("led light", "light"), ("led bulb", "light"), ("desk lamp", "light"), ("table lamp", "light"),
+        ("extension board", "extension"), ("extension cord", "extension"), ("power strip", "extension"),
+        ("air fryer", "air_fryer"), ("airfryer", "air_fryer"),
+        ("stationery", "pen"), ("stationary", "pen"), ("office supplies", "pen"),
+        # single-word entries last
+        ("headphone", "headphones"), ("earphone", "headphones"), ("earbud", "headphones"),
+        ("grinder", "mixer"), ("mixer", "mixer"),
+        ("mice", "mouse"), ("mousepad", "mousepad"), ("mouse", "mouse"),
+        ("speaker", "speaker"), ("keyboard", "keyboard"), ("monitor", "monitor"),
+        ("tablet", "tablet"), ("webcam", "webcam"), ("router", "router"),
+        ("charger", "charger"), ("cable", "cable"), ("stand", "stand"),
+        ("vacuum", "vacuum"), ("kettle", "kettle"), ("microwave", "microwave"),
+        ("trimmer", "trimmer"), ("camera", "camera"), ("printer", "printer"),
+        ("laptop", "laptop"), ("light", "light"), ("iron", "iron"),
+        ("fan", "fan"), ("ram", "ram"), ("ssd", "ssd"),
+        ("pen", "pen"), ("notebook", "notebook"),
     ]
 
     def _kw_match(msg: str, kw: str) -> bool:
@@ -630,19 +580,7 @@ def format_recommendations(state: ProductAgentState) -> ProductAgentState:
     state["products"] = products
 
     if not products:
-        state["response"] = (
-            f'Sorry, "{message}" is not available in our catalog.\n\n'
-            f"We currently stock:\n"
-            f"  • Computers & Accessories — laptops, keyboards, mice, monitors,\n"
-            f"    webcams, cables, chargers, pendrives, SSDs, RAM, routers, printers\n\n"
-            f"  • Electronics — headphones, speakers, smartwatches, cameras, tablets\n\n"
-            f"  • Home & Kitchen — fans, mixers, kettles, irons, geysers,\n"
-            f"    vacuum cleaners, room heaters, air purifiers, water purifiers\n\n"
-            f"  • Mobile Accessories — phone cases, chargers\n\n"
-            f"  • Office — pens, notebooks\n\n"
-            f"  • Other — stands, laptop bags, LED lights\n\n"
-            f"Try searching for one of these!"
-        )
+        state["response"] = _generate_not_found_response(message, state.get("filters") or {})
         if span:
             end_span(span, {"response_type": "no_products"})
         return state
@@ -693,7 +631,48 @@ def format_recommendations(state: ProductAgentState) -> ProductAgentState:
 
 
 # ==========================================
-# NODE 7 — no_results_response (pure code)
+# ==========================================
+# HELPER — LLM-generated "not found" response
+# ==========================================
+_CATALOG_SUMMARY = """
+Electronics: headphones, speakers, smartwatches, cameras, tablets, TVs
+Computers & Accessories: laptops, keyboards, mice, monitors, webcams, cables, chargers, pendrives, SSDs, RAM, routers, printers
+Home & Kitchen: fans, mixers, kettles, irons, geysers/water heaters, vacuum cleaners, room heaters, air purifiers, water purifiers, washing machines, microwaves
+Mobile Accessories: phone cases, screen protectors, chargers
+Office: pens, notebooks, stationery
+Other: laptop stands, laptop bags, LED lights, mousepads, USB hubs
+""".strip()
+
+
+def _generate_not_found_response(query: str, filters: dict) -> str:
+    llm = ChatGroq(api_key=settings.groq_api_key, model=settings.llm_model_name, temperature=0.3)
+    prompt = f"""You are a helpful e-commerce assistant. The customer searched for something we don't carry.
+
+Customer query: "{query}"
+Extracted filters: {json.dumps(filters)}
+
+Our catalog carries:
+{_CATALOG_SUMMARY}
+
+Write a SHORT, friendly 1-2 sentence response that:
+1. If the query IS a category we carry (e.g. "electronics", "home appliances", "office products"), ask what specific product they're looking for and mention 2-3 examples from that category
+2. If the query is a specific product we don't carry (e.g. food, clothing, sports), politely say we don't carry it and suggest the closest relevant category we do carry
+3. If completely unrelated to our catalog, politely say we don't carry it
+
+STRICT RULES:
+- Only suggest categories that exist in our catalog above — do NOT invent categories like "Toys", "Sports", "Clothing", "Food"
+- Do NOT say "we don't carry electronics/home appliances/computers" — these ARE in our catalog
+- Do NOT list the entire catalog
+- Be conversational. Do NOT start with "I"."""
+
+    try:
+        result = llm.invoke(prompt)
+        return result.content.strip()
+    except Exception:
+        return f"Sorry, we don't carry \"{query}\" in our catalog. Try searching for electronics, home appliances, or computer accessories!"
+
+
+# NODE 7 — no_results_response
 # ==========================================
 def no_results_response(state: ProductAgentState) -> ProductAgentState:
     logger.info("Product Agent node: no_results_response", extra={"node_name": "no_results_response"})
@@ -712,19 +691,9 @@ def no_results_response(state: ProductAgentState) -> ProductAgentState:
         else None
     )
 
-    original_query = state.get("message", "your request")
-    state["response"] = (
-        f'Sorry, "{original_query}" is not available in our catalog.\n\n'
-        f"We currently stock:\n"
-        f"  • Computers & Accessories — laptops, keyboards, mice, monitors,\n"
-        f"    webcams, cables, chargers, pendrives, SSDs, RAM, routers, printers\n\n"
-        f"  • Electronics — headphones, speakers, smartwatches, cameras, tablets\n\n"
-        f"  • Home & Kitchen — fans, mixers, kettles, irons, geysers,\n"
-        f"    vacuum cleaners, room heaters, air purifiers, water purifiers\n\n"
-        f"  • Mobile Accessories — phone cases, chargers\n\n"
-        f"  • Office — pens, notebooks\n\n"
-        f"  • Other — stands, laptop bags, LED lights\n\n"
-        f"Try searching for one of these!"
+    state["response"] = _generate_not_found_response(
+        state.get("message", "your request"),
+        state.get("filters") or {},
     )
 
     if span:
