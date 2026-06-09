@@ -241,15 +241,15 @@ jobs:
         run: |
           kubectl create secret generic ecommerce-secrets \
             --namespace=ecommerce \
-            --from-literal=groq-api-key="${{ secrets.GROQ_API_KEY }}" \
-            --from-literal=database-url="${{ secrets.NEON_DATABASE_URL }}" \
-            --from-literal=langfuse-encryption-key="${{ secrets.LANGFUSE_ENCRYPTION_KEY }}" \
-            --from-literal=langfuse-secret-key="${{ secrets.LANGFUSE_SECRET_KEY }}" \
-            --from-literal=langfuse-public-key="${{ secrets.LANGFUSE_PUBLIC_KEY }}" \
-            --from-literal=langfuse-nextauth-secret="${{ secrets.LANGFUSE_NEXTAUTH_SECRET }}" \
-            --from-literal=langfuse-salt="${{ secrets.LANGFUSE_SALT }}" \
-            --from-literal=google-client-id="${{ secrets.GOOGLE_CLIENT_ID }}" \
-            --from-literal=google-client-secret="${{ secrets.GOOGLE_CLIENT_SECRET }}" \
+            --from-literal=groq-api-key="$(echo -n '${{ secrets.GROQ_API_KEY }}')" \
+            --from-literal=database-url="$(echo -n '${{ secrets.NEON_DATABASE_URL }}')" \
+            --from-literal=langfuse-encryption-key="$(echo -n '${{ secrets.LANGFUSE_ENCRYPTION_KEY }}')" \
+            --from-literal=langfuse-secret-key="$(echo -n '${{ secrets.LANGFUSE_SECRET_KEY }}')" \
+            --from-literal=langfuse-public-key="$(echo -n '${{ secrets.LANGFUSE_PUBLIC_KEY }}')" \
+            --from-literal=langfuse-nextauth-secret="$(echo -n '${{ secrets.LANGFUSE_NEXTAUTH_SECRET }}')" \
+            --from-literal=langfuse-salt="$(echo -n '${{ secrets.LANGFUSE_SALT }}')" \
+            --from-literal=google-client-id="$(echo -n '${{ secrets.GOOGLE_CLIENT_ID }}')" \
+            --from-literal=google-client-secret="$(echo -n '${{ secrets.GOOGLE_CLIENT_SECRET }}')" \
             --dry-run=client -o yaml | kubectl apply -f -
           kubectl label secret ecommerce-secrets -n ecommerce \
             app.kubernetes.io/managed-by=Helm --overwrite
