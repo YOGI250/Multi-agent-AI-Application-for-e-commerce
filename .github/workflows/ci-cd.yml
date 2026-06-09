@@ -334,5 +334,9 @@ jobs:
       - name: Start port-forward service
         if: success()
         run: |
-          bash scripts/setup-autostart.sh
-          systemctl --user restart ecommerce-portforward.service
+          pkill -f "kubectl port-forward" || true
+          sleep 1
+          nohup bash scripts/start.sh > /tmp/portforward.log 2>&1 &
+          disown
+          sleep 2
+          echo "Port-forward started — app at http://localhost:8000/app"

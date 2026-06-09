@@ -572,9 +572,10 @@ File: `database/models.py`
 ### Runtime tables (operational)
 
 **support_tickets**: `ticket_id, user_id (FK), order_id (FK), issue_type, priority, status, created_at`
-- Created by escalation_handler_subgraph when severity is HIGH/MEDIUM
+- Created by escalation_handler_subgraph when priority is HIGH/MEDIUM
 - Used to detect duplicates (user filing same complaint twice)
-- `priority` = severity ("HIGH" or "MEDIUM")
+- `priority` field holds "HIGH" or "MEDIUM" — **there is no `severity` or `description` field**
+- `ticket_id` is a UUID (e.g. `05B09C4C-...`) included in the agent's final response text
 
 **agent_runs**: `run_id, session_id, message_id, agent_name, intent, duration_ms, success, total_tokens, cost_usd, created_at`
 - Every agent invocation recorded for analytics
@@ -619,8 +620,14 @@ agent nodes and service functions. Each tool:
 
 ## 11. OBSERVABILITY STACK
 
-### LangFuse (http://localhost:3000)
-Default login: `admin@langfuse.com` / `password`
+### LangFuse
+
+**Two environments:**
+- **Local/Docker Compose**: `http://localhost:3000` — login: `admin@langfuse.com` / `password`
+- **CI/Cloud**: `https://cloud.langfuse.com` — credentials stored in GitHub Secrets (`LANGFUSE_SECRET_KEY`, `LANGFUSE_PUBLIC_KEY`)
+
+The k8s deployment uses cloud.langfuse.com (configured via k8s Secret `ecommerce-secrets`).
+All LangFuse traces from the live k8s app appear in the cloud account.
 
 **Tracing**: Every `/chat` request creates a root trace. Each agent node that makes
 an LLM call creates a "generation" span. Tool calls and subgraphs create spans.
@@ -636,9 +643,9 @@ hardcoded in the Python file. This means you can update prompts without redeploy
 - `task_completion` — did the agent complete the task?
 - `correctness` — is the information factually correct?
 
-**Evaluation dataset**: `ecommerce-eval-dataset` in LangFuse contains test cases.
-Running `python eval/run_eval.py` (with `RUN_LIVE_EVAL=true`) sends all cases to the
-live API and records scores as a new experiment run.
+**Evaluation dataset**: `ecommerce-eval-dataset` — always exactly **15 items** (CI full-refreshes it).
+Each CI run that completes Stage 3 adds one new experiment row (accumulates over time).
+Running locally: `python eval/run_eval.py` sends cases to the live API and records scores.
 
 ### Prometheus + Grafana (http://localhost:3001)
 Default login: `admin` / password from `.env`
@@ -698,14 +705,24 @@ In Kubernetes, Promtail runs as a DaemonSet and reads `/var/log/pods/`.
 | Stage | Runner | What |
 |---|---|---|
 | 1 — Lint & Format | ubuntu-latest | flake8 (style) + black --check (formatting) |
-| 2 — Unit Tests | ubuntu-latest | pytest with ≥85% coverage |
-| 3 — LLM Evaluation | ubuntu-latest | Mocked eval (no real LLM), uploads report artifact |
+| 2 — Unit Tests | ubuntu-latest | pytest with ≥80% coverage (`--cov-fail-under=80`) |
+| 3 — LLM Evaluation | ubuntu-latest | Real GROQ calls + LangFuse cloud — 15 eval cases, saves HTML/JSON report artifact |
 | 4 — Docker Build | ubuntu-latest | Builds image (does not push) |
 | 5 — Push to Registry | ubuntu-latest | Pushes to Docker Hub (main branch only) |
 | 6 — Deploy to K8s | self-hosted | helm upgrade + smoke test /health + auto-rollback |
 
-Stage 6 runs on a **self-hosted runner** on the local machine where minikube runs.
+Stage 6 runs on a **self-hosted runner** on the local machine where the **kind** (Kubernetes IN Docker) cluster runs.
 On smoke test failure, `helm rollback` reverts to previous Helm release automatically.
+
+**Stage 6 gate**: Only runs when `vars.DEPLOY_ENABLED == 'true'` is set in GitHub repo variables (manual toggle).
+
+**Stage 3 details** (3 steps inside the eval job):
+1. `seed_eval_db.py` — creates eval user + sample orders in Neon DB (idempotent)
+2. `seed_dataset.py` — **full refresh**: deletes all existing LangFuse dataset items then re-adds 15 from `eval/dataset.json`; prevents item accumulation from repeated CI runs
+3. `run_eval.py` — sends each case to the live FastAPI app (using `NEON_DATABASE_URL`), scores with LLM-as-judge, saves reports to `eval/reports/`; results visible in LangFuse cloud → Datasets → ecommerce-eval-dataset
+
+**Token cost warning**: Stage 3 uses real GROQ tokens (2-3 LLM calls × 15 cases ≈ 60+ calls).
+Do NOT push to main immediately before a demo — running CI can exhaust the 100k daily token limit.
 
 ---
 
@@ -713,14 +730,48 @@ On smoke test failure, `helm rollback` reverts to previous Helm release automati
 
 File: `helm/` directory
 
-Helm chart deploys:
-- FastAPI app (Deployment + Service + Ingress)
+**Cluster**: kind (Kubernetes IN Docker) — cluster name `ecommerce`, context `kind-ecommerce`.
+Pods run inside Docker containers. They cannot be reached directly from a browser
+— you need `kubectl port-forward` tunnels to connect.
+
+**Port-forward setup (required after every restart)**:
+```bash
+# One-liner to forward all services (auto-reconnects on disconnect):
+scripts/start.sh
+
+# Or install as a persistent systemd service (survives login):
+scripts/setup-autostart.sh
+```
+`scripts/start.sh` forwards:
+- FastAPI: `localhost:8000` → svc/ecommerce-fastapi port 80
+- Grafana: `localhost:3001` → svc/ecommerce-grafana port 3001
+- Prometheus: `localhost:9090` → svc/ecommerce-prometheus port 9090
+
+**Helm chart deploys:**
+- FastAPI app (Deployment + Service)
+- Prometheus (with scrape config pointing at `/metrics`)
+- Grafana (with pre-provisioned dashboards as ConfigMaps)
 - Loki (log aggregation)
-- Promtail (DaemonSet, collects pod logs)
-- Grafana (with pre-configured dashboards as ConfigMaps)
+- Promtail (DaemonSet — reads `/var/log/pods/` and ships to Loki)
+
+**Not in Helm (runs externally):**
+- LangFuse → uses `https://cloud.langfuse.com` (hosted); credentials in k8s Secret
+- PostgreSQL → Neon serverless DB (cloud); connection string in k8s Secret
+
+**Neon cold-start**: Neon scales to zero after ~5 min idle. First DB connection after
+idle takes 5-10 seconds. Helm probes have `timeoutSeconds: 10` to tolerate this.
 
 The app reads all config from environment variables (set in Helm `values.yaml` →
 Kubernetes `Secret` / `ConfigMap`). `config/settings.py` loads via Pydantic Settings.
+
+**Secrets are NOT in Helm values** — they live in a k8s Secret named `ecommerce-secrets`
+created by CI Stage 6 (or manually patched). To patch a secret without redeploying:
+```bash
+NEW_VAL=$(echo -n "actual-value" | base64)
+kubectl patch secret ecommerce-secrets -n ecommerce \
+  --type='json' -p="[{\"op\":\"replace\",\"path\":\"/data/groq-api-key\",\"value\":\"$NEW_VAL\"}]"
+kubectl rollout restart deployment/ecommerce-fastapi -n ecommerce
+```
 
 ---
 
@@ -759,7 +810,79 @@ docker compose logs fastapi --tail=50 # check startup logs if needed
 
 ---
 
-## 17. NON-OBVIOUS CODE DECISIONS (THE "WHY")
+## 17. OPERATIONAL RUNBOOK (THINGS THAT BREAK AND HOW TO FIX THEM)
+
+### "Cannot connect to server" in the UI
+
+**Root cause A — GROQ daily token limit exhausted (most common)**
+GROQ free tier: 100,000 tokens/day per key. Each `/chat` request = 2-3 LLM calls.
+Running CI or automated tests before a demo can exhaust this.
+
+Fix:
+1. Create a new key at console.groq.com
+2. Patch the k8s secret (do NOT add a trailing newline — that breaks the key):
+```bash
+NEW_KEY="gsk_xxxx..."
+NEW_B64=$(printf '%s' "$NEW_KEY" | base64 -w 0)
+kubectl patch secret ecommerce-secrets -n ecommerce \
+  --type='json' -p="[{\"op\":\"replace\",\"path\":\"/data/groq-api-key\",\"value\":\"$NEW_B64\"}]"
+kubectl rollout restart deployment/ecommerce-fastapi -n ecommerce
+```
+3. Also update the `GROQ_API_KEY` GitHub Secret — otherwise next CI deploy reverts to old key.
+
+Limit resets at midnight UTC.
+
+**Root cause B — port-forward tunnel died**
+kubectl port-forward is a temporary tunnel — it dies when the terminal closes.
+Fix: run `scripts/start.sh` (has an auto-reconnect loop) or install the systemd
+service with `scripts/setup-autostart.sh`.
+
+**Root cause C — Neon DB cold start**
+Neon scales to zero after ~5 min idle. First request after idle takes 5-10s.
+This is normal — the second request will be fast. No fix needed.
+
+### Google Sign-In "invalid_client" error
+
+Root cause: trailing newline in the `google-client-id` k8s secret.
+Fix: patch with `printf '%s'` (NOT `echo`) to avoid adding `\n`:
+```bash
+ID="your-client-id.apps.googleusercontent.com"
+B64=$(printf '%s' "$ID" | base64 -w 0)
+kubectl patch secret ecommerce-secrets -n ecommerce \
+  --type='json' -p="[{\"op\":\"replace\",\"path\":\"/data/google-client-id\",\"value\":\"$B64\"}]"
+kubectl rollout restart deployment/ecommerce-fastapi -n ecommerce
+```
+
+### CI Stage 6 (Deploy) fails
+
+Stage 6 only runs if `vars.DEPLOY_ENABLED == 'true'` and on the main branch.
+Common failure modes:
+- Smoke test timeout → check `kubectl describe pod -l component=fastapi -n ecommerce`
+- Image not loading into kind → kind cluster may have restarted; re-pull and load
+- Helm secret conflict → CI Stage 6 recreates the secret with `--dry-run | kubectl apply -f -`
+
+### LangFuse dataset showing 0 experiments after a CI run
+
+Stage 3 creates a new experiment run with each CI push. If you see 0 experiments,
+the eval job likely hit a GROQ token limit or crashed during `run_eval.py`.
+Check the "Stage 3 — LLM Evaluation" GitHub Actions log.
+
+Normal state:
+- Dataset `ecommerce-eval-dataset`: exactly **15 items** (full-refreshed on every CI run)
+- Experiments: one entry per CI run (accumulate over time — this is expected)
+
+### How to check what's running in k8s
+
+```bash
+kubectl get pods -n ecommerce                    # list all pods
+kubectl logs -l component=fastapi -n ecommerce --tail=50   # app logs
+kubectl get secret ecommerce-secrets -n ecommerce -o yaml  # verify secret values
+kubectl port-forward svc/ecommerce-fastapi 8000:80 -n ecommerce  # manual tunnel
+```
+
+---
+
+## 18. NON-OBVIOUS CODE DECISIONS (THE "WHY") 
 
 These are the things that aren't obvious from reading the code:
 
@@ -828,7 +951,7 @@ generates `product_type="tv"`.
 
 ---
 
-## 18. KNOWN LIMITATIONS AND HOW TO TALK ABOUT THEM IN A DEMO
+## 19. KNOWN LIMITATIONS AND HOW TO TALK ABOUT THEM IN A DEMO
 
 ### "Why does [product] not show results?"
 
@@ -870,7 +993,7 @@ completely free for demo usage. The architecture is LLM-agnostic — swapping
 
 ---
 
-## 19. PROJECT STRUCTURE — EVERY FILE AND WHAT IT DOES
+## 20. PROJECT STRUCTURE — EVERY FILE AND WHAT IT DOES
 
 ```
 ecommerce-agent/
@@ -945,7 +1068,7 @@ ecommerce-agent/
 
 ---
 
-## 20. SUMMARY FOR PPT / ARCHITECTURE DIAGRAM
+## 21. SUMMARY FOR PPT / ARCHITECTURE DIAGRAM
 
 **Project name**: Multi-Agent AI Customer Support System for E-Commerce
 
@@ -957,11 +1080,13 @@ ecommerce-agent/
 - 8 database tables
 - 1,351 products in catalog
 - 40+ searchable product types
-- 6-stage CI/CD pipeline
-- 12 Docker Compose services
+- 6-stage CI/CD pipeline (lint → test → eval → build → push → deploy)
+- 15 eval test cases (LangFuse dataset, refreshed on every CI run)
 - LangFuse traces every LLM call with token usage + cost
 - Prometheus + Grafana dashboard with 6 real-time panels
 - Automated LLM-as-judge evaluation on every CI run
+- Kubernetes deployment on kind cluster (local self-hosted runner)
+- Neon serverless PostgreSQL (cloud) for production DB
 
 **Architecture layers (for diagram):**
 ```
