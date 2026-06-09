@@ -29,11 +29,13 @@ probes:
     path: /health
     initialDelaySeconds: 60
     periodSeconds: 30
+    timeoutSeconds: 10
     failureThreshold: 5
   readiness:
     path: /health
     initialDelaySeconds: 60
     periodSeconds: 10
+    timeoutSeconds: 10
     failureThreshold: 12
 
 ingress:

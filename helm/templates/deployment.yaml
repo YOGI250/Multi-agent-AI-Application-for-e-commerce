@@ -78,6 +78,7 @@ spec:
               port: 8000
             initialDelaySeconds: {{ .Values.probes.liveness.initialDelaySeconds }}
             periodSeconds: {{ .Values.probes.liveness.periodSeconds }}
+            timeoutSeconds: {{ .Values.probes.liveness.timeoutSeconds | default 10 }}
             failureThreshold: {{ .Values.probes.liveness.failureThreshold | default 3 }}
           readinessProbe:
             httpGet:
@@ -85,6 +86,7 @@ spec:
               port: 8000
             initialDelaySeconds: {{ .Values.probes.readiness.initialDelaySeconds }}
             periodSeconds: {{ .Values.probes.readiness.periodSeconds }}
+            timeoutSeconds: {{ .Values.probes.readiness.timeoutSeconds | default 10 }}
             failureThreshold: {{ .Values.probes.readiness.failureThreshold | default 3 }}
           volumeMounts:
             - name: logs
