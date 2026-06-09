@@ -31,7 +31,16 @@ logger = logging.getLogger(__name__)
 # ==========================================
 _SUPPORT_NEEDS_ORDER_PHRASES = ["i'll need your order id", "typing 'show my orders'"]
 _GREETINGS = {"hi", "hello", "hey", "hiya", "greetings", "howdy", "sup", "yo", "helo", "hai"}
-_HELP_PREFIXES = ("help", "what can you do", "what can you help", "what do you do", "how can you help", "what are you", "who are you", "what is this")
+_HELP_PREFIXES = (
+    "help",
+    "what can you do",
+    "what can you help",
+    "what do you do",
+    "how can you help",
+    "what are you",
+    "who are you",
+    "what is this",
+)
 
 
 def _has_pending_support_context(history: list) -> bool:
