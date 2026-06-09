@@ -330,3 +330,9 @@ jobs:
           echo "Rolling back to previous Helm release..."
           helm rollback ecommerce --namespace=ecommerce || echo "No previous release to roll back to"
           echo "Rollback step complete"
+
+      - name: Start port-forward service
+        if: success()
+        run: |
+          bash scripts/setup-autostart.sh
+          systemctl --user restart ecommerce-portforward.service
