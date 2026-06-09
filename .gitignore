@@ -11,3 +11,8 @@ google_credentials.json
 htmlcov/
 .deepeval/
 eval/reports/
+
+# Generated files — never commit
+.coverage
+eval/reports/
+logs/
