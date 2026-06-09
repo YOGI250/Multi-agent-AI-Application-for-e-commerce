@@ -435,6 +435,16 @@ How to cancel:
 3. Refund processed within 5-7 business days.
 Note: For prepaid orders cancelled after 24 hours but before shipment, a 2% cancellation fee may apply.""",
         ),
+        Policy(
+            issue_type="general_query",
+            policy_text="""General Support Policy:
+Return Policy: Products can be returned within 30 days of delivery in original condition with all packaging and accessories.
+Refund Policy: Refunds are processed within 5-7 business days after the returned item is received and verified. Refunds are credited to the original payment method.
+Cancellation Policy: Orders can be cancelled within 24 hours of placement. Shipped orders cannot be cancelled.
+Damaged/Wrong Items: Report within 7 days of delivery with photos. Replacement or full refund will be arranged.
+Support Hours: Available 24/7 via chat. Response within 2 business hours.
+Warranty: All electronics carry a minimum 1-year manufacturer warranty.""",
+        ),
     ]
 
     for policy in policies:
