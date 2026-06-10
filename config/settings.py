@@ -103,6 +103,7 @@ class Settings(BaseSettings):
     # EVALUATION
     # ==========================================
     eval_user_id: str = ""
+    eval_auth_bypass_token: str = ""
 
 
 @lru_cache()

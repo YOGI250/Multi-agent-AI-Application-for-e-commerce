@@ -127,6 +127,7 @@ jobs:
       # invoking agent functions directly
       RUN_LIVE_EVAL:           "true"
       EVAL_API_BASE:           http://localhost:8000
+      EVAL_AUTH_BYPASS_TOKEN:  ${{ secrets.EVAL_AUTH_BYPASS_TOKEN }}
 
     steps:
       - name: Checkout code

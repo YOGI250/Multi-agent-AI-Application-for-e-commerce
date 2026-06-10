@@ -116,6 +116,27 @@ def create_sample_orders_for_user(user_id: str, db: Session):
 def resolve_user(authorization: Optional[str], guest_id: Optional[str], db: Session) -> dict:
     if authorization and authorization.startswith("Bearer "):
         token = authorization.replace("Bearer ", "")
+
+        # CI eval bypass: lets the LLM evaluation pipeline exercise authenticated
+        # flows (order_agent / support_agent) without real Google OAuth tokens.
+        # Only active when EVAL_AUTH_BYPASS_TOKEN is explicitly set (never in prod).
+        if settings.eval_auth_bypass_token and token == settings.eval_auth_bypass_token:
+            eval_user_id = guest_id or "eval_test_user"
+            user = db.query(User).filter(User.user_id == eval_user_id).first()
+            if not user:
+                user = User(
+                    user_id=eval_user_id,
+                    is_authenticated=True,
+                    auth_provider="eval",
+                    created_at=datetime.utcnow(),
+                    last_login_at=datetime.utcnow(),
+                )
+                db.add(user)
+            else:
+                user.last_login_at = datetime.utcnow()
+            db.commit()
+            return {"user_id": eval_user_id, "is_authenticated": True, "email": None, "name": None}
+
         try:
             # Try full online verification first; fall back to local JWT decode
             # if Google's cert endpoint is unreachable (e.g. Docker network isolation)

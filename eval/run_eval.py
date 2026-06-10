@@ -59,6 +59,7 @@ with open(DATASET_PATH) as f:
 LIVE_EVAL = os.getenv("RUN_LIVE_EVAL", "false").lower() == "true"
 API_BASE = os.getenv("EVAL_API_BASE", "http://localhost:8000")
 EVAL_USER = os.getenv("EVAL_USER_ID", "google_105309025092043620678")
+EVAL_AUTH_BYPASS_TOKEN = os.getenv("EVAL_AUTH_BYPASS_TOKEN", "")
 
 # ── Git metadata ────────────────────────────────────────────────────────────────
 
@@ -348,6 +349,8 @@ def call_live_api(message: str, user_id: str, session_id: Optional[str] = None) 
     """
     url = f"{API_BASE}/chat"
     headers = {"X-Session-ID": session_id} if session_id else {}
+    if EVAL_AUTH_BYPASS_TOKEN:
+        headers["Authorization"] = f"Bearer {EVAL_AUTH_BYPASS_TOKEN}"
     try:
         resp = requests.post(url, json={"message": message, "guest_id": user_id}, headers=headers, timeout=30)
         resp.raise_for_status()
