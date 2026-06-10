@@ -27,6 +27,7 @@ import subprocess
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
+from typing import Optional
 import requests
 import yaml
 
@@ -303,77 +304,58 @@ def score_case(
     return scores
 
 
-# ── Agent runners (real LLM + real DB calls) ────────────────────────────────────
+# ── Direct turn runner (real LLM + real DB calls, through intent_router) ────────
 
 
-def run_product_agent(message: str, user_id: str = "eval_guest_001") -> str:
-    """Invoke product_agent with real LLM and real DB tool calls."""
-    from agents.product_agent import product_agent as _pa
+def run_direct_turn(message: str, user_id: str, history: list, session_context: dict) -> tuple[str, list, dict]:
+    """
+    Invoke the same intent_router_graph that /chat uses, carrying history and
+    session_context forward across turns — so multi-turn cases resolve context
+    even without the live HTTP server.
+    """
+    from agents.intent_router import intent_router_graph
 
-    result = _pa.invoke(
+    result = intent_router_graph.invoke(
         {
             "message": message,
             "user_id": user_id,
             "session_id": "eval_session_001",
-            "history": [],
-            "session_context": {},
+            "history": history,
+            "is_authenticated": False,
+            "session_context": session_context,
             "langfuse_trace_id": None,
             "langfuse_parent_span_id": None,
         }
     )
-    return result.get("response", "")
-
-
-def run_order_agent(message: str, user_id: str = "eval_guest_001") -> str:
-    """Invoke order_agent with real LLM and real DB tool calls."""
-    from agents.order_agent import order_agent as _oa
-
-    result = _oa.invoke(
-        {
-            "message": message,
-            "user_id": user_id,
-            "session_id": "eval_session_001",
-            "history": [],
-            "session_context": {},
-            "langfuse_trace_id": None,
-            "langfuse_parent_span_id": None,
-        }
-    )
-    return result.get("response", "")
-
-
-def run_support_agent(message: str, user_id: str = "eval_guest_001") -> str:
-    """Invoke support_agent with real LLM and real DB tool calls."""
-    from agents.support_agent import support_agent as _sa
-
-    result = _sa.invoke(
-        {
-            "message": message,
-            "user_id": user_id,
-            "session_id": "eval_session_001",
-            "history": [],
-            "session_context": {},
-            "langfuse_trace_id": None,
-            "langfuse_parent_span_id": None,
-        }
-    )
-    return result.get("response", "")
+    response = result.get("response", "")
+    updated_context = result.get("session_context") or session_context
+    updated_history = history + [
+        {"role": "user", "content": message},
+        {"role": "assistant", "content": response},
+    ]
+    return response, updated_history, updated_context
 
 
 # ── Live API call ────────────────────────────────────────────────────────────────
 
 
-def call_live_api(message: str, user_id: str) -> str:
-    """Call the running FastAPI /api/v1/chat endpoint and return the response text."""
+def call_live_api(message: str, user_id: str, session_id: Optional[str] = None) -> tuple[str, Optional[str]]:
+    """
+    Call the running FastAPI /chat endpoint and return (response_text, session_id).
+
+    Reusing the returned session_id as X-Session-ID on the next call lets multi-turn
+    conversations resolve via the server-side session_context, exactly like a browser.
+    """
     url = f"{API_BASE}/chat"
+    headers = {"X-Session-ID": session_id} if session_id else {}
     try:
-        resp = requests.post(url, json={"message": message, "guest_id": user_id}, timeout=30)
+        resp = requests.post(url, json={"message": message, "guest_id": user_id}, headers=headers, timeout=30)
         resp.raise_for_status()
         data = resp.json()
-        return data.get("response", "")
+        return data.get("response", ""), data.get("session_id", session_id)
     except Exception as e:
         logger.error(f"Live API call failed for '{message[:40]}': {e}")
-        return ""
+        return "", session_id
 
 
 # ── Main evaluation loop ─────────────────────────────────────────────────────────
@@ -381,64 +363,79 @@ def call_live_api(message: str, user_id: str) -> str:
 
 def run_evaluation() -> tuple[list[dict], dict[str, float], bool]:
     mode = "LIVE" if LIVE_EVAL else "DIRECT"
-    logger.info(f"Starting evaluation | mode={mode} | samples={len(dataset)}")
+    total_turns = sum(len(conv["turns"]) for conv in dataset)
+    logger.info(f"Starting evaluation | mode={mode} | conversations={len(dataset)} | turns={total_turns}")
     logger.info(f"git_sha={GIT_SHA[:8]} | branch={GIT_BRANCH}")
 
     per_sample: list[dict] = []
+    sample_id = 0
 
-    for i, case in enumerate(dataset):
-        message = case["input"]["message"]
-        user_id = case["input"].get("user_id", EVAL_USER)
-        expected = case["expected_output"]
-        should_contain = expected.get("should_contain", [])
-        reference = expected.get("reference") or (
-            f"A helpful response about {expected.get('intent', 'the query')} "
-            f"that mentions: {', '.join(should_contain)}"
-        )
+    for conv in dataset:
+        conv_id = conv.get("conversation_id", "unknown")
+        user_id = conv.get("user_id", EVAL_USER)
 
-        agent_type = case.get("agent", "product_agent")
-        logger.info(f"  [{i+1}/{len(dataset)}] {message[:60]}")
+        # Per-conversation state carried across turns:
+        # LIVE mode reuses session_id (server-side session_context),
+        # DIRECT mode carries history/session_context through intent_router_graph.
+        session_id: Optional[str] = None
+        history: list = []
+        session_context: dict = {}
 
-        if LIVE_EVAL:
-            actual_output = call_live_api(message, user_id)
+        for turn_idx, turn in enumerate(conv["turns"], start=1):
+            message = turn["message"]
+            agent_type = turn.get("agent", "product_agent")
+            expected = turn.get("expected_output")
+            logger.info(f"  [{conv_id} turn {turn_idx}/{len(conv['turns'])}] {message[:60]}")
+
+            if LIVE_EVAL:
+                actual_output, session_id = call_live_api(message, user_id, session_id)
+            else:
+                try:
+                    actual_output, history, session_context = run_direct_turn(
+                        message, user_id, history, session_context
+                    )
+                except Exception as e:
+                    logger.error(f"    Agent run failed: {e}")
+                    actual_output = ""
+
             if not actual_output:
-                logger.warning("    Empty response from live API — skipping sample")
+                logger.warning("    Empty response — skipping turn")
                 continue
-        else:
-            try:
-                if agent_type == "order_agent":
-                    actual_output = run_order_agent(message, user_id=user_id)
-                elif agent_type == "support_agent":
-                    actual_output = run_support_agent(message, user_id=user_id)
-                else:
-                    actual_output = run_product_agent(message, user_id=user_id)
-            except Exception as e:
-                logger.error(f"    Agent run failed: {e}")
-                continue
-            if not actual_output:
-                logger.warning("    Empty response from agent — skipping sample")
-                continue
+
             logger.info(f"    [{agent_type}] produced {len(actual_output)} chars of output")
 
-        scores = score_case(message, actual_output, reference, expected, agent_type=agent_type)
-        passed = all(scores[k] >= THRESHOLDS[k] for k in scores if k in THRESHOLDS)
+            if not expected:
+                # Context-building turn only — not scored.
+                continue
 
-        per_sample.append(
-            {
-                "sample_id": i + 1,
-                "message": message,
-                "intent": expected.get("intent"),
-                "actual_output": actual_output[:300] + ("..." if len(actual_output) > 300 else ""),
-                "scores": scores,
-                "passed": passed,
-                "mode": mode,
-            }
-        )
+            should_contain = expected.get("should_contain", [])
+            reference = expected.get("reference") or (
+                f"A helpful response about {expected.get('intent', 'the query')} "
+                f"that mentions: {', '.join(should_contain)}"
+            )
 
-        for metric, val in scores.items():
-            threshold = THRESHOLDS.get(metric, 0.0)
-            status = "PASS" if val >= threshold else "FAIL"
-            logger.info(f"    {metric:<20} {val:.4f}  [{status}]")
+            scores = score_case(message, actual_output, reference, expected, agent_type=agent_type)
+            passed = all(scores[k] >= THRESHOLDS[k] for k in scores if k in THRESHOLDS)
+
+            sample_id += 1
+            per_sample.append(
+                {
+                    "sample_id": sample_id,
+                    "conversation_id": conv_id,
+                    "turn": turn_idx,
+                    "message": message,
+                    "intent": expected.get("intent"),
+                    "actual_output": actual_output[:300] + ("..." if len(actual_output) > 300 else ""),
+                    "scores": scores,
+                    "passed": passed,
+                    "mode": mode,
+                }
+            )
+
+            for metric, val in scores.items():
+                threshold = THRESHOLDS.get(metric, 0.0)
+                status = "PASS" if val >= threshold else "FAIL"
+                logger.info(f"    {metric:<20} {val:.4f}  [{status}]")
 
     # Per-metric averages
     averages: dict[str, float] = {}

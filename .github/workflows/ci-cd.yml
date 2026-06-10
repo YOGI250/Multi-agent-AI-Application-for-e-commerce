@@ -123,6 +123,10 @@ jobs:
       LANGFUSE_SECRET_KEY:     ${{ secrets.LANGFUSE_SECRET_KEY }}
       LANGFUSE_PUBLIC_KEY:     ${{ secrets.LANGFUSE_PUBLIC_KEY }}
       LANGFUSE_HOST:           https://cloud.langfuse.com
+      # Eval calls the real /chat endpoint (with session_context) instead of
+      # invoking agent functions directly
+      RUN_LIVE_EVAL:           "true"
+      EVAL_API_BASE:           http://localhost:8000
 
     steps:
       - name: Checkout code
@@ -146,8 +150,35 @@ jobs:
         run: python eval/seed_dataset.py
         continue-on-error: true
 
+      - name: Start app for live evaluation
+        run: |
+          mkdir -p logs
+          nohup uvicorn main:app --host 0.0.0.0 --port 8000 > /tmp/uvicorn.log 2>&1 &
+          echo $! > /tmp/uvicorn.pid
+
+      - name: Wait for app to become healthy
+        run: |
+          HTTP_STATUS="000"
+          for i in $(seq 1 20); do
+            HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8000/health 2>/dev/null || echo "000")
+            [ "$HTTP_STATUS" = "200" ] && break
+            sleep 3
+          done
+
+          echo "Health check HTTP status: $HTTP_STATUS"
+          if [ "$HTTP_STATUS" != "200" ]; then
+            echo "::error::App failed to become healthy — /health returned $HTTP_STATUS"
+            echo "=== uvicorn log ==="
+            cat /tmp/uvicorn.log
+            exit 1
+          fi
+
       - name: Run LLM evaluation
         run: python eval/run_eval.py
+
+      - name: Stop app
+        if: always()
+        run: kill $(cat /tmp/uvicorn.pid) 2>/dev/null || true
 
       - name: Upload evaluation reports
         uses: actions/upload-artifact@v4

@@ -14,13 +14,33 @@ def seed():
     dataset_name = "ecommerce-eval-dataset"
 
     with open("eval/dataset.json", "r") as f:
-        items = json.load(f)
+        conversations = json.load(f)
+
+    # flatten conversations into individual scored turns —
+    # context-building turns without expected_output are not pushed as items
+    items = []
+    for conv in conversations:
+        user_id = conv.get("user_id", "eval_guest_001")
+        for turn_idx, turn in enumerate(conv["turns"], start=1):
+            if not turn.get("expected_output"):
+                continue
+            items.append(
+                {
+                    "input": {
+                        "message": turn["message"],
+                        "user_id": user_id,
+                        "conversation_id": conv.get("conversation_id"),
+                        "turn": turn_idx,
+                    },
+                    "expected_output": turn["expected_output"],
+                }
+            )
 
     # create dataset if it doesn't exist
     try:
         langfuse_client.create_dataset(
             name=dataset_name,
-            description="Ecommerce agent evaluation — 15 cases covering all 3 agents"
+            description="Ecommerce agent evaluation — multi-turn conversations covering all 3 agents"
         )
         logger.info(f"Dataset created: {dataset_name}")
     except Exception as e:

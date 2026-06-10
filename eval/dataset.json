@@ -1,182 +1,260 @@
 [
   {
-    "agent": "product_agent",
-    "input": {
-      "message": "show me keyboards under 3000",
-      "user_id": "eval_guest_001"
-    },
-    "expected_output": {
-      "intent": "product_query",
-      "should_contain": ["keyboard", "price", "rating"],
-      "reference": "Here are some keyboards under ₹3,000: [Product names with prices under ₹3,000, ratings above 4.0, and brand names]. Each recommendation includes the price in rupees and star rating."
-    }
+    "conversation_id": "product_keyboards_under_3000",
+    "user_id": "eval_guest_001",
+    "turns": [
+      {
+        "agent": "product_agent",
+        "message": "show me keyboards under 3000",
+        "expected_output": {
+          "intent": "product_query",
+          "should_contain": ["keyboard", "price", "rating"],
+          "reference": "Here are some keyboards under ₹3,000: [Product names with prices under ₹3,000, ratings above 4.0, and brand names]. Each recommendation includes the price in rupees and star rating."
+        }
+      }
+    ]
   },
   {
-    "agent": "product_agent",
-    "input": {
-      "message": "I need a wireless mouse with good reviews",
-      "user_id": "eval_guest_001"
-    },
-    "expected_output": {
-      "intent": "product_query",
-      "should_contain": ["mouse", "rating", "brand"],
-      "reference": "Here are some highly-rated wireless mice: [Product names with ratings above 4.0, brand names like Logitech, HP, or Dell, and prices in rupees]. Each recommendation includes the rating, brand, and price."
-    }
+    "conversation_id": "product_wireless_mouse",
+    "user_id": "eval_guest_001",
+    "turns": [
+      {
+        "agent": "product_agent",
+        "message": "I need a wireless mouse with good reviews",
+        "expected_output": {
+          "intent": "product_query",
+          "should_contain": ["mouse", "rating", "brand"],
+          "reference": "Here are some highly-rated wireless mice: [Product names with ratings above 4.0, brand names like Logitech, HP, or Dell, and prices in rupees]. Each recommendation includes the rating, brand, and price."
+        }
+      }
+    ]
   },
   {
-    "agent": "product_agent",
-    "input": {
-      "message": "show me headphones under 2000",
-      "user_id": "eval_guest_001"
-    },
-    "expected_output": {
-      "intent": "product_query",
-      "should_contain": ["headphones", "price", "rating"],
-      "reference": "Here are some headphones under ₹2,000: [Product names with prices under ₹2,000, ratings, and brand names]. Each listing includes the exact price in rupees and the customer rating."
-    }
+    "conversation_id": "product_headphones_under_2000_then_boat_followup",
+    "user_id": "eval_guest_001",
+    "turns": [
+      {
+        "agent": "product_agent",
+        "message": "show me headphones under 2000",
+        "expected_output": {
+          "intent": "product_query",
+          "should_contain": ["headphones", "price", "rating"],
+          "reference": "Here are some headphones under ₹2,000: [Product names with prices under ₹2,000, ratings, and brand names]. Each listing includes the exact price in rupees and the customer rating."
+        }
+      },
+      {
+        "agent": "product_agent",
+        "message": "what about boAt ones",
+        "expected_output": {
+          "intent": "product_query",
+          "should_contain": ["boAt", "headphones"],
+          "reference": "Here are boAt headphones under ₹2,000, using the headphones context from the previous message: [boAt product names with prices under ₹2,000 and ratings]. If no boAt headphones are available under that budget, the closest boAt option is shown instead."
+        }
+      }
+    ]
   },
   {
-    "agent": "product_agent",
-    "input": {
-      "message": "best smartwatch under 10000",
-      "user_id": "eval_guest_001"
-    },
-    "expected_output": {
-      "intent": "product_query",
-      "should_contain": ["smartwatch", "price", "brand"],
-      "reference": "Here are the best smartwatches under ₹10,000: [Product names with prices under ₹10,000, brand names, and ratings]. Each recommendation includes the price in rupees and brand name."
-    }
+    "conversation_id": "product_smartwatch_under_10000",
+    "user_id": "eval_guest_001",
+    "turns": [
+      {
+        "agent": "product_agent",
+        "message": "best smartwatch under 10000",
+        "expected_output": {
+          "intent": "product_query",
+          "should_contain": ["smartwatch", "price", "brand"],
+          "reference": "Here are the best smartwatches under ₹10,000: [Product names with prices under ₹10,000, brand names, and ratings]. Each recommendation includes the price in rupees and brand name."
+        }
+      }
+    ]
   },
   {
-    "agent": "product_agent",
-    "input": {
-      "message": "I need a good mixer grinder for home use",
-      "user_id": "eval_guest_001"
-    },
-    "expected_output": {
-      "intent": "product_query",
-      "should_contain": ["mixer", "price", "brand"],
-      "reference": "Here are some good mixer grinders for home use: [Product names from brands like Prestige, Philips, or Bajaj, with prices and ratings]. Each recommendation includes the brand, price in rupees, and star rating."
-    }
+    "conversation_id": "product_mixer_grinder",
+    "user_id": "eval_guest_001",
+    "turns": [
+      {
+        "agent": "product_agent",
+        "message": "I need a good mixer grinder for home use",
+        "expected_output": {
+          "intent": "product_query",
+          "should_contain": ["mixer", "price", "brand"],
+          "reference": "Here are some good mixer grinders for home use: [Product names from brands like Prestige, Philips, or Bajaj, with prices and ratings]. Each recommendation includes the brand, price in rupees, and star rating."
+        }
+      }
+    ]
   },
   {
-    "agent": "order_agent",
-    "input": {
-      "message": "where is my order ORD-EVAL-001",
-      "user_id": "eval_guest_001"
-    },
-    "expected_output": {
-      "intent": "order_query",
-      "should_contain": ["ORD-EVAL-001", "transit", "delivery"],
-      "reference": "Your order ORD-EVAL-001 is currently in transit and on its way to you. It was shipped via DTDC and is expected to be delivered within the next few days. Tracking number: DT251092001."
-    }
+    "conversation_id": "order_track_eval_001",
+    "user_id": "eval_guest_001",
+    "turns": [
+      {
+        "agent": "order_agent",
+        "message": "where is my order ORD-EVAL-001",
+        "expected_output": {
+          "intent": "order_query",
+          "should_contain": ["ORD-EVAL-001", "transit", "delivery"],
+          "reference": "Your order ORD-EVAL-001 is currently in transit and on its way to you. It was shipped via DTDC and is expected to be delivered within the next few days. Tracking number: DT251092001."
+        }
+      }
+    ]
   },
   {
-    "agent": "order_agent",
-    "input": {
-      "message": "track my order ORD-EVAL-002",
-      "user_id": "eval_guest_001"
-    },
-    "expected_output": {
-      "intent": "order_query",
-      "should_contain": ["ORD-EVAL-002", "delivery", "out"],
-      "reference": "Your order ORD-EVAL-002 is out for delivery today. It was shipped via BlueDart and should arrive at your address today. Tracking number: BD123456001."
-    }
+    "conversation_id": "order_track_eval_002",
+    "user_id": "eval_guest_001",
+    "turns": [
+      {
+        "agent": "order_agent",
+        "message": "track my order ORD-EVAL-002",
+        "expected_output": {
+          "intent": "order_query",
+          "should_contain": ["ORD-EVAL-002", "delivery", "out"],
+          "reference": "Your order ORD-EVAL-002 is out for delivery today. It was shipped via BlueDart and should arrive at your address today. Tracking number: BD123456001."
+        }
+      }
+    ]
   },
   {
-    "agent": "order_agent",
-    "input": {
-      "message": "has my order ORD-EVAL-003 been delivered",
-      "user_id": "eval_guest_001"
-    },
-    "expected_output": {
-      "intent": "order_query",
-      "should_contain": ["ORD-EVAL-003", "delivered"],
-      "reference": "Yes, your order ORD-EVAL-003 has been successfully delivered. It was delivered by FedEx. If you haven't received it, please let us know and we will look into it."
-    }
+    "conversation_id": "order_delivered_eval_003",
+    "user_id": "eval_guest_001",
+    "turns": [
+      {
+        "agent": "order_agent",
+        "message": "has my order ORD-EVAL-003 been delivered",
+        "expected_output": {
+          "intent": "order_query",
+          "should_contain": ["ORD-EVAL-003", "delivered"],
+          "reference": "Yes, your order ORD-EVAL-003 has been successfully delivered. It was delivered by FedEx. If you haven't received it, please let us know and we will look into it."
+        }
+      }
+    ]
   },
   {
-    "agent": "order_agent",
-    "input": {
-      "message": "when will my order ORD-EVAL-004 arrive",
-      "user_id": "eval_guest_001"
-    },
-    "expected_output": {
-      "intent": "order_query",
-      "should_contain": ["ORD-EVAL-004", "processing", "days"],
-      "reference": "Your order ORD-EVAL-004 is currently being processed. It is expected to be dispatched soon and should arrive within the next 5 days. We will notify you once it is shipped."
-    }
+    "conversation_id": "order_processing_eval_004",
+    "user_id": "eval_guest_001",
+    "turns": [
+      {
+        "agent": "order_agent",
+        "message": "when will my order ORD-EVAL-004 arrive",
+        "expected_output": {
+          "intent": "order_query",
+          "should_contain": ["ORD-EVAL-004", "processing", "days"],
+          "reference": "Your order ORD-EVAL-004 is currently being processed. It is expected to be dispatched soon and should arrive within the next 5 days. We will notify you once it is shipped."
+        }
+      }
+    ]
   },
   {
-    "agent": "order_agent",
-    "input": {
-      "message": "my order ORD-EVAL-005 seems delayed",
-      "user_id": "eval_guest_001"
-    },
-    "expected_output": {
-      "intent": "order_query",
-      "should_contain": ["ORD-EVAL-005", "delay", "apolog"],
-      "reference": "I sincerely apologize for the delay with your order ORD-EVAL-005. The order was expected to be delivered earlier and has been delayed. Our logistics team is working to resolve this as quickly as possible."
-    }
+    "conversation_id": "orders_overview_then_delayed_refund",
+    "user_id": "eval_guest_001",
+    "turns": [
+      {
+        "agent": "order_agent",
+        "message": "show me all my orders",
+        "expected_output": {
+          "intent": "order_query",
+          "should_contain": ["ORD-EVAL-005", "delayed"],
+          "reference": "You have several orders, including ORD-EVAL-005 which has status 'delayed'. The response lists each order ID along with its items and current status."
+        }
+      },
+      {
+        "agent": "support_agent",
+        "message": "my delayed order has a problem, i want a refund",
+        "expected_output": {
+          "intent": "support_query",
+          "should_contain": ["ORD-EVAL-005", "refund"],
+          "reference": "Using the delayed order identified in the previous message (ORD-EVAL-005), I have raised a refund request for it without asking which order. Refunds are typically processed within 5-7 business days. A support ticket has been created to track this."
+        }
+      }
+    ]
   },
   {
-    "agent": "support_agent",
-    "input": {
-      "message": "I want to return my order ORD-EVAL-011",
-      "user_id": "eval_guest_001"
-    },
-    "expected_output": {
-      "intent": "support_query",
-      "should_contain": ["return", "days", "policy"],
-      "reference": "I can help you with returning your order ORD-EVAL-011. Our return policy allows returns within 30 days of delivery in the original condition with all packaging. A support ticket has been created for your return request."
-    }
+    "conversation_id": "support_return_eval_011",
+    "user_id": "eval_guest_001",
+    "turns": [
+      {
+        "agent": "support_agent",
+        "message": "I want to return my order ORD-EVAL-011",
+        "expected_output": {
+          "intent": "support_query",
+          "should_contain": ["return", "days", "policy"],
+          "reference": "I can help you with returning your order ORD-EVAL-011. Our return policy allows returns within 30 days of delivery in the original condition with all packaging. A support ticket has been created for your return request."
+        }
+      }
+    ]
   },
   {
-    "agent": "support_agent",
-    "input": {
-      "message": "I need a refund for order ORD-EVAL-012",
-      "user_id": "eval_guest_001"
-    },
-    "expected_output": {
-      "intent": "support_query",
-      "should_contain": ["refund", "days", "processed"],
-      "reference": "I have raised a refund request for your order ORD-EVAL-012. Refunds are typically processed within 5-7 business days and credited to your original payment method. A support ticket has been created to track this."
-    }
+    "conversation_id": "support_refund_eval_012",
+    "user_id": "eval_guest_001",
+    "turns": [
+      {
+        "agent": "support_agent",
+        "message": "I need a refund for order ORD-EVAL-012",
+        "expected_output": {
+          "intent": "support_query",
+          "should_contain": ["refund", "days", "processed"],
+          "reference": "I have raised a refund request for your order ORD-EVAL-012. Refunds are typically processed within 5-7 business days and credited to your original payment method. A support ticket has been created to track this."
+        }
+      }
+    ]
   },
   {
-    "agent": "support_agent",
-    "input": {
-      "message": "My product from order ORD-EVAL-013 arrived damaged",
-      "user_id": "eval_guest_001"
-    },
-    "expected_output": {
-      "intent": "support_query",
-      "should_contain": ["damage", "replacement", "sorry"],
-      "reference": "I am very sorry to hear that your product from order ORD-EVAL-013 arrived damaged. We sincerely apologize for this inconvenience. We will arrange for a replacement to be sent to you. A high-priority support ticket has been created."
-    }
+    "conversation_id": "support_damaged_eval_013",
+    "user_id": "eval_guest_001",
+    "turns": [
+      {
+        "agent": "support_agent",
+        "message": "My product from order ORD-EVAL-013 arrived damaged",
+        "expected_output": {
+          "intent": "support_query",
+          "should_contain": ["damage", "replacement", "sorry"],
+          "reference": "I am very sorry to hear that your product from order ORD-EVAL-013 arrived damaged. We sincerely apologize for this inconvenience. We will arrange for a replacement to be sent to you. A high-priority support ticket has been created."
+        }
+      }
+    ]
   },
   {
-    "agent": "support_agent",
-    "input": {
-      "message": "I received wrong item in order ORD-EVAL-014",
-      "user_id": "eval_guest_001"
-    },
-    "expected_output": {
-      "intent": "support_query",
-      "should_contain": ["wrong", "correct", "send"],
-      "reference": "I apologize that you received the wrong item in order ORD-EVAL-014. We will arrange to send you the correct product and organize a return pickup for the wrong item. A support ticket has been created to handle this."
-    }
+    "conversation_id": "support_wrong_item_eval_014",
+    "user_id": "eval_guest_001",
+    "turns": [
+      {
+        "agent": "support_agent",
+        "message": "I received wrong item in order ORD-EVAL-014",
+        "expected_output": {
+          "intent": "support_query",
+          "should_contain": ["wrong", "correct", "send"],
+          "reference": "I apologize that you received the wrong item in order ORD-EVAL-014. We will arrange to send you the correct product and organize a return pickup for the wrong item. A support ticket has been created to handle this."
+        }
+      }
+    ]
   },
   {
-    "agent": "support_agent",
-    "input": {
-      "message": "what is your return policy",
-      "user_id": "eval_guest_001"
-    },
-    "expected_output": {
-      "intent": "support_query",
-      "should_contain": ["return", "30 days", "condition"],
-      "reference": "Our return policy allows you to return products within 30 days of delivery, provided the item is in its original condition with all packaging and accessories intact. Refunds are processed within 5-7 business days after the returned item is received and verified."
-    }
+    "conversation_id": "support_return_policy_general",
+    "user_id": "eval_guest_001",
+    "turns": [
+      {
+        "agent": "support_agent",
+        "message": "what is your return policy",
+        "expected_output": {
+          "intent": "support_query",
+          "should_contain": ["return", "30 days", "condition"],
+          "reference": "Our return policy allows you to return products within 30 days of delivery, provided the item is in its original condition with all packaging and accessories intact. Refunds are processed within 5-7 business days after the returned item is received and verified."
+        }
+      }
+    ]
+  },
+  {
+    "conversation_id": "order_delayed_eval_005",
+    "user_id": "eval_guest_001",
+    "turns": [
+      {
+        "agent": "order_agent",
+        "message": "my order ORD-EVAL-005 seems delayed",
+        "expected_output": {
+          "intent": "order_query",
+          "should_contain": ["ORD-EVAL-005", "delay", "apolog"],
+          "reference": "I sincerely apologize for the delay with your order ORD-EVAL-005. The order was expected to be delivered earlier and has been delayed. Our logistics team is working to resolve this as quickly as possible."
+        }
+      }
+    ]
   }
 ]
