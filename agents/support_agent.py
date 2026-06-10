@@ -26,6 +26,18 @@ from utils.memory import format_context, format_recent_messages, merge_context
 logger = logging.getLogger(__name__)
 
 
+def _redact_other_order_ids(text: str, current_order_id: Optional[str]) -> str:
+    """Replace order IDs in text that don't match current_order_id, so the LLM
+    can't latch onto an order ID from an earlier, unrelated conversation turn."""
+    if not current_order_id:
+        return text
+
+    def repl(match: "re.Match") -> str:
+        return match.group() if match.group().upper() == current_order_id.upper() else "[a different order]"
+
+    return re.sub(r"ORD-[A-Z0-9-]+", repl, text, flags=re.IGNORECASE)
+
+
 # ==========================================
 # STATE
 # ==========================================
@@ -437,65 +449,54 @@ def draft_resolution(state: SupportAgentState) -> SupportAgentState:
 
     ctx = state.get("session_context") or {}
     context_str = format_context(ctx)
-    recent_msgs = format_recent_messages(history, n=2)
+    recent_msgs = _redact_other_order_ids(format_recent_messages(history, n=2), order_id)
 
     if ticket_created and ticket_id:
         ticket_info = f"A new support ticket has been created. Ticket ID: {ticket_id}"
-    elif ticket_id and is_duplicate:
-        if days_open == 0:
-            ticket_info = (
-                f"DUPLICATE COMPLAINT. Existing open ticket: {ticket_id}. "
-                f"Ticket was created today. "
-                f"INSTRUCTION: Tell customer their ticket was recently created "
-                f"and to allow 48 hours. Do NOT say a new ticket was created."
-            )
-        elif 1 <= days_open <= 3:
-            ticket_info = (
-                f"DUPLICATE COMPLAINT. Existing open ticket: {ticket_id}. "
-                f"Ticket has been open for {days_open} days. "
-                f"INSTRUCTION: Tell customer ticket is being actively reviewed "
-                f"and update within 24 hours. Do NOT say a new ticket was created."
-            )
-        else:
-            ticket_info = (
-                f"DUPLICATE COMPLAINT. Existing open ticket: {ticket_id}. "
-                f"Ticket has been open for {days_open} days — OVERDUE. "
-                f"INSTRUCTION: Sincerely apologise for the delay. Say ticket has been "
-                f"open {days_open} days and is past resolution deadline. Say it has been "
-                f"escalated to senior team. Do NOT give standard timelines. "
-                f"Start response with a strong apology."
-            )
     else:
         ticket_info = "No ticket was created for this query."
 
-    # Pre-compute the exact duplicate response so the LLM cannot deviate from it
+    # Duplicate complaint — return the exact policy-mandated SLA wording directly,
+    # without an LLM call, so the response cannot drift from it.
     if is_duplicate and ticket_id:
         if days_open == 0:
-            duplicate_instruction = (
-                f"This is a duplicate complaint — the user already has an open ticket.\n"
-                f"Use EXACTLY this response (do not add or change anything):\n"
-                f'"Your ticket {ticket_id} was recently created. Our team will contact you '
-                f'within 48 hours. Please allow us time to resolve this."'
+            exact_response = (
+                f"Your ticket {ticket_id} was recently created. Our team will contact you "
+                f"within 48 hours. Please allow us time to resolve this."
             )
         elif 1 <= days_open <= 3:
-            duplicate_instruction = (
-                f"This is a duplicate complaint — ticket has been open for {days_open} day(s).\n"
-                f"Use EXACTLY this response (do not add or change anything):\n"
-                f'"Your ticket {ticket_id} is being actively reviewed. We understand your '
-                f'concern and will update you within 24 hours."'
+            exact_response = (
+                f"Your ticket {ticket_id} is being actively reviewed. We understand your "
+                f"concern and will update you within 24 hours."
             )
         else:
-            duplicate_instruction = (
-                f"This is a duplicate complaint — ticket has been open for {days_open} days (OVERDUE).\n"
-                f"Use EXACTLY this response (do not add or change anything):\n"
-                f'"We sincerely apologise for the delay. Your ticket {ticket_id} has been open '
+            exact_response = (
+                f"We sincerely apologise for the delay. Your ticket {ticket_id} has been open "
                 f"for {days_open} days and is past our resolution deadline. This has been "
-                f'escalated to our senior team."'
+                f"escalated to our senior team."
             )
-    else:
-        duplicate_instruction = (
-            "This is a new complaint. Provide a standard empathetic response referencing " "the policy and ticket ID."
+
+        span = (
+            create_span(
+                trace_id=trace_id,
+                name="draft_resolution_duplicate",
+                parent_observation_id=parent_id,
+                input_data={"ticket_id": ticket_id, "days_open": days_open},
+            )
+            if trace_id
+            else None
         )
+
+        state["resolution"] = f"{exact_response}\n\nCustomer Support Team"
+        state["session_context"] = merge_context(
+            ctx,
+            {"topic": "support_query", "issue_type": issue_type, "order_id": order_id, "ticket_id": ticket_id},
+        )
+
+        if span:
+            end_span(span, {"response": "precomputed_duplicate"})
+
+        return state
 
     fallback_prompt = f"""You are a helpful and empathetic customer support agent for an e-commerce store.
 Write a resolution response for this customer complaint.
@@ -514,10 +515,8 @@ Company policy for this issue:
 
 Ticket information: {ticket_info}
 
-Duplicate complaint handling:
-{duplicate_instruction}
-
 Instructions:
+- CRITICAL: This complaint is about Order ID: {order_id if order_id else "Not provided"}. Use ONLY this order ID in your response. Ignore any other order IDs that appear in the conversation history above — they belong to previous unrelated queries.
 - Be empathetic and apologetic where needed
 - Reference the actual policy in your response
 - IMPORTANT: Apply the policy strictly based on the actual order status above.

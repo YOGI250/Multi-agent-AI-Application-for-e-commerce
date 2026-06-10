@@ -650,7 +650,8 @@ def format_recommendations(state: ProductAgentState) -> ProductAgentState:
     if over_budget and ptype_name:
         lines = [f"No {ptype_name} found under ₹{int(original_max):,}. " f"Here's the closest option available:\n"]
     else:
-        lines = [f'Here are my top recommendations for "{message}":\n']
+        header_subject = ptype_name or message
+        lines = [f'Here are my top recommendations for "{header_subject}":\n']
 
     # Format first 3 in text; the rest surface via cards in the frontend
     for i, p in enumerate(products[:3], 1):
