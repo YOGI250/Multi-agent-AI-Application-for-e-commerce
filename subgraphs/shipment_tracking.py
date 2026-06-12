@@ -5,6 +5,7 @@ from typing import TypedDict, Optional
 from langgraph.graph import StateGraph, END
 from tools.order_tools import fetch_tracking_data
 from langfuse_helpers.tracing import create_span, end_span
+from utils.langfuse_context import set_trace_context
 
 logger = logging.getLogger(__name__)
 
@@ -70,6 +71,7 @@ def fetch_tracking_data_node(state: ShipmentTrackingState) -> ShipmentTrackingSt
         else None
     )
 
+    set_trace_context(trace_id, span.id if span else parent_id)
     tracking = fetch_tracking_data.invoke({"tracking_number": tracking_number})
     state["tracking_data"] = tracking or {}
 

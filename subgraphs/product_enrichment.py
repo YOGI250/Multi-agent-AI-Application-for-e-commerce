@@ -5,6 +5,7 @@ from typing import TypedDict, Optional
 from langgraph.graph import StateGraph, END
 from tools.product_tools import fetch_specs_tool
 from langfuse_helpers.tracing import create_span, end_span
+from utils.langfuse_context import set_trace_context
 
 logger = logging.getLogger(__name__)
 
@@ -79,6 +80,7 @@ def fetch_specs_node(state: ProductEnrichmentState) -> ProductEnrichmentState:
         else None
     )
 
+    set_trace_context(trace_id, span.id if span else parent_id)
     specs = fetch_specs_tool.invoke({"product_ids": product_ids})
     state["specs_data"] = specs or {}
 

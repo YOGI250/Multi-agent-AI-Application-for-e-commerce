@@ -20,6 +20,7 @@ from langfuse_helpers.tracing import (
     extract_token_usage,
 )
 from utils.memory import format_context, format_recent_messages, merge_context
+from utils.langfuse_context import set_trace_context
 
 logger = logging.getLogger(__name__)
 
@@ -673,6 +674,7 @@ def build_order_agent():
             else None
         )
 
+        set_trace_context(trace_id, span.id if span else parent_id)
         result = _tool_node.invoke(state)
 
         if span:

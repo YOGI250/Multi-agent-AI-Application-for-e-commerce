@@ -5,6 +5,7 @@ from typing import TypedDict, Optional
 from langgraph.graph import StateGraph, END
 from tools.support_tools import check_user_history_tool, create_ticket_tool
 from langfuse_helpers.tracing import create_span, end_span
+from utils.langfuse_context import set_trace_context
 
 logger = logging.getLogger(__name__)
 
@@ -40,6 +41,7 @@ def check_user_history_node(state: EscalationState) -> EscalationState:
         else None
     )
 
+    set_trace_context(trace_id, span.id if span else parent_id)
     history = check_user_history_tool.invoke({"user_id": user_id, "order_id": state.get("order_id")})
 
     state["is_duplicate"] = history.get("is_duplicate", False)
@@ -81,6 +83,7 @@ def create_ticket_node(state: EscalationState) -> EscalationState:
         state["ticket_created"] = False
     else:
         # New complaint — create ticket using severity directly as priority
+        set_trace_context(trace_id, span.id if span else parent_id)
         ticket = create_ticket_tool.invoke(
             {
                 "user_id": state.get("user_id"),
