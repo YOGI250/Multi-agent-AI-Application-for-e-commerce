@@ -76,6 +76,15 @@ class TestTraceHandle:
         handle.end()
         mock_span.end.assert_called_once()
 
+    def test_set_tags_sets_otel_trace_tags_attribute(self):
+        from langfuse_helpers.tracing import TraceHandle
+        mock_span = MagicMock()
+        handle = TraceHandle(mock_span, "trace-abc")
+        handle.set_tags(["agent:product_agent", "intent:product_query", "auth:true"])
+        mock_span._otel_span.set_attribute.assert_called_once_with(
+            "langfuse.trace.tags", ["agent:product_agent", "intent:product_query", "auth:true"]
+        )
+
 
 class TestCreateTrace:
 

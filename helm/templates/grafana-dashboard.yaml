@@ -78,6 +78,17 @@ data:
             "current": { "text": "All", "value": "$__all" }
           },
           {
+            "name": "node_name",
+            "type": "query",
+            "label": "Node",
+            "datasource": { "type": "loki", "uid": "P8E80F9AEF21F6940" },
+            "query": "label_values(node_name)",
+            "includeAll": true,
+            "allValue": ".*",
+            "multi": false,
+            "current": { "text": "All", "value": "$__all" }
+          },
+          {
             "name": "session_id",
             "type": "textbox",
             "label": "Session ID",
@@ -330,7 +341,7 @@ data:
           },
           "targets": [{
             "datasource": { "type": "loki", "uid": "P8E80F9AEF21F6940" },
-            "expr": "{namespace=\"ecommerce\", container=\"fastapi\", level=~\"$level\", agent_used=~\"$agent\"} |= \"$session_id\" |= \"$request_id\"",
+            "expr": "{namespace=\"ecommerce\", container=\"fastapi\", level=~\"$level\", agent_used=~\"$agent\", node_name=~\"$node_name\"} |= \"$session_id\" |= \"$request_id\"",
             "legendFormat": "", "queryType": "range", "refId": "A"
           }]
         }

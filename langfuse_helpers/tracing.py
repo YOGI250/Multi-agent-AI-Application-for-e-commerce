@@ -58,6 +58,11 @@ class TraceHandle:
     def update(self, **kwargs):
         self._span.update(**kwargs)
 
+    def set_tags(self, tags: list[str]):
+        # "langfuse.trace.tags" is the LangFuse v4 OTEL attribute key for
+        # trace-level tags (LangfuseOtelSpanAttributes.TRACE_TAGS)
+        self._span._otel_span.set_attribute("langfuse.trace.tags", tags)
+
     def end(self):
         self._span.end()
 

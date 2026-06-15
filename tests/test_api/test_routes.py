@@ -81,7 +81,7 @@ class TestChatEndpoint:
 
         with patch("api.routes.intent_router_graph") as mock_graph, patch(
             "api.routes.create_trace"
-        ) as mock_trace, patch("api.routes.score_response"), patch("api.routes.flush"), patch(
+        ) as mock_trace, patch("api.routes.flush"), patch(
             "api.routes.record_request_metrics"
         ), patch(
             "api.routes.save_messages"
@@ -103,7 +103,7 @@ class TestChatEndpoint:
 
         with patch("api.routes.intent_router_graph") as mock_graph, patch(
             "api.routes.create_trace"
-        ) as mock_trace, patch("api.routes.score_response"), patch("api.routes.flush"), patch(
+        ) as mock_trace, patch("api.routes.flush"), patch(
             "api.routes.record_request_metrics"
         ), patch(
             "api.routes.save_messages"
@@ -126,6 +126,32 @@ class TestChatEndpoint:
     def test_chat_rejects_empty_message(self, client):
         response = client.post("/chat", json={"message": ""})
         assert response.status_code == 422
+
+    def test_chat_error_still_ends_and_flushes_trace(self, client, mock_db_session, mock_agent_result):
+        mock_session = MagicMock()
+        mock_session.is_active = True
+        mock_session.last_active_at = MagicMock()
+
+        mock_db_session.query.return_value.filter.return_value.first.side_effect = [None, None, mock_session]
+
+        with patch("api.routes.intent_router_graph") as mock_graph, patch(
+            "api.routes.create_trace"
+        ) as mock_trace, patch("api.routes.flush") as mock_flush, patch(
+            "api.routes.record_request_metrics"
+        ), patch("api.routes.record_error"):
+
+            mock_trace_handle = MagicMock(id="trace_123")
+            mock_trace.return_value = mock_trace_handle
+            mock_graph.invoke.side_effect = RuntimeError("boom")
+
+            response = client.post("/chat", json={"message": "show me laptops"})
+
+        assert response.status_code == 500
+        mock_trace_handle.update.assert_called_once()
+        assert mock_trace_handle.update.call_args.kwargs["level"] == "ERROR"
+        mock_trace_handle.set_tags.assert_called_once()
+        mock_trace_handle.end.assert_called_once()
+        mock_flush.assert_called_once()
 
 
 # ==========================================

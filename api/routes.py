@@ -13,7 +13,6 @@ from google.oauth2 import id_token
 from google.auth.transport import requests as google_requests
 
 from langfuse_helpers.tracing import create_trace, flush, calculate_cost
-from langfuse_helpers.scoring import score_response
 from utils.langfuse_context import set_trace_context
 from monitoring.metrics import record_request_metrics, record_error
 from utils.memory import merge_context
@@ -361,6 +360,7 @@ async def chat(
     db = SessionLocal()
     session_id = "unknown"  # pre-init so except block can always reference it
     agent_used = "unknown"  # pre-init so except block uses the resolved value if available
+    trace = None  # pre-init so except block can end/flush it if it was created
 
     try:
         # 1. resolve user
@@ -405,21 +405,20 @@ async def chat(
         confidence = result.get("confidence")
         products = result.get("products", None)
         updated_context = result.get("session_context", {})
-        final_generation_id = result.get("langfuse_final_generation_id")
+
+        # tag the trace for filtering in the LangFuse UI (Traces table)
+        trace.set_tags(
+            [
+                f"agent:{agent_used}",
+                f"intent:{intent or 'unknown'}",
+                f"auth:{'true' if is_authenticated else 'false'}",
+            ]
+        )
 
         # 5. persist updated session context
         update_session_context(session_id, updated_context, db)
 
-        # 6. score response — linked to the generation span that produced it
-        score_response(
-            trace_id=trace.id,
-            agent_used=agent_used,
-            message=body.message,
-            response=response,
-            observation_id=final_generation_id,
-        )
-
-        # 7. update trace output + aggregated token/cost totals, then end the span
+        # 6. update trace output + aggregated token/cost totals, then end the span
         # trace.end() is required by LangFuse v4 (OTEL-based): root span must be
         # explicitly ended before flush() can export it with session.id/user.id.
         total_input = result.get("total_input_tokens", 0)
@@ -431,14 +430,14 @@ async def chat(
         )
         trace.end()
 
-        # 8. flush LangFuse
+        # 7. flush LangFuse
         flush()
 
-        # 9. calculate latency
+        # 8. calculate latency
         latency_seconds = time.time() - start_time
         latency_ms = int(latency_seconds * 1000)
 
-        # 10. record Prometheus metrics
+        # 9. record Prometheus metrics
         record_request_metrics(
             agent_used=agent_used,
             status="success",
@@ -447,7 +446,7 @@ async def chat(
             output_tokens=result.get("total_output_tokens", 0),
         )
 
-        # 11. save to database
+        # 10. save to database
         save_messages(
             session_id=session_id,
             user_message=body.message,
@@ -483,6 +482,15 @@ async def chat(
         )
         record_request_metrics(agent_used=agent_used, status="error", latency_seconds=latency_seconds)
         record_error(error_type=type(e).__name__, agent_used=agent_used)
+
+        # the trace created in step 3 is normally ended/flushed on the success
+        # path only — without this, failed requests never reach LangFuse at all
+        if trace is not None:
+            trace.update(output={"error": str(e)}, level="ERROR", status_message=str(e))
+            trace.set_tags([f"agent:{agent_used}", "error:true", f"error_type:{type(e).__name__}"])
+            trace.end()
+            flush()
+
         raise HTTPException(status_code=500, detail=str(e))
 
     finally:

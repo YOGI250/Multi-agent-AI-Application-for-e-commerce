@@ -75,12 +75,14 @@ data:
                 agent_used: agent_used
                 session_id: session_id
                 request_id: request_id
+                node_name:  node_name
           - labels:
               level:
               logger:
               agent_used:
               session_id:
               request_id:
+              node_name:
 ---
 apiVersion: apps/v1
 kind: DaemonSet

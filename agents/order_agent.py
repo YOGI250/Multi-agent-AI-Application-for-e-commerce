@@ -215,7 +215,7 @@ def process_order_result(state: OrderAgentState) -> OrderAgentState:
     span = (
         create_span(
             trace_id=trace_id,
-            name="fetch_order_data",
+            name="process_order_result",
             parent_observation_id=parent_id,
             input_data={"order_id": state.get("order_id"), "user_id": user_id},
         )
